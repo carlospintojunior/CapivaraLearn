@@ -10,9 +10,10 @@ if (isset($_SESSION['user_id'])) {
 $error = '';
 $success = '';
 
-// Processar login
+// Processar login/registro
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $db = Database::getInstance();
+    $mail = MailService::getInstance();
     
     if ($_POST['action'] === 'login') {
         $email = trim($_POST['email'] ?? '');
@@ -22,22 +23,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $error = 'E-mail e senha são obrigatórios';
         } else {
             $user = $db->select(
-                "SELECT id, nome, email, senha, ativo FROM usuarios WHERE email = ? AND ativo = 1",
+                "SELECT id, nome, email, senha, ativo, email_verificado FROM usuarios WHERE email = ? AND ativo = 1",
                 [$email]
             );
             
             if ($user && password_verify($password, $user[0]['senha'])) {
-                // Login bem-sucedido
-                $_SESSION['user_id'] = $user[0]['id'];
-                $_SESSION['user_name'] = $user[0]['nome'];
-                $_SESSION['user_email'] = $user[0]['email'];
-                $_SESSION['logged_in'] = true;
-                
-                // Atualizar último acesso
-                $db->select("UPDATE usuarios SET data_ultimo_acesso = NOW() WHERE id = ?", [$user[0]['id']]);
-                
-                header('Location: dashboard.php');
-                exit();
+                // Verificar se email foi confirmado
+                if (!$user[0]['email_verificado']) {
+                    $error = 'Você precisa confirmar seu email antes de fazer login. Verifique sua caixa de entrada.';
+                    
+                    // Oferecer opção de reenviar email
+                    $success = '<div style="margin-top: 15px;">
+                        <p>Não recebeu o email? 
+                        <a href="?resend_email=' . urlencode($email) . '" style="color: #3498db; font-weight: bold;">
+                        Clique aqui para reenviar</a></p>
+                    </div>';
+                } else {
+                    // Login bem-sucedido
+                    $_SESSION['user_id'] = $user[0]['id'];
+                    $_SESSION['user_name'] = $user[0]['nome'];
+                    $_SESSION['user_email'] = $user[0]['email'];
+                    $_SESSION['logged_in'] = true;
+                    
+                    // Atualizar último acesso
+                    $db->execute("UPDATE usuarios SET data_ultimo_acesso = NOW() WHERE id = ?", [$user[0]['id']]);
+                    
+                    // Log da atividade
+                    logActivity('user_login', "Login realizado: {$user[0]['email']}");
+                    
+                    header('Location: dashboard.php');
+                    exit();
+                }
             } else {
                 $error = 'E-mail ou senha incorretos';
             }
@@ -61,41 +77,98 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $error = 'As senhas não coincidem';
         } else {
             // Verificar se e-mail já existe
-            $existing = $db->select("SELECT id FROM usuarios WHERE email = ?", [$email]);
+            $existing = $db->select("SELECT id, email_verificado FROM usuarios WHERE email = ?", [$email]);
             
             if ($existing) {
-                $error = 'E-mail já cadastrado';
+                if ($existing[0]['email_verificado']) {
+                    $error = 'E-mail já cadastrado e verificado. Tente fazer login.';
+                } else {
+                    $error = 'E-mail já cadastrado mas não verificado. Verifique sua caixa de entrada ou ';
+                    $error .= '<a href="?resend_email=' . urlencode($email) . '" style="color: #3498db;">clique aqui para reenviar a confirmação</a>';
+                }
             } else {
                 // Criar usuário
                 $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
                 
                 try {
                     $stmt = $db->getConnection()->prepare(
-                        "INSERT INTO usuarios (nome, email, senha, curso, instituicao) VALUES (?, ?, ?, ?, ?)"
+                        "INSERT INTO usuarios (nome, email, senha, curso, instituicao, email_verificado) VALUES (?, ?, ?, ?, ?, FALSE)"
                     );
                     
                     if ($stmt->execute([$nome, $email, $hashedPassword, $curso, $instituicao])) {
                         $userId = $db->getConnection()->lastInsertId();
                         
                         // Criar configurações padrão
-                        $db->select("INSERT INTO configuracoes_usuario (usuario_id) VALUES (?)", [$userId]);
+                        $db->execute("INSERT INTO configuracoes_usuario (usuario_id) VALUES (?)", [$userId]);
                         
-                        // Logar automaticamente
-                        $_SESSION['user_id'] = $userId;
-                        $_SESSION['user_name'] = $nome;
-                        $_SESSION['user_email'] = $email;
-                        $_SESSION['logged_in'] = true;
+                        // Gerar token de confirmação
+                        $token = generateToken();
+                        $expiration = date('Y-m-d H:i:s', strtotime('+24 hours'));
                         
-                        header('Location: dashboard.php?welcome=1');
-                        exit();
+                        $db->execute(
+                            "INSERT INTO email_tokens (usuario_id, token, tipo, data_expiracao, ip_address) VALUES (?, ?, 'confirmacao', ?, ?)",
+                            [$userId, $token, $expiration, $_SERVER['REMOTE_ADDR'] ?? null]
+                        );
+                        
+                        // Tentar enviar email
+                        if ($mail->sendConfirmationEmail($email, $nome, $token)) {
+                            // Log do email enviado
+                            $db->execute(
+                                "INSERT INTO email_log (usuario_id, email_destino, assunto, tipo, status) VALUES (?, ?, ?, 'confirmacao', 'enviado')",
+                                [$userId, $email, 'Confirme seu cadastro no CapivaraLearn']
+                            );
+                            
+                            $success = 'Conta criada com sucesso! Verifique seu email para confirmar o cadastro.';
+                            logActivity('user_registered', "Novo usuário registrado: $email");
+                        } else {
+                            // Log do erro de email
+                            $db->execute(
+                                "INSERT INTO email_log (usuario_id, email_destino, assunto, tipo, status, erro_detalhes) VALUES (?, ?, ?, 'confirmacao', 'falha', ?)",
+                                [$userId, $email, 'Confirme seu cadastro no CapivaraLearn', 'Erro no envio SMTP']
+                            );
+                            
+                            $error = 'Conta criada, mas houve um problema no envio do email. Entre em contato conosco.';
+                        }
                     } else {
                         $error = 'Erro ao criar conta';
                     }
                 } catch (Exception $e) {
                     $error = 'Erro interno. Tente novamente.';
+                    logActivity('registration_error', $e->getMessage());
                 }
             }
         }
+    }
+}
+
+// Reenviar email de confirmação
+if (isset($_GET['resend_email'])) {
+    $email = trim($_GET['resend_email']);
+    $db = Database::getInstance();
+    $mail = MailService::getInstance();
+    
+    $user = $db->select("SELECT id, nome, email_verificado FROM usuarios WHERE email = ?", [$email]);
+    
+    if ($user && !$user[0]['email_verificado']) {
+        // Invalidar tokens antigos
+        $db->execute("UPDATE email_tokens SET usado = TRUE WHERE usuario_id = ? AND tipo = 'confirmacao'", [$user[0]['id']]);
+        
+        // Criar novo token
+        $token = generateToken();
+        $expiration = date('Y-m-d H:i:s', strtotime('+24 hours'));
+        
+        $db->execute(
+            "INSERT INTO email_tokens (usuario_id, token, tipo, data_expiracao, ip_address) VALUES (?, ?, 'confirmacao', ?, ?)",
+            [$user[0]['id'], $token, $expiration, $_SERVER['REMOTE_ADDR'] ?? null]
+        );
+        
+        if ($mail->sendConfirmationEmail($email, $user[0]['nome'], $token)) {
+            $success = 'Email de confirmação reenviado! Verifique sua caixa de entrada.';
+        } else {
+            $error = 'Erro ao reenviar email. Tente novamente mais tarde.';
+        }
+    } else {
+        $error = 'Email não encontrado ou já verificado.';
     }
 }
 ?>
@@ -190,14 +263,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             width: 80px;
             height: 80px;
             object-fit: contain;
-            filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));
-            animation: bounce 2s ease-in-out infinite;
         }
 
-        @keyframes bounce {
-            0%, 20%, 50%, 80%, 100% { transform: translateY(0); }
-            40% { transform: translateY(-10px); }
-            60% { transform: translateY(-5px); }
+        .environment-indicator {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(5px);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .environment-development {
+            background: linear-gradient(135deg, #2ecc71 0%, #27ae60 100%);
+        }
+
+        .environment-production {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
         }
 
         .login-header h1 {
@@ -350,6 +438,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             font-size: 14px;
             font-weight: 600;
             border: none;
+            line-height: 1.5;
         }
 
         .alert-error {
@@ -396,6 +485,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             font-family: 'Courier New', monospace;
         }
 
+        .email-notice {
+            background: linear-gradient(135deg, #e3f2fd 0%, #f0f8ff 100%);
+            border-left: 4px solid #2196f3;
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .email-notice h5 {
+            color: #1976d2;
+            margin-bottom: 8px;
+            font-size: 1em;
+        }
+
+        .email-notice p {
+            color: #1565c0;
+            margin: 0;
+            line-height: 1.4;
+        }
+
         @media (max-width: 480px) {
             .login-container {
                 margin: 10px;
@@ -424,6 +534,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 <body>
     <div class="login-container">
         <div class="login-header">
+            <div class="environment-indicator <?= APP_ENV === 'development' ? 'environment-development' : 'environment-production' ?>">
+                🛠️ <?= strtoupper(APP_ENV) ?>
+            </div>
             <div class="logo-container">
                 <img src="public/assets/images/logo.png" alt="CapivaraLearn" class="logo-image" onerror="this.style.display='none';">
                 <div>
@@ -435,12 +548,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         <div class="login-form">
             <?php if ($error): ?>
-                <div class="alert alert-error">⚠️ <?= htmlspecialchars($error) ?></div>
+                <div class="alert alert-error">⚠️ <?= $error ?></div>
             <?php endif; ?>
 
             <?php if ($success): ?>
-                <div class="alert alert-success">✅ <?= htmlspecialchars($success) ?></div>
+                <div class="alert alert-success">✅ <?= $success ?></div>
             <?php endif; ?>
+
+            <!-- Email Notice -->
+            <div class="email-notice">
+                <h5>📧 Sistema de Confirmação por Email</h5>
+                <p>Ao se cadastrar, você receberá um email de confirmação. Verifique também a pasta de spam/lixo eletrônico.</p>
+            </div>
 
             <!-- Demo Login Info -->
             <div class="demo-login">

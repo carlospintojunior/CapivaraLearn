@@ -1,0 +1,24 @@
+[environment]
+; Defina como 'production' para ambiente de produção ou 'development' para desenvolvimento
+environment = development
+
+; Configurações específicas do ambiente
+[development]
+debug = true
+base_url = "http://localhost/CapivaraLearn"
+; Configurações de email para desenvolvimento
+mail_host = "localhost"
+mail_port = 587
+mail_username = ""
+mail_password = ""
+mail_from_name = "CapivaraLearn (Dev)"
+
+[production]
+debug = false
+base_url = "https://capivaralearn.com.br"
+; Configurações de email para produção
+mail_host = "mail.capivaralearn.com.br"
+mail_port = 587
+mail_username = "capivara@capivaralearn.com.br"
+mail_password = "your-password-here"
+mail_from_name = "CapivaraLearn"
