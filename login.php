@@ -146,26 +146,28 @@ if (isset($_GET['resend_email'])) {
     $email = trim($_GET['resend_email']);
     $db = Database::getInstance();
     $mail = MailService::getInstance();
-    
+
     $user = $db->select("SELECT id, nome, email_verificado FROM usuarios WHERE email = ?", [$email]);
-    
+
     if ($user && !$user[0]['email_verificado']) {
         // Invalidar tokens antigos
         $db->execute("UPDATE email_tokens SET usado = TRUE WHERE usuario_id = ? AND tipo = 'confirmacao'", [$user[0]['id']]);
-        
+
         // Criar novo token
         $token = generateToken();
         $expiration = date('Y-m-d H:i:s', strtotime('+24 hours'));
-        
+
         $db->execute(
             "INSERT INTO email_tokens (usuario_id, token, tipo, data_expiracao, ip_address) VALUES (?, ?, 'confirmacao', ?, ?)",
             [$user[0]['id'], $token, $expiration, $_SERVER['REMOTE_ADDR'] ?? null]
         );
-        
+
+        // Tentar enviar email
         if ($mail->sendConfirmationEmail($email, $user[0]['nome'], $token)) {
             $success = 'Email de confirmação reenviado! Verifique sua caixa de entrada.';
         } else {
             $error = 'Erro ao reenviar email. Tente novamente mais tarde.';
+            error_log("Erro ao enviar email: " . $mail->getLastError());
         }
     } else {
         $error = 'Email não encontrado ou já verificado.';
