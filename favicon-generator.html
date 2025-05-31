@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CapivaraLearn - Gerador de Favicon</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            max-width: 600px;
+            width: 100%;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .upload-area {
+            border: 3px dashed #3498db;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            transition: all 0.3s ease;
+        }
+        .upload-area:hover {
+            border-color: #2980b9;
+            background: #f8f9fa;
+        }
+        .upload-area.dragover {
+            border-color: #27ae60;
+            background: #d5f4e6;
+        }
+        #imageInput {
+            display: none;
+        }
+        .btn {
+            background: linear-gradient(135deg, #3498db, #2980b9);
+            color: white;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(52, 152, 219, 0.4);
+        }
+        .preview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin-top: 30px;
+        }
+        .preview-item {
+            text-align: center;
+            padding: 20px;
+            border: 1px solid #ecf0f1;
+            border-radius: 10px;
+        }
+        .preview-item h4 {
+            margin-bottom: 10px;
+            color: #2c3e50;
+        }
+        .preview-item canvas {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .download-btn {
+            background: linear-gradient(135deg, #27ae60, #219a52);
+            color: white;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .instructions {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 30px;
+        }
+        .instructions h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        .instructions ol {
+            margin-left: 20px;
+        }
+        .instructions li {
+            margin-bottom: 8px;
+            color: #7f8c8d;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🦫 CapivaraLearn</h1>
+            <p>Gerador de Favicon e Ícones</p>
+        </div>
+
+        <div class="upload-area" onclick="document.getElementById('imageInput').click()">
+            <h3>📁 Clique para selecionar imagem</h3>
+            <p>Ou arraste e solte sua imagem PNG aqui</p>
+            <p style="font-size: 0.9em; color: #7f8c8d;">Recomendado: 512x512px ou maior</p>
+        </div>
+
+        <input type="file" id="imageInput" accept="image/png,image/jpg,image/jpeg" />
+
+        <div class="preview-grid" id="previewGrid" style="display: none;">
+            <div class="preview-item">
+                <h4>Favicon 16x16</h4>
+                <canvas id="canvas16" width="16" height="16"></canvas>
+                <br>
+                <button class="download-btn" onclick="downloadCanvas('canvas16', 'favicon-16x16.png')">
+                    📥 Download
+                </button>
+            </div>
+            
+            <div class="preview-item">
+                <h4>Favicon 32x32</h4>
+                <canvas id="canvas32" width="32" height="32"></canvas>
+                <br>
+                <button class="download-btn" onclick="downloadCanvas('canvas32', 'favicon-32x32.png')">
+                    📥 Download
+                </button>
+            </div>
+            
+            <div class="preview-item">
+                <h4>Logo Small 48x48</h4>
+                <canvas id="canvas48" width="48" height="48"></canvas>
+                <br>
+                <button class="download-btn" onclick="downloadCanvas('canvas48', 'logo-small.png')">
+                    📥 Download
+                </button>
+            </div>
+            
+            <div class="preview-item">
+                <h4>Apple Touch 180x180</h4>
+                <canvas id="canvas180" width="180" height="180"></canvas>
+                <br>
+                <button class="download-btn" onclick="downloadCanvas('canvas180', 'apple-touch-icon.png')">
+                    📥 Download
+                </button>
+            </div>
+        </div>
+
+        <div class="instructions">
+            <h3>📋 Como usar:</h3>
+            <ol>
+                <li>Faça upload da sua imagem PNG do logo</li>
+                <li>Baixe todos os tamanhos gerados</li>
+                <li>Coloque os arquivos em <code>public/assets/images/</code></li>
+                <li>Adicione as tags HTML no <code>&lt;head&gt;</code> das páginas</li>
+                <li>Teste em diferentes navegadores</li>
+            </ol>
+            
+            <h3>🔗 Tags HTML para adicionar:</h3>
+            <pre style="background: #2c3e50; color: #ecf0f1; padding: 15px; border-radius: 8px; font-size: 12px; overflow-x: auto;">
+&lt;link rel="icon" type="image/png" sizes="32x32" href="public/assets/images/favicon-32x32.png"&gt;
+&lt;link rel="icon" type="image/png" sizes="16x16" href="public/assets/images/favicon-16x16.png"&gt;
+&lt;link rel="apple-touch-icon" sizes="180x180" href="public/assets/images/apple-touch-icon.png"&gt;
+&lt;link rel="shortcut icon" href="public/assets/images/favicon-32x32.png"&gt;</pre>
+        </div>
+    </div>
+
+    <script>
+        const imageInput = document.getElementById('imageInput');
+        const uploadArea = document.querySelector('.upload-area');
+        const previewGrid = document.getElementById('previewGrid');
+
+        // Drag and drop functionality
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleImage(files[0]);
+            }
+        });
+
+        imageInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleImage(e.target.files[0]);
+            }
+        });
+
+        function handleImage(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    generateFavicons(img);
+                    previewGrid.style.display = 'grid';
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function generateFavicons(img) {
+            const sizes = [16, 32, 48, 180];
+            const canvasIds = ['canvas16', 'canvas32', 'canvas48', 'canvas180'];
+
+            sizes.forEach((size, index) => {
+                const canvas = document.getElementById(canvasIds[index]);
+                const ctx = canvas.getContext('2d');
+                
+                // Clear canvas
+                ctx.clearRect(0, 0, size, size);
+                
+                // Enable smooth scaling
+                ctx.imageSmoothingEnabled = true;
+                ctx.imageSmoothingQuality = 'high';
+                
+                // Draw image scaled to canvas size
+                ctx.drawImage(img, 0, 0, size, size);
+            });
+        }
+
+        function downloadCanvas(canvasId, filename) {
+            const canvas = document.getElementById(canvasId);
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+    </script>
+</body>
+</html>
