@@ -65,11 +65,13 @@ if ($isProduction) {
     define('APP_ENV', 'production');
     define('DEBUG_MODE', false);
     
-    // Forçar HTTPS
-    if (!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] !== 'on') {
-        $redirect_url = 'https://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
-        header("Location: $redirect_url", true, 301);
-        exit();
+    // Forçar HTTPS apenas se não estiver em CLI
+    if (php_sapi_name() !== 'cli') {
+        if (!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] !== 'on') {
+            $redirect_url = 'https://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+            header("Location: $redirect_url", true, 301);
+            exit();
+        }
     }
 } else {
     // CONFIGURAÇÕES DE DESENVOLVIMENTO
@@ -91,14 +93,28 @@ define('PASSWORD_MIN_LENGTH', 6);
 date_default_timezone_set(TIMEZONE);
 
 // =============================================
-// CONFIGURAÇÕES DE EMAIL
+// CONFIGURAÇÕES DE EMAIL - CORRIGIDAS
 // =============================================
-$envConfig = $isProduction ? $config['production'] : $config['development'];
-define('MAIL_HOST', $envConfig['mail_host'] ?? 'localhost');
-define('MAIL_PORT', $envConfig['mail_port'] ?? 587);
-define('MAIL_USERNAME', $envConfig['mail_username'] ?? '');
-define('MAIL_PASSWORD', $envConfig['mail_password'] ?? '');
-define('MAIL_FROM_NAME', $envConfig['mail_from_name'] ?? 'CapivaraLearn');
+
+// Configurações padrão que funcionam (baseadas no seu teste que funciona)
+// SEMPRE usar o IP direto que funciona nos testes, tanto em dev quanto em prod
+define('MAIL_HOST', '38.242.252.19'); // IP direto que funciona
+define('MAIL_PORT', 465);
+define('MAIL_USERNAME', 'capivara@capivaralearn.com.br');
+define('MAIL_PASSWORD', '_,CeLlORRy,92');
+define('MAIL_FROM_NAME', 'CapivaraLearn');
+
+// Configurações adicionais de email
+define('MAIL_FROM_EMAIL', MAIL_USERNAME);
+define('MAIL_SECURE', 'ssl'); // ssl para porta 465
+define('MAIL_AUTH', true);
+
+// Configurações adicionais de compatibilidade para scripts que usam SMTP_*
+define('SMTP_HOST', MAIL_HOST);
+define('SMTP_PORT', MAIL_PORT);
+define('SMTP_USER', MAIL_USERNAME);
+define('SMTP_PASS', MAIL_PASSWORD);
+define('SMTP_FROM_NAME', MAIL_FROM_NAME);
 
 // =============================================
 // CLASSE DE CONEXÃO COM BANCO
@@ -180,28 +196,21 @@ class Database {
 }
 
 // =============================================
-// CLASSE DE SERVIÇO DE EMAIL
+// CLASSE DE SERVIÇO DE EMAIL - CORRIGIDA
 // =============================================
+require_once "vendor/autoload.php";
+
+use PHPMailer\PHPMailer\PHPMailer;
+use PHPMailer\PHPMailer\SMTP;
+use PHPMailer\PHPMailer\Exception;
+
 class MailService {
     private static $instance = null;
     private $lastError = '';
-    private $logFile = '';
     
     private function __construct() {
-        // Definir caminho do arquivo de log
-        $this->logFile = dirname(__DIR__) . '/logs/php_errors.log';
-        
-        // Garantir que o diretório de logs existe
-        $logDir = dirname($this->logFile);
-        if (!is_dir($logDir)) {
-            mkdir($logDir, 0777, true);
-        }
-        
-        // Testar escrita no arquivo de log
-        $testMessage = date('Y-m-d H:i:s') . " - Iniciando serviço de email\n";
-        if (!@file_put_contents($this->logFile, $testMessage, FILE_APPEND)) {
-            error_log("Erro: Não foi possível escrever no arquivo de log: " . $this->logFile);
-        }
+        // Log de inicialização
+        error_log("MailService inicializado - Host: " . MAIL_HOST . ", Port: " . MAIL_PORT . ", User: " . MAIL_USERNAME);
     }
     
     public static function getInstance() {
@@ -215,212 +224,133 @@ class MailService {
         return $this->lastError;
     }
     
-    private function logMailError($message, $context = []) {
-        $this->lastError = $message;
-        $logMessage = sprintf(
-            "[%s] %s\nContext: %s\n",
-            date('Y-m-d H:i:s'),
-            $message,
-            json_encode($context, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT)
-        );
-        
-        // Tentar escrever no arquivo de log
-        if (@file_put_contents($this->logFile, $logMessage, FILE_APPEND) === false) {
-            error_log("Falha ao escrever no log: " . $logMessage);
-        }
-        
-        // Também usar error_log do PHP como backup
-        error_log($logMessage);
-    }
-    
     public function sendConfirmationEmail($email, $nome, $token) {
         try {
-            $this->logMailError("Iniciando envio de email de confirmação", [
-                'para' => $email,
-                'nome' => $nome,
-                'ambiente' => APP_ENV,
-                'smtp_host' => MAIL_HOST,
-                'smtp_port' => MAIL_PORT,
-                'smtp_user' => MAIL_USERNAME,
-                'has_password' => !empty(MAIL_PASSWORD)
-            ]);
+            error_log("MailService: Tentando enviar email para $email");
             
-            if (APP_ENV === 'development') {
-                $this->logMailError("Email simulado em ambiente de desenvolvimento", [
-                    'token' => $token,
-                    'link' => url("confirm_email.php?token=" . urlencode($token))
-                ]);
-                return true;
-            }
-
-            // Verificar extensões PHP necessárias
-            if (!extension_loaded('openssl')) {
-                throw new Exception("Extensão OpenSSL não está instalada");
+            $mail = new PHPMailer(true);
+            
+            // Configurações SMTP usando as constantes definidas
+            $mail->isSMTP();
+            $mail->Host = MAIL_HOST;
+            $mail->SMTPAuth = MAIL_AUTH;
+            $mail->Username = MAIL_USERNAME;
+            $mail->Password = MAIL_PASSWORD;
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS; // SSL para porta 465
+            $mail->Port = MAIL_PORT;
+            
+            // Debug apenas em desenvolvimento
+            if (DEBUG_MODE) {
+                $mail->SMTPDebug = SMTP::DEBUG_SERVER;
+                $mail->Debugoutput = function($str, $level) {
+                    error_log("SMTP Debug: $str");
+                };
             }
             
-            // Verificar configurações
-            if (empty(MAIL_HOST) || empty(MAIL_USERNAME) || empty(MAIL_PASSWORD)) {
-                throw new Exception("Configurações de SMTP incompletas");
-            }
-
-            // Testar conectividade antes de tentar enviar
-            $this->logMailError("Testando conectividade SMTP", ['host' => MAIL_HOST, 'port' => MAIL_PORT]);
-            
-            $errno = $errstr = '';
-            $fp = @fsockopen(MAIL_HOST, MAIL_PORT, $errno, $errstr, 10);
-            if (!$fp) {
-                throw new Exception("Não foi possível conectar ao servidor SMTP: {$errstr} ({$errno})");
-            }
-            fclose($fp);
-
-            // Verificar DNS primeiro
-            if (!checkdnsrr(MAIL_HOST, "A") && !checkdnsrr(MAIL_HOST, "MX")) {
-                throw new Exception("DNS inválido para o host SMTP: " . MAIL_HOST);
-            }
-
-            // Configurar contexto SSL com opções mais seguras
-            $ctx = stream_context_create([
-                'ssl' => [
+            // Configurações SSL (mesmo do teste que funciona)
+            $mail->SMTPOptions = array(
+                'ssl' => array(
                     'verify_peer' => false,
                     'verify_peer_name' => false,
-                    'allow_self_signed' => true,
-                    'SNI_enabled' => true,
-                    'ciphers' => 'HIGH:!SSLv2:!SSLv3'
-                ]
-            ]);
-
-            // Conectar usando SSL direto (porta 465)
-            $smtp = @stream_socket_client(
-                "ssl://" . MAIL_HOST . ":" . MAIL_PORT,
-                $errno,
-                $errstr,
-                30,
-                STREAM_CLIENT_CONNECT,
-                $ctx
+                    'allow_self_signed' => true
+                )
             );
-
-            if (!$smtp) {
-                throw new Exception("Falha na conexão SMTP: {$errstr} ({$errno})");
-            }
-
-            // Ler resposta inicial
-            $response = fgets($smtp, 515);
-            if (!$response) {
-                throw new Exception("Sem resposta do servidor SMTP");
-            }
-
-            // EHLO
-            fputs($smtp, "EHLO " . MAIL_HOST . "\r\n");
-            $this->readResponse($smtp);
-
-            // AUTH LOGIN
-            fputs($smtp, "AUTH LOGIN\r\n");
-            $this->readResponse($smtp);
-
-            fputs($smtp, base64_encode(MAIL_USERNAME) . "\r\n");
-            $this->readResponse($smtp);
-
-            fputs($smtp, base64_encode(MAIL_PASSWORD) . "\r\n");
-            $this->readResponse($smtp);
-
-            // MAIL FROM
-            fputs($smtp, "MAIL FROM: <" . MAIL_USERNAME . ">\r\n");
-            $this->readResponse($smtp);
-
-            // RCPT TO
-            fputs($smtp, "RCPT TO: <{$email}>\r\n");
-            $this->readResponse($smtp);
-
-            // DATA
-            fputs($smtp, "DATA\r\n");
-            $this->readResponse($smtp);
-
-            // Montar email
-            $confirmationLink = url("confirm_email.php?token=" . urlencode($token));
-            $subject = APP_NAME . " - Confirmação de Email";
             
-            $headers = [
-                'From' => MAIL_FROM_NAME . ' <' . MAIL_USERNAME . '>',
-                'Reply-To' => MAIL_USERNAME,
-                'MIME-Version' => '1.0',
-                'Content-Type' => 'text/html; charset=UTF-8',
-                'X-Mailer' => 'PHP/' . phpversion()
-            ];
-
-            $message = "
-            <html>
-            <body style='font-family: Arial, sans-serif; line-height: 1.6; color: #333;'>
-                <div style='max-width: 600px; margin: 0 auto; padding: 20px;'>
-                    <h2 style='color: #2c3e50;'>Olá {$nome},</h2>
-                    <p>Obrigado por se cadastrar no " . APP_NAME . "!</p>
-                    <p>Para confirmar seu email, clique no botão abaixo:</p>
-                    <p style='text-align: center;'>
-                        <a href='{$confirmationLink}' 
-                           style='display: inline-block; 
-                                  padding: 12px 24px; 
-                                  background-color: #3498db; 
-                                  color: white; 
-                                  text-decoration: none; 
-                                  border-radius: 5px;
-                                  font-weight: bold;'>
-                            Confirmar Email
-                        </a>
-                    </p>
-                    <p><small>Este link é válido por 24 horas.</small></p>
-                    <p><small>Se você não solicitou este cadastro, ignore este email.</small></p>
-                    <hr style='border: none; border-top: 1px solid #eee; margin: 20px 0;'>
-                    <p style='color: #7f8c8d; font-size: 12px;'>
-                        Atenciosamente,<br>
-                        Equipe " . APP_NAME . "
-                    </p>
-                </div>
-            </body>
-            </html>";
-
-            // Enviar headers e conteúdo
-            $emailContent = "";
-            foreach ($headers as $name => $value) {
-                $emailContent .= "{$name}: {$value}\r\n";
-            }
-            $emailContent .= "Subject: {$subject}\r\n\r\n";
-            $emailContent .= $message . "\r\n.\r\n";
-
-            fputs($smtp, $emailContent);
-            $response = $this->readResponse($smtp);
-
-            // QUIT
-            fputs($smtp, "QUIT\r\n");
-            fclose($smtp);
-
-            $this->logMailError("Email enviado com sucesso", [
-                'para' => $email,
-                'resposta' => $response
-            ]);
-
+            // Configurações do email
+            $mail->setFrom(MAIL_FROM_EMAIL, MAIL_FROM_NAME);
+            $mail->addAddress($email, $nome);
+            $mail->addReplyTo(MAIL_FROM_EMAIL, MAIL_FROM_NAME);
+            
+            $mail->isHTML(true);
+            $mail->CharSet = 'UTF-8';
+            $mail->Subject = 'Confirme seu cadastro no CapivaraLearn';
+            
+            // URL de confirmação
+            $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
+            $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+            $path = dirname($_SERVER['PHP_SELF'] ?? '/');
+            $confirmUrl = $protocol . $host . $path . '/confirm_email.php?token=' . urlencode($token);
+            
+            error_log("MailService: URL de confirmação: $confirmUrl");
+            
+            // HTML do email
+            $mail->Body = $this->getConfirmationEmailTemplate($nome, $confirmUrl);
+            $mail->AltBody = "Olá $nome,\n\nPara confirmar seu cadastro, acesse: $confirmUrl\n\nEquipe CapivaraLearn";
+            
+            $mail->send();
+            error_log("MailService: Email enviado com sucesso para $email");
+            $this->lastError = '';
             return true;
-
+            
         } catch (Exception $e) {
-            $this->logMailError("Erro fatal ao enviar email: " . $e->getMessage(), [
-                'para' => $email,
-                'erro' => $e->getMessage(),
-                'trace' => $e->getTraceAsString(),
-                'php_version' => PHP_VERSION,
-                'extensions' => get_loaded_extensions()
-            ]);
+            $this->lastError = $e->getMessage();
+            error_log("MailService: Erro ao enviar email: " . $this->lastError);
+            if (isset($mail)) {
+                error_log("MailService: ErrorInfo: " . $mail->ErrorInfo);
+            }
             return false;
         }
     }
-
-    private function readResponse($smtp) {
-        $response = fgets($smtp, 515);
-        if (!$response) {
-            throw new Exception("Sem resposta do servidor SMTP");
-        }
-        $code = substr($response, 0, 3);
-        if ($code !== "250" && $code !== "220" && $code !== "235" && $code !== "334" && $code !== "354") {
-            throw new Exception("Erro SMTP: " . trim($response));
-        }
-        return $response;
+    
+    public function getConfig() {
+        return [
+            'host' => MAIL_HOST,
+            'port' => MAIL_PORT,
+            'user' => MAIL_USERNAME,
+            'from_name' => MAIL_FROM_NAME,
+            'from_email' => MAIL_FROM_EMAIL,
+            'secure' => MAIL_SECURE,
+            'auth' => MAIL_AUTH
+        ];
+    }
+    
+    private function getConfirmationEmailTemplate($nome, $confirmUrl) {
+        return "
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset='UTF-8'>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: linear-gradient(135deg, #3498db, #2980b9); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+                .content { background: #f9f9f9; padding: 30px; }
+                .button { display: inline-block; background: #27ae60; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; }
+                .footer { background: #ecf0f1; padding: 20px; text-align: center; font-size: 12px; color: #7f8c8d; border-radius: 0 0 10px 10px; }
+            </style>
+        </head>
+        <body>
+            <div class='container'>
+                <div class='header'>
+                    <h1>🎓 CapivaraLearn</h1>
+                    <p>Sistema de Organização de Estudos</p>
+                </div>
+                <div class='content'>
+                    <h2>Olá, $nome!</h2>
+                    <p>Bem-vindo ao <strong>CapivaraLearn</strong>! Para completar seu cadastro, você precisa confirmar seu endereço de email.</p>
+                    <p>Clique no botão abaixo para ativar sua conta:</p>
+                    <p style='text-align: center; margin: 30px 0;'>
+                        <a href='$confirmUrl' class='button'>✅ Confirmar Email</a>
+                    </p>
+                    <p><small>Ou copie e cole este link no seu navegador:<br>
+                    <a href='$confirmUrl'>$confirmUrl</a></small></p>
+                    
+                    <hr style='margin: 30px 0; border: none; border-top: 1px solid #ddd;'>
+                    
+                    <p><strong>⚠️ Importante:</strong></p>
+                    <ul>
+                        <li>Este link expira em 24 horas</li>
+                        <li>Se você não solicitou este cadastro, pode ignorar este email</li>
+                        <li>Não compartilhe este link com outras pessoas</li>
+                    </ul>
+                </div>
+                <div class='footer'>
+                    <p>Este email foi enviado automaticamente pelo sistema CapivaraLearn.<br>
+                    Se você tem dúvidas, entre em contato conosco.</p>
+                </div>
+            </div>
+        </body>
+        </html>";
     }
 }
 
@@ -615,19 +545,7 @@ if (DEBUG_MODE) {
     if (is_dir($logDir) && is_writable($logDir)) {
         ini_set('error_log', $logDir . '/php_errors.log');
     }
-    
-    // Log de teste para verificar se está funcionando
-    error_log("=== Teste de Log ===");
-    error_log("Data: " . date('Y-m-d H:i:s'));
-    error_log("APP_ENV: " . APP_ENV);
-    error_log("MAIL_HOST: " . MAIL_HOST);
-    error_log("MAIL_PORT: " . MAIL_PORT);
-    error_log("MAIL_USERNAME: " . MAIL_USERNAME);
-    error_log("==================");
 }
-
-// Teste explícito de log
-error_log("Teste de log manual: Verificando se o sistema de logs está funcionando.");
 
 // Configurar o arquivo de log de erros do PHP
 ini_set('log_errors', 1);
@@ -649,8 +567,8 @@ function checkFolderPermissions($folder) {
 
 // Verificar permissões da pasta de logs
 $logDir = __DIR__ . '/../logs';
-if (!checkFolderPermissions($logDir)) {
-    die("Erro: A pasta de logs não tem permissões adequadas. Por favor, ajuste as permissões da pasta: " . $logDir);
+if (!is_dir($logDir)) {
+    @mkdir($logDir, 0755, true);
 }
 
 // =============================================
@@ -670,7 +588,7 @@ if (APP_ENV === 'production') {
 }
 
 // =============================================
-// LOG DE SISTEMA (versão segura)
+// LOG DE SISTEMA
 // =============================================
 function logActivity($action, $details = '') {
     // Só logar em desenvolvimento e se a pasta existir e for writável
@@ -700,5 +618,6 @@ function logActivity($action, $details = '') {
 // Log desta inicialização (apenas em desenvolvimento)
 if (DEBUG_MODE) {
     logActivity('config_loaded', 'Sistema inicializado para ' . APP_ENV);
+    error_log("Config carregado: MAIL_HOST=" . MAIL_HOST . ", MAIL_PORT=" . MAIL_PORT . ", MAIL_USER=" . MAIL_USERNAME);
 }
 ?>

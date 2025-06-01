@@ -3,6 +3,54 @@
  * CapivaraLearn - Instalador Automático
  * Execute este arquivo uma única vez para configurar o sistema
  */
+
+// Função para verificar dependências
+function checkDependencies() {
+    $results = array(
+        'status' => true,
+        'messages' => array()
+    );
+    
+    // Verificar se o Composer está instalado
+    exec('which composer', $output, $return_var);
+    if ($return_var !== 0) {
+        $results['status'] = false;
+        $results['messages'][] = array(
+            'type' => 'error',
+            'message' => 'Composer não está instalado. Execute: sudo apt-get update && sudo apt-get install -y composer'
+        );
+    }
+    
+    // Verificar se o PHPMailer está instalado
+    if (!file_exists(__DIR__ . '/vendor/phpmailer/phpmailer')) {
+        $results['status'] = false;
+        $results['messages'][] = array(
+            'type' => 'error',
+            'message' => 'PHPMailer não está instalado. Execute: cd ' . __DIR__ . ' && composer require phpmailer/phpmailer'
+        );
+    }
+    
+    // Verificar se a pasta logs existe e tem permissões corretas
+    if (!file_exists(__DIR__ . '/logs')) {
+        $results['status'] = false;
+        $results['messages'][] = array(
+            'type' => 'error',
+            'message' => 'Diretório logs não existe. Execute: sudo mkdir -p ' . __DIR__ . '/logs'
+        );
+    } else {
+        if (!is_writable(__DIR__ . '/logs')) {
+            $results['status'] = false;
+            $results['messages'][] = array(
+                'type' => 'error',
+                'message' => 'Diretório logs não tem permissões de escrita. Execute: sudo chmod -R 777 ' . __DIR__ . '/logs'
+            );
+        }
+    }
+    
+    return $results;
+}
+
+$dependencyCheck = checkDependencies();
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -99,17 +147,33 @@
             max-height: 300px;
             overflow-y: auto;
             margin-top: 15px;
-            white-space: pre-wrap;
         }
     </style>
 </head>
 <body>
     <div class="installer">
         <div class="header">
-            <h1>🦫 CapivaraLearn</h1>
-            <p>Instalador do Sistema de Organização de Estudos</p>
+            <h1>CapivaraLearn - Instalação</h1>
+            <p>Bem-vindo ao instalador do CapivaraLearn</p>
         </div>
 
+        <!-- Verificação de Dependências -->
+        <div class="step">
+            <h3>Verificação de Dependências</h3>
+            <?php if (!empty($dependencyCheck['messages'])): ?>
+                <?php foreach ($dependencyCheck['messages'] as $message): ?>
+                    <div class="<?php echo $message['type']; ?>">
+                        <?php echo $message['message']; ?>
+                    </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div class="success">
+                    Todas as dependências estão instaladas corretamente!
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- Resto do instalador -->
         <?php
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $host = $_POST['host'] ?? 'localhost';
