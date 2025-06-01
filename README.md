@@ -70,3 +70,11 @@ sudo chmod -R 755 logs
 
 # Verificar se foi criada
 ls -la logs/
+
+
+Será que precisa:
+sudo apt-get update && \
+sudo apt-get install -y composer && \
+cd /opt/lampp/htdocs/CapivaraLearn && \
+sudo composer require phpmailer/phpmailer
+?
