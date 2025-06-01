@@ -18,6 +18,7 @@ CREATE TABLE usuarios (
     data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     data_ultimo_acesso TIMESTAMP NULL,
     ativo BOOLEAN DEFAULT TRUE,
+    email_verificado BOOLEAN DEFAULT FALSE,
     INDEX idx_email (email),
     INDEX idx_ativo (ativo)
 ) ENGINE=InnoDB;

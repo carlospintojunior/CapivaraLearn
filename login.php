@@ -1,6 +1,16 @@
 <?php
 require_once 'includes/config.php';
 
+// Adicionar exibição de erros diretamente na página em modo de desenvolvimento
+if (APP_ENV === 'development') {
+    ini_set('display_errors', 1);
+    ini_set('display_startup_errors', 1);
+    error_reporting(E_ALL);
+} else {
+    ini_set('display_errors', 0);
+    error_reporting(0);
+}
+
 // Se já estiver logado, redirecionar
 if (isset($_SESSION['user_id'])) {
     header('Location: dashboard.php');
@@ -16,47 +26,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $mail = MailService::getInstance();
     
     if ($_POST['action'] === 'login') {
-        $email = trim($_POST['email'] ?? '');
-        $password = $_POST['password'] ?? '';
-        
-        if (empty($email) || empty($password)) {
-            $error = 'E-mail e senha são obrigatórios';
-        } else {
-            $user = $db->select(
-                "SELECT id, nome, email, senha, ativo, email_verificado FROM usuarios WHERE email = ? AND ativo = 1",
-                [$email]
-            );
+        try {
+            $email = trim($_POST['email'] ?? '');
+            $password = $_POST['password'] ?? '';
             
-            if ($user && password_verify($password, $user[0]['senha'])) {
-                // Verificar se email foi confirmado
-                if (!$user[0]['email_verificado']) {
+            if (empty($email) || empty($password)) {
+                $error = 'E-mail e senha são obrigatórios';
+            } else {
+                $user = $db->select(
+                    "SELECT id, nome, email, senha, ativo, email_verificado FROM usuarios WHERE email = ? AND ativo = 1",
+                    [$email]
+                );
+                
+                if (!$user) {
+                    $error = 'E-mail não encontrado ou conta inativa';
+                    error_log("Tentativa de login com email não encontrado: $email");
+                } elseif (!password_verify($password, $user[0]['senha'])) {
+                    $error = 'Senha incorreta';
+                    error_log("Tentativa de login com senha incorreta para: $email");
+                } elseif (!$user[0]['email_verificado']) {
                     $error = 'Você precisa confirmar seu email antes de fazer login. Verifique sua caixa de entrada.';
-                    
-                    // Oferecer opção de reenviar email
-                    $success = '<div style="margin-top: 15px;">
+                    $success = '<div class="resend-container">
                         <p>Não recebeu o email? 
-                        <a href="?resend_email=' . urlencode($email) . '" style="color: #3498db; font-weight: bold;">
+                        <a href="?resend_email=' . urlencode($email) . '" class="resend-link">
                         Clique aqui para reenviar</a></p>
                     </div>';
                 } else {
-                    // Login bem-sucedido
                     $_SESSION['user_id'] = $user[0]['id'];
                     $_SESSION['user_name'] = $user[0]['nome'];
                     $_SESSION['user_email'] = $user[0]['email'];
                     $_SESSION['logged_in'] = true;
                     
-                    // Atualizar último acesso
                     $db->execute("UPDATE usuarios SET data_ultimo_acesso = NOW() WHERE id = ?", [$user[0]['id']]);
-                    
-                    // Log da atividade
                     logActivity('user_login', "Login realizado: {$user[0]['email']}");
                     
                     header('Location: dashboard.php');
                     exit();
                 }
-            } else {
-                $error = 'E-mail ou senha incorretos';
             }
+        } catch (Exception $e) {
+            var_dump($e); // Inspecionar o objeto da exceção
+            $error = (APP_ENV === 'development') ? 
+                '⚠️ Erro no login: ' . $e->getMessage() : 
+                '⚠️ Erro ao fazer login. Por favor, tente novamente mais tarde.';
+            error_log("Erro no login: " . $e->getMessage());
         }
     } elseif ($_POST['action'] === 'register') {
         $nome = trim($_POST['nome'] ?? '');
@@ -133,8 +146,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         $error = 'Erro ao criar conta';
                     }
                 } catch (Exception $e) {
-                    $error = 'Erro interno. Tente novamente.';
+                    $error = (APP_ENV === 'development') ? 
+                        '⚠️ Erro: ' . $e->getMessage() : 
+                        '⚠️ Erro interno. Por favor, tente novamente mais tarde.';
                     logActivity('registration_error', $e->getMessage());
+                    error_log("Erro no registro: " . $e->getMessage());
                 }
             }
         }

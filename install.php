@@ -216,6 +216,8 @@ $dependencyCheck = checkDependencies();
                         data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         data_ultimo_acesso TIMESTAMP NULL,
                         ativo BOOLEAN DEFAULT TRUE,
+                        email_verificado BOOLEAN DEFAULT FALSE,
+                        data_verificacao TIMESTAMP NULL,
                         INDEX idx_email (email),
                         INDEX idx_ativo (ativo)
                     ) ENGINE=InnoDB",
@@ -295,6 +297,22 @@ $dependencyCheck = checkDependencies();
                         FOREIGN KEY (atividade_id) REFERENCES atividades(id) ON DELETE CASCADE,
                         INDEX idx_usuario_lembrete (usuario_id, data_lembrete),
                         INDEX idx_pendentes (lido, data_lembrete)
+                    ) ENGINE=InnoDB",
+                    
+                    // Tabela de tokens de email
+                    "CREATE TABLE IF NOT EXISTS email_tokens (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        usuario_id INT NOT NULL,
+                        token VARCHAR(255) NOT NULL UNIQUE,
+                        tipo ENUM('confirmacao', 'recuperacao_senha') NOT NULL,
+                        usado BOOLEAN DEFAULT FALSE,
+                        data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        data_expiracao TIMESTAMP NOT NULL,
+                        ip_address VARCHAR(45) DEFAULT NULL,
+                        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+                        INDEX idx_token (token),
+                        INDEX idx_usuario_token (usuario_id, tipo, usado),
+                        INDEX idx_expiracao (data_expiracao, usado)
                     ) ENGINE=InnoDB",
                     
                     // Tabela de sessões

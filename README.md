@@ -78,3 +78,10 @@ sudo apt-get install -y composer && \
 cd /opt/lampp/htdocs/CapivaraLearn && \
 sudo composer require phpmailer/phpmailer
 ?
+
+
+
+
+# MariaDB
+
+/opt/lampp/bin/mysql -u root capivaralearn 
