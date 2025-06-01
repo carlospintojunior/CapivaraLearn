@@ -53,3 +53,9 @@ Stack trace:
 [31-May-2025 22:06:56 America/Sao_Paulo] MAIL_USERNAME: capivara@capivaralearn.com.br
 [31-May-2025 22:06:56 America/Sao_Paulo] ==================
 [31-May-2025 22:06:56 America/Sao_Paulo] Teste de log manual: Verificando se o sistema de logs está funcionando.
+[01-Jun-2025 07:50:54 America/Sao_Paulo] PHP Fatal error:  Uncaught Error: Undefined constant PDO::MYSQL_ATTR_INIT_COMMAND in /home/carlos/Documents/GitHub/CapivaraLearn/includes/config.php:133
+Stack trace:
+#0 /home/carlos/Documents/GitHub/CapivaraLearn/includes/config.php(148): Database->__construct()
+#1 /home/carlos/Documents/GitHub/CapivaraLearn/debug/debug_usuario.php(4): Database::getInstance()
+#2 {main}
+  thrown in /home/carlos/Documents/GitHub/CapivaraLearn/includes/config.php on line 133

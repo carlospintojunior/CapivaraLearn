@@ -1,0 +1,279 @@
+<?php
+require_once 'includes/config.php';
+
+// Garantir que a sessão está limpa
+if (session_status() === PHP_SESSION_ACTIVE) {
+    $_SESSION = array();
+    if (isset($_COOKIE[session_name()])) {
+        setcookie(session_name(), '', time()-3600, '/');
+    }
+    session_destroy();
+    session_write_close();
+}
+
+// Iniciar nova sessão apenas se necessário
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Limpar cookies antigos
+if (isset($_SERVER['HTTP_COOKIE'])) {
+    $cookies = explode(';', $_SERVER['HTTP_COOKIE']);
+    foreach($cookies as $cookie) {
+        $parts = explode('=', $cookie);
+        $name = trim($parts[0]);
+        setcookie($name, '', time()-3600, '/');
+    }
+}
+
+$error = '';
+$success = '';
+
+// Processar login/registro
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    $db = Database::getInstance();
+    $mail = MailService::getInstance();
+    
+    if ($_POST['action'] === 'login') {
+        $email = trim($_POST['email'] ?? '');
+        $password = $_POST['password'] ?? '';
+        
+        if (empty($email) || empty($password)) {
+            $error = 'E-mail e senha são obrigatórios';
+        } else {
+            $user = $db->select(
+                "SELECT id, nome, email, senha, ativo, email_verificado FROM usuarios WHERE email = ? AND ativo = 1",
+                [$email]
+            );
+            
+            if ($user && password_verify($password, $user[0]['senha'])) {
+                // Verificar se email foi confirmado
+                if (!$user[0]['email_verificado']) {
+                    $error = 'Você precisa confirmar seu email antes de fazer login. Verifique sua caixa de entrada.';
+                    
+                    // Oferecer opção de reenviar email
+                    $success = '<div class="resend-container">
+                        <p>Não recebeu o email? 
+                        <a href="?resend_email=' . urlencode($email) . '" class="resend-link">
+                        Clique aqui para reenviar</a></p>
+                    </div>';
+                } else {
+                    // Login bem-sucedido
+                    session_regenerate_id(true);
+                    $_SESSION = array();
+                    $_SESSION['user_id'] = $user[0]['id'];
+                    $_SESSION['user_name'] = $user[0]['nome'];
+                    $_SESSION['user_email'] = $user[0]['email'];
+                    $_SESSION['logged_in'] = true;
+                    $_SESSION['last_activity'] = time();
+                    
+                    // Atualizar último acesso
+                    $db->execute("UPDATE usuarios SET data_ultimo_acesso = NOW() WHERE id = ?", [$user[0]['id']]);
+                    
+                    // Log da atividade
+                    logActivity('user_login', "Login realizado: {$user[0]['email']}");
+                    
+                    header('Location: dashboard.php');
+                    exit();
+                }
+            } else {
+                $error = 'E-mail ou senha incorretos';
+            }
+        }
+    } elseif ($_POST['action'] === 'register') {
+        $nome = trim($_POST['nome'] ?? '');
+        $email = trim($_POST['email'] ?? '');
+        $curso = trim($_POST['curso'] ?? 'Fisioterapia');
+        $instituicao = trim($_POST['instituicao'] ?? '');
+        $password = $_POST['password'] ?? '';
+        $confirmPassword = $_POST['confirm_password'] ?? '';
+        
+        // Validações
+        if (empty($nome) || empty($email) || empty($password)) {
+            $error = 'Nome, e-mail e senha são obrigatórios';
+        } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $error = 'E-mail inválido';
+        } elseif (strlen($password) < 6) {
+            $error = 'A senha deve ter pelo menos 6 caracteres';
+        } elseif ($password !== $confirmPassword) {
+            $error = 'As senhas não coincidem';
+        } else {
+            // Verificar se e-mail já existe
+            $existing = $db->select("SELECT id, email_verificado FROM usuarios WHERE email = ?", [$email]);
+            
+            if ($existing) {
+                if ($existing[0]['email_verificado']) {
+                    $error = 'E-mail já cadastrado e verificado. Tente fazer login.';
+                } else {
+                    $error = 'E-mail já cadastrado mas não verificado. Verifique sua caixa de entrada ou ';
+                    $error .= '<a href="?resend_email=' . urlencode($email) . '" class="resend-link">clique aqui para reenviar a confirmação</a>';
+                }
+            } else {
+                // Criar usuário
+                $hashedPassword = password_hash($password, PASSWORD_DEFAULT);
+                
+                try {
+                    $stmt = $db->getConnection()->prepare(
+                        "INSERT INTO usuarios (nome, email, senha, curso, instituicao, email_verificado) VALUES (?, ?, ?, ?, ?, FALSE)"
+                    );
+                    
+                    if ($stmt->execute([$nome, $email, $hashedPassword, $curso, $instituicao])) {
+                        $userId = $db->getConnection()->lastInsertId();
+                        
+                        // Criar configurações padrão
+                        $db->execute("INSERT INTO configuracoes_usuario (usuario_id) VALUES (?)", [$userId]);
+                        
+                        // Gerar token de confirmação
+                        $token = generateToken();
+                        $expiration = date('Y-m-d H:i:s', strtotime('+24 hours'));
+                        
+                        $db->execute(
+                            "INSERT INTO email_tokens (usuario_id, token, tipo, data_expiracao, ip_address) VALUES (?, ?, 'confirmacao', ?, ?)",
+                            [$userId, $token, $expiration, $_SERVER['REMOTE_ADDR'] ?? null]
+                        );
+                        
+                        // Tentar enviar email
+                        if ($mail->sendConfirmationEmail($email, $nome, $token)) {
+                            // Log do email enviado
+                            $db->execute(
+                                "INSERT INTO email_log (usuario_id, email_destino, assunto, tipo, status) VALUES (?, ?, ?, 'confirmacao', 'enviado')",
+                                [$userId, $email, 'Confirme seu cadastro no CapivaraLearn']
+                            );
+                            
+                            $success = 'Conta criada com sucesso! Verifique seu email para confirmar o cadastro.';
+                            logActivity('user_registered', "Novo usuário registrado: $email");
+                        } else {
+                            // Log do erro de email
+                            $db->execute(
+                                "INSERT INTO email_log (usuario_id, email_destino, assunto, tipo, status, erro_detalhes) VALUES (?, ?, ?, 'confirmacao', 'falha', ?)",
+                                [$userId, $email, 'Confirme seu cadastro no CapivaraLearn', 'Erro no envio SMTP']
+                            );
+                            
+                            $error = 'Conta criada, mas houve um problema no envio do email. Entre em contato conosco.';
+                        }
+                    } else {
+                        $error = 'Erro ao criar conta';
+                    }
+                } catch (Exception $e) {
+                    require_once 'debug_login.php';
+                    $error = logLoginError($e, array(
+                        'action' => 'register',
+                        'email' => $email,
+                        'name' => $nome
+                    ));
+                    logActivity('registration_error', $error);
+                }
+            }
+        }
+    }
+}
+
+// Reenviar email de confirmação
+if (isset($_GET['resend_email'])) {
+    $email = trim($_GET['resend_email']);
+    $db = Database::getInstance();
+    $mail = MailService::getInstance();
+
+    $user = $db->select("SELECT id, nome, email_verificado FROM usuarios WHERE email = ?", [$email]);
+
+    if ($user && !$user[0]['email_verificado']) {
+        // Invalidar tokens antigos
+        $db->execute("UPDATE email_tokens SET usado = TRUE WHERE usuario_id = ? AND tipo = 'confirmacao'", [$user[0]['id']]);
+
+        // Criar novo token
+        $token = generateToken();
+        $expiration = date('Y-m-d H:i:s', strtotime('+24 hours'));
+
+        $db->execute(
+            "INSERT INTO email_tokens (usuario_id, token, tipo, data_expiracao, ip_address) VALUES (?, ?, 'confirmacao', ?, ?)",
+            [$user[0]['id'], $token, $expiration, $_SERVER['REMOTE_ADDR'] ?? null]
+        );
+
+        // Tentar enviar email
+        if ($mail->sendConfirmationEmail($email, $user[0]['nome'], $token)) {
+            $success = 'Email de confirmação reenviado! Verifique sua caixa de entrada.';
+        } else {
+            $error = 'Erro ao reenviar email. Tente novamente mais tarde.';
+            error_log("Erro ao enviar email: " . $mail->getLastError());
+        }
+    } else {
+        $error = 'Email não encontrado ou já verificado.';
+    }
+}
+?>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - CapivaraLearn</title>
+    <link rel="icon" type="image/png" href="public/assets/images/logo.png">
+    <link rel="stylesheet" href="public/assets/css/style.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-header">
+            <div class="logo-container">
+                <img src="public/assets/images/logo.png" alt="CapivaraLearn" class="logo-image" onerror="this.style.display='none';">
+                <h1>CapivaraLearn</h1>
+            </div>
+        </div>
+
+        <div class="login-form">
+            <?php if ($error): ?>
+                <div class="error-message"><?= $error ?></div>
+            <?php endif; ?>
+            
+            <?php if ($success): ?>
+                <div class="success-message"><?= $success ?></div>
+            <?php endif; ?>
+
+            <form method="POST" class="login-tab active" id="login-form">
+                <input type="hidden" name="action" value="login">
+                <div class="form-group">
+                    <label>Email:</label>
+                    <input type="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label>Senha:</label>
+                    <input type="password" name="password" required>
+                </div>
+                <button type="submit" class="btn">🔑 Fazer Login</button>
+            </form>
+
+            <div class="separator">
+                <span>ou</span>
+            </div>
+
+            <form method="POST" class="register-tab" id="register-form">
+                <input type="hidden" name="action" value="register">
+                <div class="form-group">
+                    <label>Nome Completo:</label>
+                    <input type="text" name="nome" required>
+                </div>
+                <div class="form-group">
+                    <label>Email:</label>
+                    <input type="email" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label>Curso:</label>
+                    <input type="text" name="curso" value="Fisioterapia" required>
+                </div>
+                <div class="form-group">
+                    <label>Instituição de Ensino:</label>
+                    <input type="text" name="instituicao" required>
+                </div>
+                <div class="form-group">
+                    <label>Senha:</label>
+                    <input type="password" name="password" required>
+                </div>
+                <div class="form-group">
+                    <label>Confirmar Senha:</label>
+                    <input type="password" name="confirm_password" required>
+                </div>
+                <button type="submit" class="btn">📝 Criar Conta</button>
+            </form>
+        </div>
+    </div>
+</body>
+</html>

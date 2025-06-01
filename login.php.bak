@@ -1,10 +1,31 @@
 <?php
 require_once 'includes/config.php';
 
-// Se já estiver logado, redirecionar
-if (isset($_SESSION['user_id'])) {
-    header('Location: dashboard.php');
-    exit();
+// Garantir                    $success = '<div class="resend-container">
+                        <p>Não recebeu o email? 
+                        <a href="?resend_email=' . urlencode($email) . '" class="resend-link">'e a sessão está limpa
+if (session_status() === PHP_SESSION_ACTIVE) {
+    $_SESSION = array();
+    if (isset($_COOKIE[session_name()])) {
+        setcookie(session_name(), '', time()-3600, '/');
+    }
+    session_destroy();
+    session_write_close();
+}
+
+// Iniciar nova sessão apenas se necessário
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Limpar cookies antigos
+if (isset($_SERVER['HTTP_COOKIE'])) {
+    $cookies = explode(';', $_SERVER['HTTP_COOKIE']);
+    foreach($cookies as $cookie) {
+        $parts = explode('=', $cookie);
+        $name = trim($parts[0]);
+        setcookie($name, '', time()-3600, '/');
+    }
 }
 
 $error = '';
@@ -33,17 +54,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $error = 'Você precisa confirmar seu email antes de fazer login. Verifique sua caixa de entrada.';
                     
                     // Oferecer opção de reenviar email
-                    $success = '<div class="resend-container">
+                    $success = '<div style="margin-top: 15px;">
                         <p>Não recebeu o email? 
-                        <a href="?resend_email=' . urlencode($email) . '" class="resend-link">
+                        <a href="?resend_email=' . urlencode($email) . '" style="color: #3498db; font-weight: bold;">
                         Clique aqui para reenviar</a></p>
                     </div>';
                 } else {
                     // Login bem-sucedido
+                    session_regenerate_id(true);
+                    $_SESSION = array();
                     $_SESSION['user_id'] = $user[0]['id'];
                     $_SESSION['user_name'] = $user[0]['nome'];
                     $_SESSION['user_email'] = $user[0]['email'];
                     $_SESSION['logged_in'] = true;
+                    $_SESSION['last_activity'] = time();
                     
                     // Atualizar último acesso
                     $db->execute("UPDATE usuarios SET data_ultimo_acesso = NOW() WHERE id = ?", [$user[0]['id']]);
@@ -84,7 +108,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $error = 'E-mail já cadastrado e verificado. Tente fazer login.';
                 } else {
                     $error = 'E-mail já cadastrado mas não verificado. Verifique sua caixa de entrada ou ';
-                    $error .= '<a href="?resend_email=' . urlencode($email) . '" class="resend-link">clique aqui para reenviar a confirmação</a>';
+                    $error .= '<a href="?resend_email=' . urlencode($email) . '" style="color: #3498db;">clique aqui para reenviar a confirmação</a>';
                 }
             } else {
                 // Criar usuário
@@ -133,8 +157,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         $error = 'Erro ao criar conta';
                     }
                 } catch (Exception $e) {
-                    $error = 'Erro interno. Tente novamente.';
-                    logActivity('registration_error', $e->getMessage());
+                    require_once 'debug_login.php';
+                    $error = logLoginError($e, array(
+                        'action' => 'register',
+                        'email' => $email,
+                        'name' => $nome
+                    ));
+                    logActivity('registration_error', $error);
                 }
             }
         }
@@ -181,45 +210,10 @@ if (isset($_GET['resend_email'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login - CapivaraLearn</title>
     <link rel="icon" type="image/png" href="public/assets/images/logo.png">
-    <style>
-        * {
-            margin: 0;
+    <link rel="stylesheet" href="public/assets/css/style.css">
+
+
             padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            padding: 20px;
-            position: relative;
-        }
-
-        body::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse"><path d="M 10 0 L 0 0 0 10" fill="none" stroke="rgba(255,255,255,0.03)" stroke-width="0.5"/></pattern></defs><rect width="100%" height="100%" fill="url(%23grid)"/></svg>');
-            pointer-events: none;
-        }
-
-        .login-container {
-            background: white;
-            border-radius: 25px;
-            box-shadow: 0 30px 60px rgba(0,0,0,0.2);
-            overflow: hidden;
-            width: 100%;
-            max-width: 450px;
-            animation: slideUp 0.8s ease-out;
-            position: relative;
-            z-index: 1;
         }
 
         @keyframes slideUp {
@@ -441,6 +435,10 @@ if (isset($_GET['resend_email'])) {
             font-weight: 600;
             border: none;
             line-height: 1.5;
+            display: block;
+            width: 100%;
+            position: relative;
+            z-index: 2;
         }
 
         .alert-error {
@@ -506,20 +504,6 @@ if (isset($_GET['resend_email'])) {
             color: #1565c0;
             margin: 0;
             line-height: 1.4;
-        }
-
-        .resend-link {
-            color: #3498db;
-            font-weight: bold;
-            text-decoration: none;
-        }
-
-        .resend-link:hover {
-            text-decoration: underline;
-        }
-
-        .resend-container {
-            margin-top: 15px;
         }
 
         @media (max-width: 480px) {

@@ -1,6 +1,6 @@
 <?php
 // Teste de funcionamento
-require_once 'includes/config.php';
+require_once __DIR__ . '/../includes/config.php';
 
 try {
     $db = Database::getInstance();

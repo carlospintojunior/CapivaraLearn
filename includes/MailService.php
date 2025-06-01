@@ -1,5 +1,14 @@
 <?php
-require_once "vendor/autoload.php";
+/**
+ * CapivaraLearn - Serviço de Email
+ * @version 1.0.1
+ */
+
+// Carregar configurações do environment.ini primeiro
+$configs = parse_ini_file(__DIR__ . '/environment.ini', true);
+
+// Carregar autoloader do Composer
+require_once __DIR__ . '/../vendor/autoload.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
@@ -140,7 +149,7 @@ class MailService {
         <body>
             <div class='container'>
                 <div class='header'>
-                    <img src='data:image/png;base64,<?php echo base64_encode(file_get_contents($_SERVER["DOCUMENT_ROOT"] . "/assets/images/logo-small.png")); ?>' alt='CapivaraLearn Logo' style='max-width: 150px;'>
+                    <img src='https://capivaralearn.com.br/assets/images/logo.png' alt='CapivaraLearn Logo' style='max-width: 150px;'>
                     <h1>CapivaraLearn</h1>
                     <p>Sistema de Organização de Estudos</p>
                 </div>

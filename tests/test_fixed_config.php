@@ -1,5 +1,5 @@
 <?php
-require_once "includes/config.php";
+require_once __DIR__ . "/../includes/config.php";
 
 echo "<h1>🔍 Teste do Config Corrigido</h1>";
 echo "<pre>";

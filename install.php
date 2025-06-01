@@ -215,9 +215,12 @@ $dependencyCheck = checkDependencies();
                         instituicao VARCHAR(150) DEFAULT NULL,
                         data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         data_ultimo_acesso TIMESTAMP NULL,
+                        email_verificado BOOLEAN DEFAULT FALSE,
+                        data_verificacao TIMESTAMP NULL,
                         ativo BOOLEAN DEFAULT TRUE,
                         INDEX idx_email (email),
-                        INDEX idx_ativo (ativo)
+                        INDEX idx_ativo (ativo),
+                        INDEX idx_email_verificado (email_verificado, ativo)
                     ) ENGINE=InnoDB",
                     
                     // Tabela de módulos
@@ -313,6 +316,39 @@ $dependencyCheck = checkDependencies();
                         INDEX idx_expiracao (data_expiracao, ativo)
                     ) ENGINE=InnoDB",
                     
+                    // Tabela de tokens de email
+                    "CREATE TABLE IF NOT EXISTS email_tokens (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        usuario_id INT NOT NULL,
+                        token VARCHAR(255) NOT NULL UNIQUE,
+                        tipo ENUM('confirmacao', 'recuperacao_senha') NOT NULL,
+                        usado BOOLEAN DEFAULT FALSE,
+                        data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        data_expiracao TIMESTAMP NOT NULL,
+                        ip_address VARCHAR(45) DEFAULT NULL,
+                        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+                        INDEX idx_token (token),
+                        INDEX idx_usuario_token (usuario_id, tipo, usado),
+                        INDEX idx_expiracao (data_expiracao, usado)
+                    ) ENGINE=InnoDB",
+
+                    // Tabela de log de emails
+                    "CREATE TABLE IF NOT EXISTS email_log (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        usuario_id INT DEFAULT NULL,
+                        email_destino VARCHAR(150) NOT NULL,
+                        assunto VARCHAR(255) NOT NULL,
+                        tipo ENUM('confirmacao', 'recuperacao_senha', 'notificacao') NOT NULL,
+                        status ENUM('enviado', 'falha', 'pendente') DEFAULT 'pendente',
+                        tentativas INT DEFAULT 0,
+                        erro_detalhes TEXT DEFAULT NULL,
+                        data_envio TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        data_entrega TIMESTAMP NULL,
+                        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+                        INDEX idx_email_status (email_destino, status),
+                        INDEX idx_tipo_data (tipo, data_envio)
+                    ) ENGINE=InnoDB",
+
                     // Tabela de configurações
                     "CREATE TABLE IF NOT EXISTS configuracoes_usuario (
                         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -331,7 +367,7 @@ $dependencyCheck = checkDependencies();
                 foreach ($sqlCommands as $index => $sql) {
                     try {
                         $pdo->exec($sql);
-                        $tableName = preg_match('/CREATE TABLE[^`]*`?(\w+)`?/', $sql, $matches) ? $matches[1] : "comando " . ($index + 1);
+                        $tableName = preg_match('/CREATE TABLE IF NOT EXISTS (?:`?(\w+)`?|(\w+))/', $sql, $matches) ? ($matches[1] ?? $matches[2]) : "comando " . ($index + 1);
                         $log .= "✅ Tabela '$tableName' criada\n";
                     } catch (Exception $e) {
                         $log .= "❌ Erro ao criar tabela: " . $e->getMessage() . "\n";
@@ -343,8 +379,8 @@ $dependencyCheck = checkDependencies();
                 // Inserir dados de exemplo
                 $dataCommands = [
                     // Usuário teste (senha: 123456)
-                    "INSERT IGNORE INTO usuarios (nome, email, senha, curso, instituicao) VALUES 
-                     ('Estudante Teste', 'teste@capivaralearn.com', '\$2y\$10\$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Fisioterapia', 'Universidade Exemplo')",
+                    "INSERT IGNORE INTO usuarios (nome, email, senha, curso, instituicao, email_verificado, data_verificacao) VALUES 
+                     ('Estudante Teste', 'teste@capivaralearn.com', '\$2y\$10\$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Fisioterapia', 'Universidade Exemplo', TRUE, NOW())",
                     
                     // Configuração padrão
                     "INSERT IGNORE INTO configuracoes_usuario (usuario_id) VALUES (1)",
