@@ -74,8 +74,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     } elseif ($_POST['action'] === 'register') {
         $nome = trim($_POST['nome'] ?? '');
         $email = trim($_POST['email'] ?? '');
-        $curso = trim($_POST['curso'] ?? 'Fisioterapia');
-        $instituicao = trim($_POST['instituicao'] ?? '');
         $password = $_POST['password'] ?? '';
         $confirmPassword = $_POST['confirm_password'] ?? '';
         
@@ -105,10 +103,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 
                 try {
                     $stmt = $db->getConnection()->prepare(
-                        "INSERT INTO usuarios (nome, email, senha, curso, instituicao, email_verificado) VALUES (?, ?, ?, ?, ?, FALSE)"
+                        "INSERT INTO usuarios (nome, email, senha, email_verificado) VALUES (?, ?, ?, FALSE)"
                     );
                     
-                    if ($stmt->execute([$nome, $email, $hashedPassword, $curso, $instituicao])) {
+                    if ($stmt->execute([$nome, $email, $hashedPassword])) {
                         $userId = $db->getConnection()->lastInsertId();
                         
                         // Criar configurações padrão
@@ -630,18 +628,6 @@ if (isset($_GET['resend_email'])) {
                         <label for="reg_email">📧 E-mail</label>
                         <input type="email" id="reg_email" name="email" required 
                                placeholder="seu@email.com">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="reg_curso">🎓 Curso</label>
-                        <input type="text" id="reg_curso" name="curso" 
-                               placeholder="Ex: Fisioterapia" value="Fisioterapia">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="reg_instituicao">🏫 Instituição</label>
-                        <input type="text" id="reg_instituicao" name="instituicao" 
-                               placeholder="Nome da sua universidade">
                     </div>
 
                     <div class="form-group">

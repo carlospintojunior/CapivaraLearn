@@ -211,8 +211,6 @@ $dependencyCheck = checkDependencies();
                         email VARCHAR(150) NOT NULL UNIQUE,
                         senha VARCHAR(255) NOT NULL,
                         avatar VARCHAR(255) DEFAULT NULL,
-                        curso VARCHAR(100) DEFAULT 'Fisioterapia',
-                        instituicao VARCHAR(150) DEFAULT NULL,
                         data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         data_ultimo_acesso TIMESTAMP NULL,
                         ativo BOOLEAN DEFAULT TRUE,
@@ -220,6 +218,61 @@ $dependencyCheck = checkDependencies();
                         data_verificacao TIMESTAMP NULL,
                         INDEX idx_email (email),
                         INDEX idx_ativo (ativo)
+                    ) ENGINE=InnoDB",
+                    
+                    // Tabela de universidades
+                    "CREATE TABLE IF NOT EXISTS universidades (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        nome VARCHAR(150) NOT NULL,
+                        sigla VARCHAR(20),
+                        cidade VARCHAR(100),
+                        estado VARCHAR(2),
+                        data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        ativo BOOLEAN DEFAULT TRUE,
+                        INDEX idx_nome (nome),
+                        INDEX idx_sigla (sigla)
+                    ) ENGINE=InnoDB",
+
+                    // Tabela de relacionamento universidade-curso
+                    "CREATE TABLE IF NOT EXISTS universidade_curso (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        universidade_id INT NOT NULL,
+                        curso_id INT NOT NULL,
+                        data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        ativo BOOLEAN DEFAULT TRUE,
+                        FOREIGN KEY (universidade_id) REFERENCES universidades(id) ON DELETE CASCADE,
+                        FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE,
+                        UNIQUE KEY unique_universidade_curso (universidade_id, curso_id),
+                        INDEX idx_ativo (ativo)
+                    ) ENGINE=InnoDB",
+
+                    // Tabela de cursos
+                    "CREATE TABLE IF NOT EXISTS cursos (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        nome VARCHAR(100) NOT NULL,
+                        area VARCHAR(50),
+                        nivel ENUM('graduacao', 'pos_graduacao', 'mestrado', 'doutorado', 'outros') DEFAULT 'graduacao',
+                        data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        ativo BOOLEAN DEFAULT TRUE,
+                        INDEX idx_nome (nome),
+                        INDEX idx_area (area)
+                    ) ENGINE=InnoDB",
+
+                    // Tabela de vínculo usuário-curso-universidade
+                    "CREATE TABLE IF NOT EXISTS usuario_curso_universidade (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        usuario_id INT NOT NULL,
+                        curso_id INT NOT NULL,
+                        universidade_id INT NOT NULL,
+                        data_inicio DATE,
+                        data_fim DATE,
+                        situacao ENUM('cursando', 'trancado', 'concluido', 'abandonado') DEFAULT 'cursando',
+                        data_cadastro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+                        FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE,
+                        FOREIGN KEY (universidade_id) REFERENCES universidades(id) ON DELETE CASCADE,
+                        UNIQUE KEY unique_vinculo (usuario_id, curso_id, universidade_id),
+                        INDEX idx_situacao (situacao)
                     ) ENGINE=InnoDB",
                     
                     // Tabela de módulos
@@ -314,6 +367,33 @@ $dependencyCheck = checkDependencies();
                         INDEX idx_usuario_token (usuario_id, tipo, usado),
                         INDEX idx_expiracao (data_expiracao, usado)
                     ) ENGINE=InnoDB",
+
+                    // Tabela de arquivos
+                    "CREATE TABLE IF NOT EXISTS arquivos (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        nome_original VARCHAR(255) NOT NULL,
+                        nome_arquivo VARCHAR(255) NOT NULL,
+                        caminho VARCHAR(500) NOT NULL,
+                        tipo VARCHAR(100) NOT NULL,
+                        tamanho BIGINT NOT NULL,
+                        data_upload TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        usuario_id INT,
+                        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+                        INDEX idx_usuario (usuario_id),
+                        INDEX idx_data (data_upload)
+                    ) ENGINE=InnoDB",
+
+                    // Tabela de relacionamento tópico-arquivo
+                    "CREATE TABLE IF NOT EXISTS topico_arquivo (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        topico_id INT NOT NULL,
+                        arquivo_id INT NOT NULL,
+                        data_anexo TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (topico_id) REFERENCES topicos(id) ON DELETE CASCADE,
+                        FOREIGN KEY (arquivo_id) REFERENCES arquivos(id) ON DELETE CASCADE,
+                        UNIQUE KEY unique_topico_arquivo (topico_id, arquivo_id),
+                        INDEX idx_data_anexo (data_anexo)
+                    ) ENGINE=InnoDB",
                     
                     // Tabela de sessões
                     "CREATE TABLE IF NOT EXISTS sessoes (
@@ -361,8 +441,22 @@ $dependencyCheck = checkDependencies();
                 // Inserir dados de exemplo
                 $dataCommands = [
                     // Usuário teste (senha: 123456)
-                    "INSERT IGNORE INTO usuarios (nome, email, senha, curso, instituicao) VALUES 
-                     ('Estudante Teste', 'teste@capivaralearn.com', '\$2y\$10\$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Fisioterapia', 'Universidade Exemplo')",
+                    "INSERT IGNORE INTO usuarios (nome, email, senha) VALUES 
+                     ('Estudante Teste', 'teste@capivaralearn.com', '\$2y\$10\$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi')",
+                    
+                    // Universidade de exemplo
+                    "INSERT IGNORE INTO universidades (nome, sigla, cidade, estado) VALUES
+                     ('Universidade Federal de São Paulo', 'UNIFESP', 'São Paulo', 'SP'),
+                     ('Universidade de São Paulo', 'USP', 'São Paulo', 'SP')",
+                    
+                    // Cursos de exemplo
+                    "INSERT IGNORE INTO cursos (nome, area, nivel) VALUES
+                     ('Fisioterapia', 'Saúde', 'graduacao'),
+                     ('Especialização em Fisioterapia Esportiva', 'Saúde', 'pos_graduacao')",
+                    
+                    // Vínculo de exemplo
+                    "INSERT IGNORE INTO usuario_curso_universidade (usuario_id, curso_id, universidade_id, data_inicio, situacao) VALUES
+                     (1, 1, 1, '2025-01-01', 'cursando')",
                     
                     // Configuração padrão
                     "INSERT IGNORE INTO configuracoes_usuario (usuario_id) VALUES (1)",
