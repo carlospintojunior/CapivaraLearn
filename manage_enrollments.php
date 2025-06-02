@@ -148,62 +148,18 @@ require_once __DIR__ . '/includes/header.php';
                     <td><?php echo htmlspecialchars($enrollment['nome_curso']); ?></td>
                     <td><?php echo date('d/m/Y', strtotime($enrollment['data_matricula'])); ?></td>
                     <td>
-                        <div class="btn-group">
-                            <button type="button" class="btn btn-sm btn-primary dropdown-toggle" data-bs-toggle="dropdown">
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 Ações
                             </button>
                             <ul class="dropdown-menu">
-                                <li>
-                                    <a href="#" class="dropdown-item" 
-                                       data-bs-toggle="modal" 
-                                       data-bs-target="#viewHistoryModal"
-                                       data-enrollment-id="<?php echo $enrollment['id']; ?>"
-                                       onclick="loadEnrollmentHistory(<?php echo $enrollment['id']; ?>)">
-                                        📋 Ver Histórico
-                                    </a>
-                                </li>
+                                <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#viewHistoryModal">📋 Ver Histórico</a></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li>
-                                    <form method="POST" class="dropdown-item-form" onsubmit="return confirm('Confirma alteração para Cursando?');">
-                                        <input type="hidden" name="action" value="update_status">
-                                        <input type="hidden" name="user_id" value="<?php echo $enrollment['user_id']; ?>">
-                                        <input type="hidden" name="course_id" value="<?php echo $enrollment['course_id']; ?>">
-                                        <input type="hidden" name="university_id" value="<?php echo $enrollment['universidade_id']; ?>">
-                                        <input type="hidden" name="situacao" value="cursando">
-                                        <button type="submit" class="dropdown-item text-success">✓ Marcar como Cursando</button>
-                                    </form>
-                                </li>
-                                <li>
-                                    <form method="POST" class="dropdown-item-form" onsubmit="return confirm('Confirma o trancamento da matrícula?');">
-                                        <input type="hidden" name="action" value="update_status">
-                                        <input type="hidden" name="user_id" value="<?php echo $enrollment['user_id']; ?>">
-                                        <input type="hidden" name="course_id" value="<?php echo $enrollment['course_id']; ?>">
-                                        <input type="hidden" name="university_id" value="<?php echo $enrollment['universidade_id']; ?>">
-                                        <input type="hidden" name="situacao" value="trancado">
-                                        <button type="submit" class="dropdown-item text-warning">⏸ Trancar Matrícula</button>
-                                    </form>
-                                </li>
-                                <li>
-                                    <form method="POST" class="dropdown-item-form" onsubmit="return confirm('Confirmar conclusão do curso?');">
-                                        <input type="hidden" name="action" value="update_status">
-                                        <input type="hidden" name="user_id" value="<?php echo $enrollment['user_id']; ?>">
-                                        <input type="hidden" name="course_id" value="<?php echo $enrollment['course_id']; ?>">
-                                        <input type="hidden" name="university_id" value="<?php echo $enrollment['universidade_id']; ?>">
-                                        <input type="hidden" name="situacao" value="concluido">
-                                        <input type="hidden" name="data_fim" value="<?php echo date('Y-m-d'); ?>">
-                                        <button type="submit" class="dropdown-item text-info">🎓 Marcar como Concluído</button>
-                                    </form>
-                                </li>
+                                <li><form method="POST" style="display: inline;"><input type="hidden" name="action" value="update_status"><input type="hidden" name="user_id" value="<?php echo $enrollment['user_id']; ?>"><input type="hidden" name="course_id" value="<?php echo $enrollment['course_id']; ?>"><input type="hidden" name="university_id" value="<?php echo $enrollment['universidade_id']; ?>"><input type="hidden" name="situacao" value="cursando"><button type="submit" class="dropdown-item" onclick="return confirm('Confirma alteração para Cursando?')">▶️ Alterar para Cursando</button></form></li>
+                                <li><form method="POST" style="display: inline;"><input type="hidden" name="action" value="update_status"><input type="hidden" name="user_id" value="<?php echo $enrollment['user_id']; ?>"><input type="hidden" name="course_id" value="<?php echo $enrollment['course_id']; ?>"><input type="hidden" name="university_id" value="<?php echo $enrollment['universidade_id']; ?>"><input type="hidden" name="situacao" value="concluido"><input type="hidden" name="data_fim" value="<?php echo date('Y-m-d'); ?>"><button type="submit" class="dropdown-item" onclick="return confirm('Confirma conclusão do curso?')">✅ Marcar como Concluído</button></form></li>
+                                <li><form method="POST" style="display: inline;"><input type="hidden" name="action" value="update_status"><input type="hidden" name="user_id" value="<?php echo $enrollment['user_id']; ?>"><input type="hidden" name="course_id" value="<?php echo $enrollment['course_id']; ?>"><input type="hidden" name="university_id" value="<?php echo $enrollment['universidade_id']; ?>"><input type="hidden" name="situacao" value="trancado"><button type="submit" class="dropdown-item" onclick="return confirm('Confirma o trancamento da matrícula?')">⏸️ Trancar Matrícula</button></form></li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li>
-                                    <form method="POST" class="dropdown-item-form" onsubmit="return confirm('Tem certeza que deseja cancelar esta matrícula?');">
-                                        <input type="hidden" name="action" value="remove_enrollment">
-                                        <input type="hidden" name="user_id" value="<?php echo $enrollment['user_id']; ?>">
-                                        <input type="hidden" name="course_id" value="<?php echo $enrollment['course_id']; ?>">
-                                        <input type="hidden" name="university_id" value="<?php echo $enrollment['universidade_id']; ?>">
-                                        <button type="submit" class="dropdown-item text-danger">❌ Cancelar Matrícula</button>
-                                    </form>
-                                </li>
+                                <li><form method="POST" style="display: inline;"><input type="hidden" name="action" value="remove_enrollment"><input type="hidden" name="user_id" value="<?php echo $enrollment['user_id']; ?>"><input type="hidden" name="course_id" value="<?php echo $enrollment['course_id']; ?>"><input type="hidden" name="university_id" value="<?php echo $enrollment['universidade_id']; ?>"><button type="submit" class="dropdown-item text-danger" onclick="return confirm('Tem certeza que deseja cancelar esta matrícula?')">❌ Cancelar Matrícula</button></form></li>
                             </ul>
                         </div>
                     </td>
@@ -212,6 +168,34 @@ require_once __DIR__ . '/includes/header.php';
         </tbody>
     </table>
 </div>
+
+<style>
+    .dropdown-item {
+        padding: 8px 20px;
+        white-space: nowrap;
+        display: block;
+        width: 100%;
+    }
+    .dropdown-item:hover {
+        background-color: #f8f9fa;
+    }
+    form .dropdown-item {
+        width: 100%;
+        text-align: left;
+        border: none;
+        background: none;
+        cursor: pointer;
+        display: block;
+        padding: 8px 20px;
+    }
+    .dropdown-menu {
+        min-width: 200px;
+    }
+    form {
+        margin: 0;
+        padding: 0;
+    }
+</style>
 
 <!-- Modal Nova Matrícula -->
 <div class="modal fade" id="addEnrollmentModal" tabindex="-1" aria-labelledby="addEnrollmentModalLabel" aria-hidden="true">

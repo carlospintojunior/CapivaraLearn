@@ -128,30 +128,26 @@ class CourseService {
     /**
      * Lista todas as matrículas com informações detalhadas
      */
-    public function listEnrollments($userId = null) {
-        $sql = "SELECT 
-                    ucu.*,
-                    u.nome as universidade_nome,
-                    u.sigla as universidade_sigla,
-                    c.nome as curso_nome,
-                    c.nivel as curso_nivel,
-                    us.nome as nome_aluno,
-                    us.email as email_aluno
-                FROM usuario_curso_universidade ucu
-                JOIN universidades u ON ucu.universidade_id = u.id
-                JOIN cursos c ON ucu.curso_id = c.id
-                JOIN usuarios us ON ucu.usuario_id = us.id
-                WHERE 1=1";
-        
-        $params = [];
-        if ($userId) {
-            $sql .= " AND ucu.usuario_id = ?";
-            $params[] = $userId;
-        }
-        
-        $sql .= " ORDER BY ucu.data_inicio DESC";
-        
-        return $this->db->select($sql, $params);
+    public function listEnrollments() {
+        return $this->db->select(
+            "SELECT 
+                ucu.id,
+                ucu.usuario_id,
+                ucu.curso_id,
+                ucu.universidade_id,
+                ucu.data_inicio as data_matricula,
+                ucu.data_fim,
+                ucu.situacao,
+                u.nome as nome_aluno,
+                c.nome as nome_curso,
+                univ.nome as nome_universidade,
+                univ.sigla as universidade_sigla
+            FROM usuario_curso_universidade ucu
+            JOIN usuarios u ON ucu.usuario_id = u.id
+            JOIN cursos c ON ucu.curso_id = c.id
+            JOIN universidades univ ON ucu.universidade_id = univ.id
+            ORDER BY ucu.data_inicio DESC"
+        );
     }
 
     /**
@@ -323,19 +319,26 @@ class CourseService {
      * Obtém estatísticas de matrículas
      */
     public function getEnrollmentStats() {
-        $sql = "SELECT 
+        $result = $this->db->select(
+            "SELECT 
                 COUNT(*) as total_matriculas,
-                SUM(CASE WHEN m.situacao = 'cursando' THEN 1 ELSE 0 END) as total_cursando,
-                SUM(CASE WHEN m.situacao = 'concluido' THEN 1 ELSE 0 END) as total_concluidos,
-                SUM(CASE WHEN m.situacao = 'trancado' THEN 1 ELSE 0 END) as total_trancados,
-                COUNT(DISTINCT m.user_id) as total_alunos,
-                COUNT(DISTINCT m.curso_id) as total_cursos,
-                COUNT(DISTINCT m.universidade_id) as total_universidades
-                FROM matriculas m";
-        
-        $stmt = $this->db->prepare($sql);
-        $stmt->execute();
-        
-        return $stmt->fetch(PDO::FETCH_ASSOC);
+                SUM(CASE WHEN situacao = 'cursando' THEN 1 ELSE 0 END) as total_cursando,
+                SUM(CASE WHEN situacao = 'concluido' THEN 1 ELSE 0 END) as total_concluidos,
+                SUM(CASE WHEN situacao = 'trancado' THEN 1 ELSE 0 END) as total_trancados,
+                COUNT(DISTINCT usuario_id) as total_alunos,
+                COUNT(DISTINCT curso_id) as total_cursos,
+                COUNT(DISTINCT universidade_id) as total_universidades
+            FROM usuario_curso_universidade"
+        );
+
+        return $result[0] ?? [
+            'total_matriculas' => 0,
+            'total_cursando' => 0,
+            'total_concluidos' => 0,
+            'total_trancados' => 0,
+            'total_alunos' => 0,
+            'total_cursos' => 0,
+            'total_universidades' => 0
+        ];
     }
 }
