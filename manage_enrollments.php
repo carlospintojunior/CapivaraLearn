@@ -30,18 +30,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
             case 'remove_enrollment':
                 $courseService->unenrollStudent(
-                    $_POST['user_id'],
-                    $_POST['course_id'],
-                    $_POST['university_id']
+                    $_POST['usuario_id'],
+                    $_POST['curso_id'],
+                    $_POST['universidade_id']
                 );
                 header('Location: manage_enrollments.php?success=2');
                 exit;
                 
             case 'update_status':
                 $courseService->updateEnrollmentStatus(
-                    $_POST['user_id'],
-                    $_POST['course_id'],
-                    $_POST['university_id'],
+                    $_POST['usuario_id'],
+                    $_POST['curso_id'],
+                    $_POST['universidade_id'],
                     $_POST['situacao'],
                     $_POST['data_fim'] ?? null
                 );
@@ -118,6 +118,9 @@ require_once __DIR__ . '/includes/header.php';
             case 2:
                 echo 'Matrícula cancelada com sucesso!';
                 break;
+            case 3:
+                echo 'Status da matrícula atualizado com sucesso!';
+                break;
         }
         ?>
     </div>
@@ -129,13 +132,15 @@ require_once __DIR__ . '/includes/header.php';
     </button>
 </div>
 
-<div class="table-responsive">
+<div class="table-responsive" style="min-height: 400px; max-height: none;">
     <table class="table table-striped">
-        <thead>
+        <thead class="table-dark sticky-top">
             <tr>
                 <th>ID</th>
                 <th>Aluno</th>
                 <th>Curso</th>
+                <th>Universidade</th>
+                <th>Situação</th>
                 <th>Data de Matrícula</th>
                 <th>Ações</th>
             </tr>
@@ -146,20 +151,61 @@ require_once __DIR__ . '/includes/header.php';
                     <td><?php echo htmlspecialchars($enrollment['id']); ?></td>
                     <td><?php echo htmlspecialchars($enrollment['nome_aluno']); ?></td>
                     <td><?php echo htmlspecialchars($enrollment['nome_curso']); ?></td>
+                    <td>
+                        <?php echo htmlspecialchars($enrollment['nome_universidade']); ?>
+                        <br><small class="text-muted"><?php echo htmlspecialchars($enrollment['universidade_sigla']); ?></small>
+                    </td>
+                    <td>
+                        <?php
+                        $situacao = $enrollment['situacao'];
+                        $badge_class = match($situacao) {
+                            'cursando' => 'bg-success',
+                            'concluido' => 'bg-primary',
+                            'trancado' => 'bg-warning',
+                            default => 'bg-secondary'
+                        };
+                        echo "<span class='badge $badge_class'>" . ucfirst($situacao) . "</span>";
+                        ?>
+                    </td>
                     <td><?php echo date('d/m/Y', strtotime($enrollment['data_matricula'])); ?></td>
                     <td>
-                        <div class="dropdown">
-                            <button class="btn btn-sm btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                        <div class="dropdown position-static">
+                            <button class="btn btn-sm btn-primary dropdown-toggle" type="button" 
+                                    data-bs-toggle="dropdown" aria-expanded="false">
                                 Ações
                             </button>
-                            <ul class="dropdown-menu">
-                                <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#viewHistoryModal">📋 Ver Histórico</a></li>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li>
+                                    <a class="dropdown-item" href="#" onclick="showHistory(<?php echo $enrollment['id']; ?>)">
+                                        📋 Ver Histórico
+                                    </a>
+                                </li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><form method="POST" style="display: inline;"><input type="hidden" name="action" value="update_status"><input type="hidden" name="user_id" value="<?php echo $enrollment['user_id']; ?>"><input type="hidden" name="course_id" value="<?php echo $enrollment['course_id']; ?>"><input type="hidden" name="university_id" value="<?php echo $enrollment['universidade_id']; ?>"><input type="hidden" name="situacao" value="cursando"><button type="submit" class="dropdown-item" onclick="return confirm('Confirma alteração para Cursando?')">▶️ Alterar para Cursando</button></form></li>
-                                <li><form method="POST" style="display: inline;"><input type="hidden" name="action" value="update_status"><input type="hidden" name="user_id" value="<?php echo $enrollment['user_id']; ?>"><input type="hidden" name="course_id" value="<?php echo $enrollment['course_id']; ?>"><input type="hidden" name="university_id" value="<?php echo $enrollment['universidade_id']; ?>"><input type="hidden" name="situacao" value="concluido"><input type="hidden" name="data_fim" value="<?php echo date('Y-m-d'); ?>"><button type="submit" class="dropdown-item" onclick="return confirm('Confirma conclusão do curso?')">✅ Marcar como Concluído</button></form></li>
-                                <li><form method="POST" style="display: inline;"><input type="hidden" name="action" value="update_status"><input type="hidden" name="user_id" value="<?php echo $enrollment['user_id']; ?>"><input type="hidden" name="course_id" value="<?php echo $enrollment['course_id']; ?>"><input type="hidden" name="university_id" value="<?php echo $enrollment['universidade_id']; ?>"><input type="hidden" name="situacao" value="trancado"><button type="submit" class="dropdown-item" onclick="return confirm('Confirma o trancamento da matrícula?')">⏸️ Trancar Matrícula</button></form></li>
+                                <li>
+                                    <a class="dropdown-item" href="#" 
+                                       onclick="updateStatus(<?php echo $enrollment['usuario_id']; ?>, <?php echo $enrollment['curso_id']; ?>, <?php echo $enrollment['universidade_id']; ?>, 'cursando', 'Confirma alteração para Cursando?')">
+                                        ▶️ Alterar para Cursando
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#" 
+                                       onclick="updateStatus(<?php echo $enrollment['usuario_id']; ?>, <?php echo $enrollment['curso_id']; ?>, <?php echo $enrollment['universidade_id']; ?>, 'concluido', 'Confirma conclusão do curso?', '<?php echo date('Y-m-d'); ?>')">
+                                        ✅ Marcar como Concluído
+                                    </a>
+                                </li>
+                                <li>
+                                    <a class="dropdown-item" href="#" 
+                                       onclick="updateStatus(<?php echo $enrollment['usuario_id']; ?>, <?php echo $enrollment['curso_id']; ?>, <?php echo $enrollment['universidade_id']; ?>, 'trancado', 'Confirma o trancamento da matrícula?')">
+                                        ⏸️ Trancar Matrícula
+                                    </a>
+                                </li>
                                 <li><hr class="dropdown-divider"></li>
-                                <li><form method="POST" style="display: inline;"><input type="hidden" name="action" value="remove_enrollment"><input type="hidden" name="user_id" value="<?php echo $enrollment['user_id']; ?>"><input type="hidden" name="course_id" value="<?php echo $enrollment['course_id']; ?>"><input type="hidden" name="university_id" value="<?php echo $enrollment['universidade_id']; ?>"><button type="submit" class="dropdown-item text-danger" onclick="return confirm('Tem certeza que deseja cancelar esta matrícula?')">❌ Cancelar Matrícula</button></form></li>
+                                <li>
+                                    <a class="dropdown-item text-danger" href="#" 
+                                       onclick="removeEnrollment(<?php echo $enrollment['usuario_id']; ?>, <?php echo $enrollment['curso_id']; ?>, <?php echo $enrollment['universidade_id']; ?>, 'Tem certeza que deseja cancelar esta matrícula?')">
+                                        ❌ Cancelar Matrícula
+                                    </a>
+                                </li>
                             </ul>
                         </div>
                     </td>
@@ -169,31 +215,121 @@ require_once __DIR__ . '/includes/header.php';
     </table>
 </div>
 
+<!-- Formulário oculto para ações -->
+<form id="actionForm" method="POST" style="display: none;">
+    <input type="hidden" name="action" id="formAction">
+    <input type="hidden" name="usuario_id" id="formUsuarioId">
+    <input type="hidden" name="curso_id" id="formCursoId">
+    <input type="hidden" name="universidade_id" id="formUniversidadeId">
+    <input type="hidden" name="situacao" id="formSituacao">
+    <input type="hidden" name="data_fim" id="formDataFim">
+</form>
+
+<script>
+function updateStatus(usuarioId, cursoId, universidadeId, situacao, confirmMessage, dataFim = '') {
+    if (confirm(confirmMessage)) {
+        document.getElementById('formAction').value = 'update_status';
+        document.getElementById('formUsuarioId').value = usuarioId;
+        document.getElementById('formCursoId').value = cursoId;
+        document.getElementById('formUniversidadeId').value = universidadeId;
+        document.getElementById('formSituacao').value = situacao;
+        document.getElementById('formDataFim').value = dataFim;
+        document.getElementById('actionForm').submit();
+    }
+}
+
+function removeEnrollment(usuarioId, cursoId, universidadeId, confirmMessage) {
+    if (confirm(confirmMessage)) {
+        document.getElementById('formAction').value = 'remove_enrollment';
+        document.getElementById('formUsuarioId').value = usuarioId;
+        document.getElementById('formCursoId').value = cursoId;
+        document.getElementById('formUniversidadeId').value = universidadeId;
+        document.getElementById('actionForm').submit();
+    }
+}
+
+function showHistory(enrollmentId) {
+    // Implementar modal de histórico se necessário
+    const modal = new bootstrap.Modal(document.getElementById('viewHistoryModal'));
+    document.getElementById('historyContent').innerHTML = `
+        <div class="alert alert-info">
+            <h5>📋 Histórico da Matrícula #${enrollmentId}</h5>
+            <p>Esta funcionalidade pode ser implementada para mostrar:</p>
+            <ul>
+                <li>Histórico de mudanças de status</li>
+                <li>Datas importantes</li>
+                <li>Notas e observações</li>
+            </ul>
+        </div>
+    `;
+    modal.show();
+}
+</script>
+
 <style>
     .dropdown-item {
         padding: 8px 20px;
         white-space: nowrap;
-        display: block;
-        width: 100%;
+        cursor: pointer;
     }
+    
     .dropdown-item:hover {
         background-color: #f8f9fa;
+        color: #000;
     }
-    form .dropdown-item {
-        width: 100%;
-        text-align: left;
-        border: none;
-        background: none;
-        cursor: pointer;
-        display: block;
-        padding: 8px 20px;
+    
+    .dropdown-item.text-danger:hover {
+        background-color: #f8d7da;
+        color: #721c24;
     }
+    
     .dropdown-menu {
-        min-width: 200px;
+        min-width: 220px;
+        z-index: 1055 !important;
+        position: absolute !important;
     }
-    form {
-        margin: 0;
-        padding: 0;
+    
+    .dropdown-divider {
+        margin: 0.5rem 0;
+    }
+    
+    .badge {
+        font-size: 0.75em;
+    }
+    
+    /* Melhorias na tabela */
+    .table-responsive {
+        overflow-x: auto;
+        overflow-y: visible !important;
+    }
+    
+    /* Header fixo quando necessário */
+    .sticky-top {
+        position: sticky !important;
+        top: 0;
+        z-index: 1020;
+    }
+    
+    /* Melhor visualização em telas pequenas */
+    @media (max-width: 768px) {
+        .dropdown-menu {
+            min-width: 180px;
+        }
+        
+        .table td, .table th {
+            white-space: nowrap;
+            font-size: 0.875em;
+        }
+    }
+    
+    /* Garantir que dropdowns não sejam cortados */
+    .position-static {
+        position: static !important;
+    }
+    
+    /* Container principal com espaço suficiente */
+    .container-fluid {
+        padding-bottom: 100px;
     }
 </style>
 
