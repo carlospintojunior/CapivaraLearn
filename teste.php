@@ -1,5 +1,5 @@
 <?php
-// Teste de funcionamento
+// Teste de funcionamento x
 require_once 'includes/config.php';
 
 try {

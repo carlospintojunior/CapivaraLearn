@@ -42,12 +42,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 
             case 'add_course_to_university':
                 $universityService->addCourse($_POST['university_id'], $_POST['course_id']);
-                header('Location: manage_universities.php?success=4&id=' . $_POST['university_id']);
+                header('Location: manage_universities.php?success=4');
                 exit;
                 
             case 'remove_course_from_university':
                 $universityService->removeCourse($_POST['university_id'], $_POST['course_id']);
-                header('Location: manage_universities.php?success=5&id=' . $_POST['university_id']);
+                header('Location: manage_universities.php?success=5');
                 exit;
         }
     } catch (Exception $e) {
@@ -59,404 +59,375 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $universities = $universityService->listAll();
 $courses = $courseService->listAll();
 
-// Se houver um ID específico, buscar cursos da universidade
-$selectedUniversity = null;
-$universityCourses = [];
-if (isset($_GET['id'])) {
-    $selectedUniversity = $universityService->getById($_GET['id']);
-    if ($selectedUniversity) {
-        $universityCourses = $universityService->listCourses($_GET['id']);
-    }
-}
+require_once __DIR__ . '/includes/header.php';
 ?>
-<?php require_once __DIR__ . '/includes/header.php'; ?>
-<html lang="pt-BR">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gerenciar Universidades - CapivaraLearn</title>
-    <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            margin: 0;
-            padding: 20px;
-            background: #f5f6fa;
-        }
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 0 20px rgba(0,0,0,0.1);
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #f1f1f1;
-        }
-        .btn {
-            background: #3498db;
-            color: white;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
-            text-decoration: none;
-            display: inline-block;
-        }
-        .btn:hover {
-            background: #2980b9;
-        }
-        .btn-danger {
-            background: #e74c3c;
-        }
-        .btn-danger:hover {
-            background: #c0392b;
-        }
-        .university-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-            gap: 20px;
-            margin-top: 20px;
-        }
-        .university-card {
-            background: white;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-        }
-        .university-card h3 {
-            margin: 0 0 10px 0;
-            color: #2c3e50;
-        }
-        .university-info {
-            color: #7f8c8d;
-            font-size: 0.9em;
-            margin-bottom: 15px;
-        }
-        .success-message {
-            background: #d5f5e3;
-            color: #27ae60;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-        .error-message {
-            background: #f8d7da;
-            color: #dc3545;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-        }
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0,0,0,0.5);
-            align-items: center;
-            justify-content: center;
-        }
-        .modal-content {
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            max-width: 500px;
-            width: 100%;
-        }
-        .form-group {
-            margin-bottom: 15px;
-        }
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            color: #2c3e50;
-            font-weight: 500;
-        }
-        .form-group input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            box-sizing: border-box;
-        }
-        .actions {
-            margin-top: 15px;
-            display: flex;
-            gap: 10px;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>Gerenciar Universidades</h1>
-            <button class="btn" onclick="openAddModal()">Nova Universidade</button>
+
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0 text-gray-800">🏛️ Gerenciar Universidades</h1>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUniversityModal">
+            <i class="fas fa-plus me-2"></i>Nova Universidade
+        </button>
+    </div>
+
+    <!-- Mensagens de Sucesso e Erro -->
+    <?php if (isset($_GET['success'])): ?>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="fas fa-check-circle me-2"></i>
+            <?php
+            switch ($_GET['success']) {
+                case '1': echo 'Universidade adicionada com sucesso!'; break;
+                case '2': echo 'Universidade atualizada com sucesso!'; break;
+                case '3': echo 'Universidade removida com sucesso!'; break;
+                case '4': echo 'Curso adicionado à universidade com sucesso!'; break;
+                case '5': echo 'Curso removido da universidade com sucesso!'; break;
+            }
+            ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
+    <?php endif; ?>
 
-        <?php if (isset($_GET['success'])): ?>
-            <div class="success-message">
-                <?php
-                switch ($_GET['success']) {
-                    case '1':
-                        echo 'Universidade adicionada com sucesso!';
-                        break;
-                    case '2':
-                        echo 'Universidade atualizada com sucesso!';
-                        break;
-                    case '3':
-                        echo 'Universidade removida com sucesso!';
-                        break;
-                    case '4':
-                        echo 'Curso adicionado à universidade com sucesso!';
-                        break;
-                    case '5':
-                        echo 'Curso removido da universidade com sucesso!';
-                        break;
-                }
-                ?>
-            </div>
-        <?php endif; ?>
-
-        <?php if (isset($error)): ?>
-            <div class="error-message"><?= h($error) ?></div>
-        <?php endif; ?>
-
-        <div class="university-grid">
-            <?php foreach ($universities as $university): ?>
-                <div class="university-card">
-                    <h3><?= h($university['nome']) ?></h3>
-                    <div class="university-info">
-                        <p><strong>Sigla:</strong> <?= h($university['sigla']) ?></p>
-                        <p><strong>Cidade:</strong> <?= h($university['cidade']) ?></p>
-                        <p><strong>Estado:</strong> <?= h($university['estado']) ?></p>
-                    </div>
-                    <div class="actions">
-                        <button class="btn" onclick="openEditModal(<?= $university['id'] ?>, '<?= h(addslashes($university['nome'])) ?>', '<?= h(addslashes($university['sigla'])) ?>', '<?= h(addslashes($university['cidade'])) ?>', '<?= h(addslashes($university['estado'])) ?>')">Editar</button>
-                        <form method="POST" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja excluir esta universidade?');">
-                            <input type="hidden" name="action" value="delete_university">
-                            <input type="hidden" name="id" value="<?= $university['id'] ?>">
-                            <button type="submit" class="btn btn-danger">Excluir</button>
-                        </form>
-                    </div>
-
-                    <!-- Cursos da Universidade -->
-                    <div class="university-courses" style="margin-top: 15px;">
-                        <h4>Cursos Oferecidos:</h4>
-                        <ul>
-                            <?php foreach ($universityCourses as $course): ?>
-                                <li>
-                                    <?= h($course['nome']) ?> 
-                                    <form method="POST" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja remover este curso?');">
-                                        <input type="hidden" name="action" value="remove_course_from_university">
-                                        <input type="hidden" name="university_id" value="<?= $university['id'] ?>">
-                                        <input type="hidden" name="course_id" value="<?= $course['id'] ?>">
-                                        <button type="submit" class="btn btn-danger btn-sm">Remover</button>
-                                    </form>
-                                </li>
-                            <?php endforeach; ?>
-                        </ul>
-
-                        <!-- Adicionar Curso -->
-                        <form method="POST" style="margin-top: 10px;">
-                            <input type="hidden" name="action" value="add_course_to_university">
-                            <input type="hidden" name="university_id" value="<?= $university['id'] ?>">
-                            <div class="form-group" style="display: inline-block; width: calc(100% - 120px);">
-                                <label>Adicionar Curso</label>
-                                <select name="course_id" required>
-                                    <option value="">Selecione um curso</option>
-                                    <?php foreach ($courses as $course): ?>
-                                        <option value="<?= $course['id'] ?>"><?= h($course['nome']) ?></option>
-                                    <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <button type="submit" class="btn" style="display: inline-block;">Adicionar</button>
-                        </form>
-                    </div>
-                </div>
-            <?php endforeach; ?>
+    <?php if (isset($error)): ?>
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <?= htmlspecialchars($error) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
+    <?php endif; ?>
 
-        <?php if (empty($universities)): ?>
-            <div style="text-align: center; padding: 40px; color: #7f8c8d;">
-                <p>Nenhuma universidade cadastrada.</p>
-                <p>Clique em "Nova Universidade" para começar!</p>
-            </div>
-        <?php endif; ?>
-
-        <?php if (isset($selectedUniversity)): ?>
-            <div class="card mb-4">
-                <div class="card-header">
-                    <h4>Cursos de <?php echo htmlspecialchars($selectedUniversity['nome']); ?></h4>
-                </div>
-                <div class="card-body">
-                    <div class="mb-3">
-                        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCourseModal">
-                            Adicionar Curso
-                        </button>
+    <!-- Grid de Universidades -->
+    <div class="row g-4">
+        <?php foreach ($universities as $university): ?>
+            <div class="col-lg-6 col-xl-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0 text-truncate">
+                            <?= htmlspecialchars($university['nome']) ?>
+                        </h5>
+                        <span class="badge bg-light text-dark">
+                            <?= htmlspecialchars($university['sigla']) ?>
+                        </span>
                     </div>
                     
-                    <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Nome do Curso</th>
-                                    <th>Área</th>
-                                    <th>Nível</th>
-                                    <th>Ações</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($universityCourses as $course): ?>
-                                    <tr>
-                                        <td><?php echo htmlspecialchars($course['nome']); ?></td>
-                                        <td><?php echo htmlspecialchars($course['area']); ?></td>
-                                        <td><?php echo htmlspecialchars($course['nivel']); ?></td>
-                                        <td>
-                                            <form method="POST" class="d-inline" onsubmit="return confirm('Tem certeza que deseja remover este curso da universidade?');">
-                                                <input type="hidden" name="action" value="remove_course_from_university">
-                                                <input type="hidden" name="university_id" value="<?php echo $selectedUniversity['id']; ?>">
-                                                <input type="hidden" name="course_id" value="<?php echo $course['id']; ?>">
-                                                <button type="submit" class="btn btn-sm btn-danger">Remover</button>
-                                            </form>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Modal Adicionar Curso -->
-            <div class="modal fade" id="addCourseModal" tabindex="-1">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title">Adicionar Curso à <?php echo htmlspecialchars($selectedUniversity['nome']); ?></h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <div class="row text-muted small">
+                                <div class="col-sm-4"><strong>Cidade:</strong></div>
+                                <div class="col-sm-8"><?= htmlspecialchars($university['cidade']) ?></div>
+                            </div>
+                            <div class="row text-muted small">
+                                <div class="col-sm-4"><strong>Estado:</strong></div>
+                                <div class="col-sm-8"><?= htmlspecialchars($university['estado']) ?></div>
+                            </div>
                         </div>
-                        <form method="POST">
-                            <input type="hidden" name="action" value="add_course_to_university">
-                            <input type="hidden" name="university_id" value="<?php echo $selectedUniversity['id']; ?>">
-                            <div class="modal-body">
-                                <div class="mb-3">
-                                    <label for="course_id" class="form-label">Curso</label>
-                                    <select class="form-select" id="course_id" name="course_id" required>
-                                        <option value="">Selecione um curso</option>
-                                        <?php foreach ($courses as $course): ?>
-                                            <?php if (!in_array($course['id'], array_column($universityCourses, 'id'))): ?>
-                                                <option value="<?php echo $course['id']; ?>">
-                                                    <?php echo htmlspecialchars($course['nome']); ?> (<?php echo htmlspecialchars($course['nivel']); ?>)
-                                                </option>
-                                            <?php endif; ?>
-                                        <?php endforeach; ?>
-                                    </select>
+
+                        <!-- Cursos Oferecidos -->
+                        <div class="mb-3">
+                            <h6 class="text-primary mb-2">
+                                <i class="fas fa-graduation-cap me-1"></i>Cursos Oferecidos
+                            </h6>
+                            <div id="courses-<?= $university['id'] ?>" class="courses-list">
+                                <div class="text-center text-muted">
+                                    <div class="spinner-border spinner-border-sm" role="status">
+                                        <span class="visually-hidden">Carregando...</span>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                <button type="submit" class="btn btn-primary">Adicionar</button>
+                        </div>
+
+                        <!-- Adicionar Curso -->
+                        <div class="mb-3">
+                            <div class="input-group input-group-sm">
+                                <select class="form-select" id="course-select-<?= $university['id'] ?>">
+                                    <option value="">Adicionar curso...</option>
+                                    <?php foreach ($courses as $course): ?>
+                                        <option value="<?= $course['id'] ?>">
+                                            <?= htmlspecialchars($course['nome']) ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <button class="btn btn-outline-primary" type="button" 
+                                        onclick="addCourseToUniversity(<?= $university['id'] ?>)">
+                                    <i class="fas fa-plus"></i>
+                                </button>
                             </div>
-                        </form>
+                        </div>
+                    </div>
+
+                    <div class="card-footer bg-light d-flex justify-content-between">
+                        <button class="btn btn-sm btn-outline-primary" 
+                                onclick="editUniversity(<?= $university['id'] ?>, '<?= htmlspecialchars(addslashes($university['nome'])) ?>', '<?= htmlspecialchars(addslashes($university['sigla'])) ?>', '<?= htmlspecialchars(addslashes($university['cidade'])) ?>', '<?= htmlspecialchars(addslashes($university['estado'])) ?>')">
+                            <i class="fas fa-edit me-1"></i>Editar
+                        </button>
+                        <button class="btn btn-sm btn-outline-danger" 
+                                onclick="deleteUniversity(<?= $university['id'] ?>, '<?= htmlspecialchars(addslashes($university['nome'])) ?>')">
+                            <i class="fas fa-trash me-1"></i>Excluir
+                        </button>
                     </div>
                 </div>
             </div>
-        <?php endif; ?>
+        <?php endforeach; ?>
     </div>
 
-    <!-- Modal Adicionar -->
-    <div id="addModal" class="modal">
+    <?php if (empty($universities)): ?>
+        <div class="text-center py-5">
+            <div class="mb-4">
+                <i class="fas fa-university fa-4x text-muted"></i>
+            </div>
+            <h4 class="text-muted">Nenhuma universidade cadastrada</h4>
+            <p class="text-muted">Clique em "Nova Universidade" para começar!</p>
+        </div>
+    <?php endif; ?>
+</div>
+
+<!-- Modal Adicionar Universidade -->
+<div class="modal fade" id="addUniversityModal" tabindex="-1">
+    <div class="modal-dialog">
         <div class="modal-content">
-            <h2>Nova Universidade</h2>
-            <form method="POST">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-university me-2"></i>Nova Universidade
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="addUniversityForm" method="POST">
                 <input type="hidden" name="action" value="add_university">
-                <div class="form-group">
-                    <label>Nome</label>
-                    <input type="text" name="nome" required>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="add_nome" class="form-label">Nome da Universidade</label>
+                        <input type="text" class="form-control" id="add_nome" name="nome" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="add_sigla" class="form-label">Sigla</label>
+                                <input type="text" class="form-control" id="add_sigla" name="sigla" required maxlength="10">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="add_estado" class="form-label">Estado</label>
+                                <input type="text" class="form-control" id="add_estado" name="estado" required maxlength="2" placeholder="SP">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="add_cidade" class="form-label">Cidade</label>
+                        <input type="text" class="form-control" id="add_cidade" name="cidade" required>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>Sigla</label>
-                    <input type="text" name="sigla" required>
-                </div>
-                <div class="form-group">
-                    <label>Cidade</label>
-                    <input type="text" name="cidade" required>
-                </div>
-                <div class="form-group">
-                    <label>Estado</label>
-                    <input type="text" name="estado" maxlength="2" required>
-                </div>
-                <div class="actions">
-                    <button type="submit" class="btn">Salvar</button>
-                    <button type="button" class="btn btn-danger" onclick="closeModal('addModal')">Cancelar</button>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i>Salvar
+                    </button>
                 </div>
             </form>
         </div>
     </div>
+</div>
 
-    <!-- Modal Editar -->
-    <div id="editModal" class="modal">
+<!-- Modal Editar Universidade -->
+<div class="modal fade" id="editUniversityModal" tabindex="-1">
+    <div class="modal-dialog">
         <div class="modal-content">
-            <h2>Editar Universidade</h2>
-            <form method="POST">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="fas fa-edit me-2"></i>Editar Universidade
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form id="editUniversityForm" method="POST">
                 <input type="hidden" name="action" value="edit_university">
                 <input type="hidden" name="id" id="edit_id">
-                <div class="form-group">
-                    <label>Nome</label>
-                    <input type="text" name="nome" id="edit_nome" required>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="edit_nome" class="form-label">Nome da Universidade</label>
+                        <input type="text" class="form-control" id="edit_nome" name="nome" required>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit_sigla" class="form-label">Sigla</label>
+                                <input type="text" class="form-control" id="edit_sigla" name="sigla" required maxlength="10">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="mb-3">
+                                <label for="edit_estado" class="form-label">Estado</label>
+                                <input type="text" class="form-control" id="edit_estado" name="estado" required maxlength="2">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_cidade" class="form-label">Cidade</label>
+                        <input type="text" class="form-control" id="edit_cidade" name="cidade" required>
+                    </div>
                 </div>
-                <div class="form-group">
-                    <label>Sigla</label>
-                    <input type="text" name="sigla" id="edit_sigla" required>
-                </div>
-                <div class="form-group">
-                    <label>Cidade</label>
-                    <input type="text" name="cidade" id="edit_cidade" required>
-                </div>
-                <div class="form-group">
-                    <label>Estado</label>
-                    <input type="text" name="estado" id="edit_estado" maxlength="2" required>
-                </div>
-                <div class="actions">
-                    <button type="submit" class="btn">Atualizar</button>
-                    <button type="button" class="btn btn-danger" onclick="closeModal('editModal')">Cancelar</button>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save me-1"></i>Atualizar
+                    </button>
                 </div>
             </form>
         </div>
     </div>
+</div>
 
-    <script>
-        function openAddModal() {
-            document.getElementById('addModal').style.display = 'flex';
-        }
+<!-- Formulário oculto para ações -->
+<form id="actionForm" method="POST" style="display: none;">
+    <input type="hidden" name="action" id="formAction">
+    <input type="hidden" name="id" id="formId">
+    <input type="hidden" name="university_id" id="formUniversityId">
+    <input type="hidden" name="course_id" id="formCourseId">
+</form>
 
-        function openEditModal(id, nome, sigla, cidade, estado) {
-            document.getElementById('edit_id').value = id;
-            document.getElementById('edit_nome').value = nome;
-            document.getElementById('edit_sigla').value = sigla;
-            document.getElementById('edit_cidade').value = cidade;
-            document.getElementById('edit_estado').value = estado;
-            document.getElementById('editModal').style.display = 'flex';
-        }
+<script>
+// Carregar cursos da universidade via AJAX (simulado)
+document.addEventListener('DOMContentLoaded', function() {
+    <?php foreach ($universities as $university): ?>
+        loadUniversityCourses(<?= $university['id'] ?>);
+    <?php endforeach; ?>
+});
 
-        function closeModal(modalId) {
-            document.getElementById(modalId).style.display = 'none';
-        }
+function loadUniversityCourses(universityId) {
+    // Por enquanto, vamos simular o carregamento
+    setTimeout(() => {
+        const container = document.getElementById(`courses-${universityId}`);
+        
+        // Aqui você implementaria uma chamada AJAX real para buscar os cursos
+        // Por enquanto, vamos mostrar uma mensagem
+        container.innerHTML = `
+            <div class="text-muted small">
+                <i class="fas fa-info-circle me-1"></i>
+                Carregue os cursos via AJAX ou implemente listCourses()
+            </div>
+        `;
+    }, 500);
+}
 
-        // Fechar modal ao clicar fora
-        window.onclick = function(event) {
-            if (event.target.className === 'modal') {
-                event.target.style.display = 'none';
-            }
-        }
-    </script>
+function editUniversity(id, nome, sigla, cidade, estado) {
+    document.getElementById('edit_id').value = id;
+    document.getElementById('edit_nome').value = nome;
+    document.getElementById('edit_sigla').value = sigla;
+    document.getElementById('edit_cidade').value = cidade;
+    document.getElementById('edit_estado').value = estado;
+    
+    const modal = new bootstrap.Modal(document.getElementById('editUniversityModal'));
+    modal.show();
+}
+
+function deleteUniversity(id, nome) {
+    if (confirm(`Tem certeza que deseja excluir a universidade "${nome}"?\n\nEsta ação não pode ser desfeita.`)) {
+        document.getElementById('formAction').value = 'delete_university';
+        document.getElementById('formId').value = id;
+        document.getElementById('actionForm').submit();
+    }
+}
+
+function addCourseToUniversity(universityId) {
+    const select = document.getElementById(`course-select-${universityId}`);
+    const courseId = select.value;
+    
+    if (!courseId) {
+        alert('Por favor, selecione um curso.');
+        return;
+    }
+    
+    if (confirm('Adicionar este curso à universidade?')) {
+        document.getElementById('formAction').value = 'add_course_to_university';
+        document.getElementById('formUniversityId').value = universityId;
+        document.getElementById('formCourseId').value = courseId;
+        document.getElementById('actionForm').submit();
+    }
+}
+
+function removeCourseFromUniversity(universityId, courseId, courseName) {
+    if (confirm(`Remover o curso "${courseName}" desta universidade?`)) {
+        document.getElementById('formAction').value = 'remove_course_from_university';
+        document.getElementById('formUniversityId').value = universityId;
+        document.getElementById('formCourseId').value = courseId;
+        document.getElementById('actionForm').submit();
+    }
+}
+
+// Validação de formulários
+document.getElementById('addUniversityForm').addEventListener('submit', function(e) {
+    const estado = document.getElementById('add_estado').value.toUpperCase();
+    if (estado.length !== 2) {
+        e.preventDefault();
+        alert('O estado deve ter exatamente 2 letras (ex: SP, RJ).');
+        return;
+    }
+    document.getElementById('add_estado').value = estado;
+});
+
+document.getElementById('editUniversityForm').addEventListener('submit', function(e) {
+    const estado = document.getElementById('edit_estado').value.toUpperCase();
+    if (estado.length !== 2) {
+        e.preventDefault();
+        alert('O estado deve ter exatamente 2 letras (ex: SP, RJ).');
+        return;
+    }
+    document.getElementById('edit_estado').value = estado;
+});
+</script>
+
+<style>
+.courses-list {
+    max-height: 120px;
+    overflow-y: auto;
+    border: 1px solid #e9ecef;
+    border-radius: 0.375rem;
+    padding: 0.5rem;
+    background-color: #f8f9fa;
+}
+
+.course-item {
+    display: flex;
+    justify-content: between;
+    align-items: center;
+    padding: 0.25rem 0;
+    border-bottom: 1px solid #dee2e6;
+}
+
+.course-item:last-child {
+    border-bottom: none;
+}
+
+.course-item .course-name {
+    flex: 1;
+    font-size: 0.875rem;
+}
+
+.course-item .btn {
+    margin-left: 0.5rem;
+}
+
+.card {
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15) !important;
+}
+
+.input-group-sm .form-select {
+    font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+    .col-lg-6 {
+        margin-bottom: 1rem;
+    }
+    
+    .card-footer .btn {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+    }
+}
+</style>
+
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
