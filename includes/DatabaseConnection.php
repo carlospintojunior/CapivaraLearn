@@ -1,145 +1,156 @@
 <?php
-require_once __DIR__ . '/DatabaseConnection.php';
 
-use CapivaraLearn\DatabaseConnection;
+namespace CapivaraLearn;
+
+use PDO;
+use PDOException;
 
 /**
- * Serviço para gerenciamento de universidades
+ * Classe de conexão com banco de dados
+ * Implementação real da classe DatabaseConnection
  */
-class UniversityService {
-    private $db;
+class DatabaseConnection {
     private static $instance = null;
-
+    private $connection;
+    
     private function __construct() {
-        $this->db = DatabaseConnection::getInstance();
+        try {
+            $dsn = "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET;
+            $options = [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                PDO::ATTR_EMULATE_PREPARES => false,
+                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES " . DB_CHARSET
+            ];
+            
+            $this->connection = new PDO($dsn, DB_USER, DB_PASS, $options);
+        } catch (PDOException $e) {
+            if (defined('DEBUG_MODE') && DEBUG_MODE) {
+                die("Erro de conexão: " . $e->getMessage());
+            } else {
+                die("Erro interno do sistema. Tente novamente em alguns minutos.");
+            }
+        }
     }
-
+    
     public static function getInstance() {
         if (self::$instance === null) {
             self::$instance = new self();
         }
         return self::$instance;
     }
-
-    /**
-     * Lista todas as universidades ativas
-     */
-    public function listAll() {
-        return $this->db->select(
-            "SELECT * FROM universidades WHERE ativo = 1 ORDER BY nome"
-        );
+    
+    public function getConnection() {
+        return $this->connection;
     }
-
+    
     /**
-     * Busca uma universidade por ID
+     * Executa uma query SELECT e retorna os resultados
      */
-    public function getById($id) {
-        $result = $this->db->select(
-            "SELECT * FROM universidades WHERE id = ? AND ativo = 1",
-            [$id]
-        );
-        return $result[0] ?? null;
+    public function select($sql, $params = []) {
+        try {
+            $stmt = $this->connection->prepare($sql);
+            $stmt->execute($params);
+            return $stmt->fetchAll();
+        } catch (PDOException $e) {
+            error_log("Erro SQL SELECT: " . $e->getMessage());
+            return false;
+        }
     }
-
+    
     /**
-     * Cria uma nova universidade
+     * Insere dados em uma tabela
      */
-    public function create($data) {
-        return $this->db->insert(
-            "universidades",
-            [
-                'nome' => $data['nome'],
-                'sigla' => $data['sigla'],
-                'cidade' => $data['cidade'],
-                'estado' => $data['estado']
-            ]
-        );
+    public function insert($table, $data) {
+        try {
+            $fields = array_keys($data);
+            $values = array_values($data);
+            $placeholders = str_repeat('?,', count($fields) - 1) . '?';
+            
+            $sql = "INSERT INTO {$table} (`" . implode('`, `', $fields) . "`) VALUES ({$placeholders})";
+            $stmt = $this->connection->prepare($sql);
+            $stmt->execute($values);
+            
+            return $this->connection->lastInsertId();
+        } catch (PDOException $e) {
+            error_log("Erro SQL INSERT: " . $e->getMessage());
+            return false;
+        }
     }
-
+    
     /**
-     * Atualiza uma universidade existente
+     * Atualiza dados em uma tabela
      */
-    public function update($id, $data) {
-        return $this->db->update(
-            "universidades",
-            [
-                'nome' => $data['nome'],
-                'sigla' => $data['sigla'],
-                'cidade' => $data['cidade'],
-                'estado' => $data['estado']
-            ],
-            "id = ?",
-            [$id]
-        );
+    public function update($table, $data, $where, $whereParams = []) {
+        try {
+            $fields = array_keys($data);
+            $values = array_values($data);
+            
+            $setClause = implode(' = ?, ', $fields) . ' = ?';
+            $sql = "UPDATE {$table} SET {$setClause} WHERE {$where}";
+            
+            $params = array_merge($values, $whereParams);
+            $stmt = $this->connection->prepare($sql);
+            
+            return $stmt->execute($params);
+        } catch (PDOException $e) {
+            error_log("Erro SQL UPDATE: " . $e->getMessage());
+            return false;
+        }
     }
-
+    
     /**
-     * Remove (soft delete) uma universidade
+     * Deleta dados de uma tabela
      */
-    public function delete($id) {
-        return $this->db->update(
-            "universidades",
-            ['ativo' => 0],
-            "id = ?",
-            [$id]
-        );
+    public function delete($table, $where, $whereParams = []) {
+        try {
+            $sql = "DELETE FROM {$table} WHERE {$where}";
+            $stmt = $this->connection->prepare($sql);
+            return $stmt->execute($whereParams);
+        } catch (PDOException $e) {
+            error_log("Erro SQL DELETE: " . $e->getMessage());
+            return false;
+        }
     }
-
+    
     /**
-     * Lista todos os cursos de uma universidade
+     * Executa uma query genérica
      */
-    public function listCourses($universityId) {
-        return $this->db->select(
-            "SELECT c.* FROM cursos c 
-            INNER JOIN universidade_curso uc ON c.id = uc.curso_id 
-            WHERE uc.universidade_id = ? AND uc.ativo = 1 AND c.ativo = 1
-            ORDER BY c.nome",
-            [$universityId]
-        );
+    public function execute($query, $params = []) {
+        try {
+            $stmt = $this->connection->prepare($query);
+            return $stmt->execute($params);
+        } catch (PDOException $e) {
+            error_log("Erro SQL EXECUTE: " . $e->getMessage());
+            return false;
+        }
     }
-
+    
     /**
-     * Adiciona um curso à universidade
+     * Prepara uma query
      */
-    public function addCourse($universityId, $courseId) {
-        return $this->db->execute(
-            "INSERT IGNORE INTO universidade_curso (universidade_id, curso_id) VALUES (?, ?)",
-            [$universityId, $courseId]
-        );
+    public function prepare($query) {
+        return $this->connection->prepare($query);
     }
-
+    
     /**
-     * Remove um curso da universidade
+     * Inicia uma transação
      */
-    public function removeCourse($universityId, $courseId) {
-        return $this->db->execute(
-            "UPDATE universidade_curso SET ativo = 0 WHERE universidade_id = ? AND curso_id = ?",
-            [$universityId, $courseId]
-        );
+    public function beginTransaction() {
+        return $this->connection->beginTransaction();
     }
-
+    
     /**
-     * Verifica se um curso está associado a uma universidade
+     * Confirma uma transação
      */
-    public function hasCourse($universityId, $courseId) {
-        $result = $this->db->select(
-            "SELECT 1 FROM universidade_curso 
-            WHERE universidade_id = ? AND curso_id = ? AND ativo = 1",
-            [$universityId, $courseId]
-        );
-        return !empty($result);
+    public function commit() {
+        return $this->connection->commit();
     }
-
+    
     /**
-     * Lista universidades que oferecem um determinado curso
+     * Desfaz uma transação
      */
-    public function listUniversitiesByCourse($courseId) {
-        return $this->db->select(
-            "SELECT u.* FROM universidades u 
-            INNER JOIN universidade_curso uc ON u.id = uc.universidade_id 
-            WHERE uc.curso_id = ? AND uc.ativo = 1 AND u.ativo = 1
-            ORDER BY u.nome",
-            [$courseId]
-        );
+    public function rollBack() {
+        return $this->connection->rollBack();
     }
 }

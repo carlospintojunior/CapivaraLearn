@@ -1,4 +1,10 @@
 <?php
+require_once __DIR__ . '/../config.php';
+
+/**
+ * Serviço para gerenciamento de arquivos
+ */
+class FileService {
 /**
  * Serviço para gerenciamento de uploads de arquivos
  */

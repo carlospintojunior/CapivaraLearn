@@ -52,9 +52,14 @@ Volte para o diretório do projeto (sempre faça isso para testar localmenente)
 ~~~
 sudo cp -r . /opt/lampp/htdocs/CapivaraLearn
 
-sudo chown -R daemon:daemon /opt/lampp/htdocs/CapivaraLearn && sudo chmod -R 644 /opt/lampp/htdocs/CapivaraLearn && sudo find /opt/lampp/htdocs/CapivaraLearn -type d -exec chmod 755 {} \;
+sudo chown -R daemon:daemon /opt/lampp/htdocs/CapivaraLearn 
+sudo chmod -R 644 /opt/lampp/htdocs/CapivaraLearn 
+sudo find /opt/lampp/htdocs/CapivaraLearn -type d -exec chmod 755 {} \;
 
-sudo mkdir -p /opt/lampp/htdocs/CapivaraLearn/logs && sudo chmod 777 /opt/lampp/htdocs/CapivaraLearn/logs && sudo touch /opt/lampp/htdocs/CapivaraLearn/logs/php_errors.log && sudo chmod 666 /opt/lampp/htdocs/CapivaraLearn/logs/php_errors.log
+sudo mkdir -p /opt/lampp/htdocs/CapivaraLearn/logs
+sudo chmod 777 /opt/lampp/htdocs/CapivaraLearn/logs
+sudo touch /opt/lampp/htdocs/CapivaraLearn/logs/php_errors.log
+sudo chmod 666 /opt/lampp/htdocs/CapivaraLearn/logs/php_errors.log
 ~~~
 
 
