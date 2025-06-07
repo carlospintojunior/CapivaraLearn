@@ -47,9 +47,21 @@ obs: o XAMPP precisa estar em /opt/lampp
 5. Abra o navegador e acesse: `http://localhost:3000`
 
 
-Volte para o diretório do projeto (sempre faça isso para testar localmenente)
+## 🔄 Sincronização Desenvolvimento → Produção
 
-~~~
+O CapivaraLearn utiliza um fluxo de trabalho onde o desenvolvimento é feito em `/home/carlos/Documents/GitHub/CapivaraLearn` e depois sincronizado para o XAMPP em `/opt/lampp/htdocs/CapivaraLearn`.
+
+### Método 1: Script Automático (Recomendado)
+```bash
+cd /home/carlos/Documents/GitHub/CapivaraLearn
+./sync_to_xampp.sh
+```
+
+### Método 2: Comandos Manuais
+```bash
+cd /home/carlos/Documents/GitHub/CapivaraLearn
+
+sudo rm -r /opt/lampp/htdocs/CapivaraLearn
 sudo cp -r . /opt/lampp/htdocs/CapivaraLearn
 
 sudo chown -R daemon:daemon /opt/lampp/htdocs/CapivaraLearn 
@@ -60,7 +72,9 @@ sudo mkdir -p /opt/lampp/htdocs/CapivaraLearn/logs
 sudo chmod 777 /opt/lampp/htdocs/CapivaraLearn/logs
 sudo touch /opt/lampp/htdocs/CapivaraLearn/logs/php_errors.log
 sudo chmod 666 /opt/lampp/htdocs/CapivaraLearn/logs/php_errors.log
-~~~
+```
+
+**⚠️ Importante:** Execute a sincronização sempre que fizer alterações no código de desenvolvimento!
 
 
 Abra o navegador e acesse: `http://localhost/CapivaraLearn/install.php`
