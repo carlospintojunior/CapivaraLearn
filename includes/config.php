@@ -176,6 +176,50 @@ class Database {
             return false;
         }
     }
+
+    // Método para construir e executar queries INSERT
+    public function insert($table, $data) {
+        if (empty($data)) {
+            return false;
+        }
+        $keys = array_keys($data);
+        $fields = implode(', ', $keys);
+        $placeholders = ':' . implode(', :', $keys);
+        $sql = "INSERT INTO {$table} ({$fields}) VALUES ({$placeholders})";
+        try {
+            $stmt = $this->connection->prepare($sql);
+            return $stmt->execute($data);
+        } catch (PDOException $e) {
+            error_log("Erro SQL INSERT em {$table}: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    // Método para construir e executar queries UPDATE
+    public function update($table, $data, $condition, $conditionParams = []) {
+        if (empty($data)) {
+            return false;
+        }
+        $setClauses = [];
+        foreach (array_keys($data) as $key) {
+            $setClauses[] = "{$key} = :{$key}";
+        }
+        $setClause = implode(', ', $setClauses);
+        $sql = "UPDATE {$table} SET {$setClause} WHERE {$condition}";
+        
+        try {
+            $stmt = $this->connection->prepare($sql);
+            // Merge data parameters with condition parameters
+            // Ensure placeholder names in $data don't clash with those in $conditionParams if $condition uses named placeholders
+            // For simplicity, assuming $condition uses positional placeholders '?' if $conditionParams is not empty,
+            // or named placeholders that are distinct from $data keys.
+            // A more robust solution might involve namespacing placeholders if clashes are possible.
+            return $stmt->execute(array_merge($data, $conditionParams));
+        } catch (PDOException $e) {
+            error_log("Erro SQL UPDATE em {$table}: " . $e->getMessage());
+            return false;
+        }
+    }
     
     // Método para pegar o último ID inserido
     public function lastInsertId() {

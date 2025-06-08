@@ -505,31 +505,118 @@ $dependencyCheck = checkDependencies();
                 }
                 
                 $configContent = "<?php
-// CapivaraLearn - Configurações do Sistema
-// Gerado automaticamente em " . date('Y-m-d H:i:s') . "
+/**
+ * CapivaraLearn - Configurações do Sistema
+ * Gerado automaticamente em " . date('Y-m-d H:i:s') . "
+ * Versão completa com detecção de ambiente
+ */
 
-// Configurações do Banco de Dados
+// =============================================
+// DETECTAR AMBIENTE PRIMEIRO
+// =============================================
+
+// Tentar carregar configuração do arquivo .ini
+\$envFile = __DIR__ . '/environment.ini';
+\$config = null;
+
+if (file_exists(\$envFile)) {
+    \$config = parse_ini_file(\$envFile, true);
+    \$isProduction = isset(\$config['environment']['environment']) && 
+                   strtolower(\$config['environment']['environment']) === 'production';
+} else {
+    // Fallback para detecção automática baseada no domínio
+    \$isProduction = (isset(\$_SERVER['HTTP_HOST']) && strpos(\$_SERVER['HTTP_HOST'], 'capivaralearn.com.br') !== false);
+}
+
+// =============================================
+// CONFIGURAÇÕES DE SESSÃO (ANTES de session_start)
+// =============================================
+if (session_status() === PHP_SESSION_NONE) {
+    // Configurar parâmetros de sessão apenas se sessão não estiver ativa
+    @ini_set('session.cookie_httponly', 1);
+    @ini_set('session.use_only_cookies', 1);
+    
+    if (\$isProduction) {
+        @ini_set('session.cookie_secure', 1);
+        @ini_set('session.cookie_samesite', 'Strict');
+    }
+    
+    session_start();
+}
+
+// =============================================
+// CONFIGURAÇÕES DO BANCO DE DADOS
+// =============================================
 define('DB_HOST', '$host');
 define('DB_NAME', '$dbname');
 define('DB_USER', '$user');
 define('DB_PASS', '$pass');
 define('DB_CHARSET', 'utf8mb4');
 
-// Configurações da Aplicação
-define('APP_NAME', 'CapivaraLearn');
-define('APP_VERSION', '1.0.0');
-define('APP_URL', 'http://' . \$_SERVER['HTTP_HOST'] . dirname(\$_SERVER['SCRIPT_NAME']));
+// =============================================
+// CONFIGURAÇÕES BASEADAS NO AMBIENTE
+// =============================================
+if (\$isProduction) {
+    // CONFIGURAÇÕES DE PRODUÇÃO
+    define('APP_URL', 'https://capivaralearn.com.br');
+    define('APP_ENV', 'production');
+    define('DEBUG_MODE', false);
+    
+    // Forçar HTTPS apenas se não estiver em CLI
+    if (php_sapi_name() !== 'cli') {
+        if (!isset(\$_SERVER['HTTPS']) || \$_SERVER['HTTPS'] !== 'on') {
+            \$redirect_url = 'https://' . \$_SERVER['HTTP_HOST'] . \$_SERVER['REQUEST_URI'];
+            header(\"Location: \$redirect_url\", true, 301);
+            exit();
+        }
+    }
+} else {
+    // CONFIGURAÇÕES DE DESENVOLVIMENTO
+    define('APP_URL', 'http://localhost/CapivaraLearn');
+    define('APP_ENV', 'development');
+    define('DEBUG_MODE', true);
+}
+
 define('TIMEZONE', 'America/Sao_Paulo');
 
-// Configurações de Segurança
+// =============================================
+// CONFIGURAÇÕES DE SEGURANÇA
+// =============================================
 define('SECRET_KEY', '" . bin2hex(random_bytes(32)) . "');
 define('SESSION_LIFETIME', 3600 * 24 * 7); // 7 dias
 define('PASSWORD_MIN_LENGTH', 6);
 
+// =============================================
+// CONFIGURAÇÕES DA APLICAÇÃO
+// =============================================
+define('APP_NAME', 'CapivaraLearn');
+define('APP_VERSION', '1.0.0');
+
 // Configurar timezone
 date_default_timezone_set(TIMEZONE);
 
-// Classe de Conexão com Banco
+// =============================================
+// CONFIGURAÇÕES DE EMAIL
+// =============================================
+if (\$config && isset(\$config[APP_ENV])) {
+    \$envConfig = \$config[APP_ENV];
+    define('MAIL_HOST', \$envConfig['mail_host'] ?? 'localhost');
+    define('MAIL_PORT', \$envConfig['mail_port'] ?? 587);
+    define('MAIL_USERNAME', \$envConfig['mail_username'] ?? '');
+    define('MAIL_PASSWORD', \$envConfig['mail_password'] ?? '');
+    define('MAIL_FROM_NAME', \$envConfig['mail_from_name'] ?? 'CapivaraLearn');
+} else {
+    // Configurações padrão para desenvolvimento
+    define('MAIL_HOST', 'localhost');
+    define('MAIL_PORT', 587);
+    define('MAIL_USERNAME', 'capivara@capivaralearn.com.br');
+    define('MAIL_PASSWORD', '');
+    define('MAIL_FROM_NAME', 'CapivaraLearn (Dev)');
+}
+
+// =============================================
+// CLASSE DE CONEXÃO COM BANCO - VERSÃO COMPLETA
+// =============================================
 class Database {
     private static \$instance = null;
     private \$connection;
@@ -581,12 +668,79 @@ class Database {
         }
     }
     
+    // MÉTODOS ADICIONADOS PARA COMPATIBILIDADE
+    public function insert(\$table, \$data) {
+        try {
+            \$columns = array_keys(\$data);
+            \$placeholders = array_map(function(\$col) { return ':' . \$col; }, \$columns);
+            
+            \$sql = \"INSERT INTO \$table (\" . implode(', ', \$columns) . \") VALUES (\" . implode(', ', \$placeholders) . \")\";
+            
+            \$stmt = \$this->connection->prepare(\$sql);
+            
+            // Bind dos parâmetros
+            foreach (\$data as \$column => \$value) {
+                \$stmt->bindValue(':' . \$column, \$value);
+            }
+            
+            \$result = \$stmt->execute();
+            
+            if (DEBUG_MODE) {
+                error_log(\"Database INSERT - Tabela: \$table, Dados: \" . json_encode(\$data));
+            }
+            
+            return \$result;
+        } catch (PDOException \$e) {
+            error_log(\"Erro SQL INSERT: \" . \$e->getMessage() . \" - Tabela: \$table\");
+            if (DEBUG_MODE) {
+                error_log(\"Dados do INSERT: \" . json_encode(\$data));
+            }
+            return false;
+        }
+    }
+    
+    public function update(\$table, \$data, \$where, \$whereParams = []) {
+        try {
+            \$setClause = [];
+            foreach (array_keys(\$data) as \$column) {
+                \$setClause[] = \"\$column = :\$column\";
+            }
+            
+            \$sql = \"UPDATE \$table SET \" . implode(', ', \$setClause) . \" WHERE \$where\";
+            
+            \$stmt = \$this->connection->prepare(\$sql);
+            
+            // Bind dos dados
+            foreach (\$data as \$column => \$value) {
+                \$stmt->bindValue(':' . \$column, \$value);
+            }
+            
+            // Bind dos parâmetros WHERE
+            foreach (\$whereParams as \$param => \$value) {
+                \$stmt->bindValue(\$param, \$value);
+            }
+            
+            \$result = \$stmt->execute();
+            
+            if (DEBUG_MODE) {
+                error_log(\"Database UPDATE - Tabela: \$table, WHERE: \$where\");
+            }
+            
+            return \$result;
+        } catch (PDOException \$e) {
+            error_log(\"Erro SQL UPDATE: \" . \$e->getMessage() . \" - Tabela: \$table\");
+            return false;
+        }
+    }
+    
     public function lastInsertId() {
         return \$this->connection->lastInsertId();
     }
 }
 
-// Funções auxiliares
+// =============================================
+// FUNÇÕES AUXILIARES
+// =============================================
 function hashPassword(\$password) {
     return password_hash(\$password, PASSWORD_DEFAULT);
 }
@@ -627,9 +781,65 @@ function jsonResponse(\$data, \$statusCode = 200) {
     exit();
 }
 
+// =============================================
+// FUNÇÕES DE LOG E ATIVIDADE
+// =============================================
+function logActivity(\$action, \$description = '', \$userId = null) {
+    try {
+        \$db = Database::getInstance();
+        \$sql = \"INSERT INTO logs_atividade (usuario_id, acao, descricao, data_hora, ip_address, user_agent) 
+                VALUES (:usuario_id, :acao, :descricao, NOW(), :ip, :user_agent)\";
+        
+        \$params = [
+            ':usuario_id' => \$userId ?? (\$_SESSION['user_id'] ?? null),
+            ':acao' => \$action,
+            ':descricao' => \$description,
+            ':ip' => \$_SERVER['REMOTE_ADDR'] ?? 'CLI',
+            ':user_agent' => \$_SERVER['HTTP_USER_AGENT'] ?? 'CLI'
+        ];
+        
+        \$db->execute(\$sql, \$params);
+    } catch (Exception \$e) {
+        error_log('Erro ao registrar atividade: ' . \$e->getMessage());
+    }
+}
+
+function logError(\$message, \$context = []) {
+    \$logMessage = '[' . date('Y-m-d H:i:s') . '] ERROR: ' . \$message;
+    if (!empty(\$context)) {
+        \$logMessage .= ' Context: ' . json_encode(\$context);
+    }
+    error_log(\$logMessage);
+}
+
+// =============================================
+// CONFIGURAÇÕES DE ERRO
+// =============================================
+if (APP_ENV === 'production') {
+    // Produção - Não mostrar erros
+    ini_set('display_errors', 0);
+    ini_set('display_startup_errors', 0);
+    error_reporting(0);
+} else {
+    // Desenvolvimento - Mostrar todos os erros
+    ini_set('display_errors', 1);
+    ini_set('display_startup_errors', 1);
+    error_reporting(E_ALL);
+}
+
+// Configurar timezone
+date_default_timezone_set(TIMEZONE);
+
 // Iniciar sessão se ainda não iniciada
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
+}
+
+// =============================================
+// LOG INICIAL DO SISTEMA
+// =============================================
+if (DEBUG_MODE) {
+    logActivity('config_loaded', 'Sistema inicializado para ' . APP_ENV);
 }
 ?>";
                 
