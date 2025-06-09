@@ -529,7 +529,7 @@ $dependencyCheck = checkDependencies();
  * 🖥️  Servidor: " . ($_SERVER['HTTP_HOST'] ?? 'localhost') . "
  * 
  * ===============================================
- */
+ */"
 
 // =============================================
 // DETECTAR AMBIENTE PRIMEIRO
