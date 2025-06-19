@@ -1,5 +1,6 @@
 <?php
 require_once 'includes/config.php';
+require_once 'includes/log_sistema.php';
 
 // Adicionar exibição de erros diretamente na página em modo de desenvolvimento
 if (APP_ENV === 'development') {
@@ -87,15 +88,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         } elseif ($password !== $confirmPassword) {
             $error = 'As senhas não coincidem';
         } else {
+            log_sistema("Tentativa de registro de nova conta para email: $email", 'INFO');
             // Verificar se e-mail já existe
             $existing = $db->select("SELECT id, email_verificado FROM usuarios WHERE email = ?", [$email]);
             
             if ($existing) {
                 if ($existing[0]['email_verificado']) {
                     $error = 'E-mail já cadastrado e verificado. Tente fazer login.';
+                    log_sistema("Tentativa de registro com email já verificado: $email", 'WARNING');
                 } else {
                     $error = 'E-mail já cadastrado mas não verificado. Verifique sua caixa de entrada ou ';
                     $error .= '<a href="?resend_email=' . urlencode($email) . '" style="color: #3498db;">clique aqui para reenviar a confirmação</a>';
+                    log_sistema("Tentativa de registro com email já cadastrado mas não verificado: $email", 'WARNING');
                 }
             } else {
                 // Criar usuário
@@ -108,6 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     
                     if ($stmt->execute([$nome, $email, $hashedPassword])) {
                         $userId = $db->getConnection()->lastInsertId();
+                        log_sistema("Nova conta criada com sucesso - ID: $userId, Email: $email, Nome: $nome", 'SUCCESS');
                         
                         // Criar configurações padrão
                         $db->execute("INSERT INTO configuracoes_usuario (usuario_id) VALUES (?)", [$userId]);
@@ -121,27 +126,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             [$userId, $token, $expiration, $_SERVER['REMOTE_ADDR'] ?? null]
                         );
                         
+                        log_sistema("Token de confirmação gerado para usuário ID: $userId, Email: $email", 'INFO');
+                        
                         // Tentar enviar email
                         if ($mail->sendConfirmationEmail($email, $nome, $token)) {
                             // Log do email enviado
                             $db->execute(
-                                "INSERT INTO email_log (usuario_id, email_destino, assunto, tipo, status) VALUES (?, ?, ?, 'confirmacao', 'enviado')",
-                                [$userId, $email, 'Confirme seu cadastro no CapivaraLearn']
+                                "INSERT INTO email_log (destinatario, assunto, tipo, status) VALUES (?, ?, 'confirmacao', 'enviado')",
+                                [$email, 'Confirme seu cadastro no CapivaraLearn']
                             );
+                            
+                            log_sistema("Email de confirmação enviado com sucesso para: $email (Usuario ID: $userId)", 'SUCCESS');
                             
                             $success = 'Conta criada com sucesso! Verifique seu email para confirmar o cadastro.';
                             logActivity('user_registered', "Novo usuário registrado: $email");
                         } else {
+                            // Capturar erro específico do MailService
+                            $mailError = $mail->getLastError();
+                            $errorDetails = "Erro SMTP: " . $mailError;
+                            
+                            log_sistema("ERRO ao enviar email de confirmação para: $email (Usuario ID: $userId) - Erro: $mailError", 'ERROR');
+                            
                             // Log do erro de email
                             $db->execute(
-                                "INSERT INTO email_log (usuario_id, email_destino, assunto, tipo, status, erro_detalhes) VALUES (?, ?, ?, 'confirmacao', 'falha', ?)",
-                                [$userId, $email, 'Confirme seu cadastro no CapivaraLearn', 'Erro no envio SMTP']
+                                "INSERT INTO email_log (destinatario, assunto, tipo, status, erro) VALUES (?, ?, 'confirmacao', 'falhou', ?)",
+                                [$email, 'Confirme seu cadastro no CapivaraLearn', $errorDetails]
                             );
                             
-                            $error = 'Conta criada, mas houve um problema no envio do email. Entre em contato conosco.';
+                            // Log detalhado no arquivo
+                            error_log("=== FALHA NO ENVIO DE EMAIL ===");
+                            error_log("Email: $email");
+                            error_log("Erro: $mailError");
+                            error_log("Config SMTP: " . json_encode($mail->getConfig()));
+                            
+                            // Mostrar erro específico para debug
+                            $error = '⚠️ Conta criada, mas houve um problema no envio do email.<br>';
+                            $error .= '<strong>Detalhes do erro:</strong> ' . htmlspecialchars($mailError) . '<br>';
+                            $error .= '<small>Este erro foi registrado nos logs do sistema.</small>';
                         }
                     } else {
                         $error = 'Erro ao criar conta';
+                        log_sistema("ERRO ao criar conta no banco de dados para email: $email", 'ERROR');
                     }
                 } catch (Exception $e) {
                     $error = (APP_ENV === 'development') ? 
@@ -161,9 +186,13 @@ if (isset($_GET['resend_email'])) {
     $db = Database::getInstance();
     $mail = MailService::getInstance();
 
+    log_sistema("Solicitação de reenvio de email de confirmação para: $email", 'INFO');
+
     $user = $db->select("SELECT id, nome, email_verificado FROM usuarios WHERE email = ?", [$email]);
 
     if ($user && !$user[0]['email_verificado']) {
+        log_sistema("Reenvio autorizado para usuário ID: {$user[0]['id']}, Email: $email", 'INFO');
+        
         // Invalidar tokens antigos
         $db->execute("UPDATE email_tokens SET usado = TRUE WHERE usuario_id = ? AND tipo = 'confirmacao'", [$user[0]['id']]);
 
@@ -176,15 +205,36 @@ if (isset($_GET['resend_email'])) {
             [$user[0]['id'], $token, $expiration, $_SERVER['REMOTE_ADDR'] ?? null]
         );
 
+        log_sistema("Novo token de confirmação gerado para reenvio - Usuario ID: {$user[0]['id']}, Email: $email", 'INFO');
+
         // Tentar enviar email
+        error_log("DEBUG: Iniciando reenvio de email para: $email");
+        $start_time = microtime(true);
+        
         if ($mail->sendConfirmationEmail($email, $user[0]['nome'], $token)) {
+            $end_time = microtime(true);
+            error_log("DEBUG: Email reenviado com sucesso em " . round($end_time - $start_time, 2) . " segundos");
+            log_sistema("Email de confirmação reenviado com sucesso para: $email (Usuario ID: {$user[0]['id']})", 'SUCCESS');
             $success = 'Email de confirmação reenviado! Verifique sua caixa de entrada.';
         } else {
-            $error = 'Erro ao reenviar email. Tente novamente mais tarde.';
-            error_log("Erro ao enviar email: " . $mail->getLastError());
+            $end_time = microtime(true);
+            $mailError = $mail->getLastError();
+            
+            log_sistema("ERRO ao reenviar email de confirmação para: $email (Usuario ID: {$user[0]['id']}) - Erro: $mailError", 'ERROR');
+            
+            error_log("=== FALHA NO REENVIO DE EMAIL ===");
+            error_log("Email: $email");
+            error_log("Tempo: " . round($end_time - $start_time, 2) . " segundos");
+            error_log("Erro: $mailError");
+            error_log("Config SMTP: " . json_encode($mail->getConfig()));
+            
+            $error = '⚠️ Erro ao reenviar email.<br>';
+            $error .= '<strong>Detalhes:</strong> ' . htmlspecialchars($mailError) . '<br>';
+            $error .= '<small>Tente novamente em alguns minutos.</small>';
         }
     } else {
         $error = 'Email não encontrado ou já verificado.';
+        log_sistema("Tentativa de reenvio negada - Email não encontrado ou já verificado: $email", 'WARNING');
     }
 }
 ?>

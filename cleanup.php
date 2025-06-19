@@ -1,10 +1,20 @@
 <?php
+require_once __DIR__ . '/includes/log_sistema.php';
+log_sistema('cleanup.php iniciado', 'INFO');
 /**
  * CapivaraLearn - Script de Limpeza
  * Este script remove todas as tabelas do banco de dados e reseta o ambiente
  */
 
-require_once __DIR__ . '/includes/config.php';
+// Conectar diretamente ao MySQL sem especificar banco
+try {
+    $pdo = new PDO("mysql:host=localhost;charset=utf8mb4", 'root', '', [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+    ]);
+} catch (PDOException $e) {
+    die("Erro de conexão: " . $e->getMessage());
+}
 
 ?>
 <!DOCTYPE html>
@@ -119,6 +129,8 @@ require_once __DIR__ . '/includes/config.php';
                 $log = '';
                 
                 try {
+                    log_sistema('Iniciando limpeza completa do sistema via cleanup.php', 'INFO');
+                    
                     // Limpar cookies e sessão
                     session_start();
                     $_SESSION = array();
@@ -131,30 +143,28 @@ require_once __DIR__ . '/includes/config.php';
                             setcookie($name, '', time()-3600, '/');
                         }
                     }
+                    log_sistema('Cookies e sessão limpos via cleanup.php', 'INFO');
                     
-                    $db = Database::getInstance();
-                    $pdo = $db->getConnection();
-                    
-                    // Desabilitar verificações de chave estrangeira temporariamente
-                    $pdo->exec('SET FOREIGN_KEY_CHECKS = 0');
-                    
-                    // Listar todas as tabelas
-                    $tables = $pdo->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
-                    
-                    // Dropar cada tabela
-                    foreach ($tables as $table) {
-                        try {
-                            $pdo->exec("DROP TABLE IF EXISTS `$table`");
-                            $log .= "✅ Tabela '$table' removida\n";
-                        } catch (Exception $e) {
-                            $log .= "❌ Erro ao remover tabela '$table': " . $e->getMessage() . "\n";
-                        }
+                    // Tentar apagar banco inteiro e recriar
+                    try {
+                        $pdo->exec("DROP DATABASE IF EXISTS capivaralearn");
+                        $log .= "✅ Banco de dados 'capivaralearn' removido\n";
+                        log_sistema('Banco de dados capivaralearn removido via cleanup.php', 'INFO');
+                        
+                        $pdo->exec("CREATE DATABASE capivaralearn CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+                        $log .= "✅ Banco de dados 'capivaralearn' recriado\n";
+                        log_sistema('Banco de dados capivaralearn recriado via cleanup.php', 'INFO');
+                        
+                    } catch (Exception $e) {
+                        $log .= "❌ Erro: " . $e->getMessage() . "\n";
+                        log_sistema('Erro ao limpar banco de dados via cleanup.php: ' . $e->getMessage(), 'ERROR');
                     }
                     
                     // Reabilitar verificações de chave estrangeira
                     $pdo->exec('SET FOREIGN_KEY_CHECKS = 1');
                     
                     echo '<div class="success">✅ Banco de dados limpo com sucesso</div>';
+                    log_sistema('Limpeza do banco de dados concluída com sucesso via cleanup.php', 'SUCCESS');
                     
                     // Limpar diretório de uploads se solicitado
                     if (isset($_POST['clear_uploads']) && $_POST['clear_uploads'] === 'on') {
@@ -175,6 +185,7 @@ require_once __DIR__ . '/includes/config.php';
                             }
                             
                             echo '<div class="success">✅ Diretório de uploads limpo</div>';
+                            log_sistema('Diretório de uploads limpo via cleanup.php', 'INFO');
                         }
                     }
                     
@@ -191,10 +202,13 @@ require_once __DIR__ . '/includes/config.php';
                                 }
                             }
                             echo '<div class="success">✅ Arquivos de log limpos</div>';
+                            log_sistema('Arquivos de log limpos via cleanup.php', 'INFO');
                         }
                     }
                     
                     echo '<div class="log">' . nl2br(htmlspecialchars($log)) . '</div>';
+                    
+                    log_sistema('Limpeza completa do sistema finalizada com sucesso via cleanup.php', 'SUCCESS');
                     
                     echo '<div class="success">';
                     echo '<p><strong>Sistema limpo com sucesso!</strong></p>';
@@ -202,6 +216,7 @@ require_once __DIR__ . '/includes/config.php';
                     echo '</div>';
                     
                 } catch (Exception $e) {
+                    log_sistema('ERRO CRÍTICO durante limpeza do sistema via cleanup.php: ' . $e->getMessage(), 'CRITICAL');
                     echo '<div class="error">❌ Erro durante a limpeza:</div>';
                     echo '<div class="error">' . htmlspecialchars($e->getMessage()) . '</div>';
                     if (!empty($log)) {
