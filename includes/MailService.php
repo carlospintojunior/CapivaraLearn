@@ -1,5 +1,6 @@
 <?php
-require_once "vendor/autoload.php";
+require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__ . '/log_sistema.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
@@ -19,54 +20,72 @@ class MailService {
     }
     
     public function sendConfirmationEmail($email, $name, $token) {
+        // Sistema de log simples e direto
+        $logFile = '/opt/lampp/htdocs/CapivaraLearn/logs/mailservice.log';
+        
+        // Função de log inline
+        $logMessage = function($message, $level = 'INFO') use ($logFile) {
+            $logDir = dirname($logFile);
+            if (!is_dir($logDir)) {
+                if (!mkdir($logDir, 0777, true) && !is_dir($logDir)) {
+                    log_sistema("[MailService] Falha ao criar diretório de log: $logDir", 'ERROR');
+                }
+            }
+            $timestamp = date('Y-m-d H:i:s');
+            $logLine = "[$timestamp] $level | $message" . PHP_EOL;
+            if (file_put_contents($logFile, $logLine, FILE_APPEND | LOCK_EX) === false) {
+                log_sistema("[MailService] Falha ao escrever no arquivo de log: $logFile", 'ERROR');
+            }
+        };
+        
+        $logMessage("=== INICIANDO ENVIO EMAIL ===");
+        $logMessage("Destinatario: $email");
+        $logMessage("Nome: $name");
+        
+        // Log global do sistema
+        log_sistema("[MailService] Iniciando envio de email para $email", 'INFO');
+        
         try {
             $mail = new PHPMailer(true);
             
-            // Log para debug detalhado
-            error_log("=== MailService: Iniciando envio de email ===");
-            error_log("Destinatário: $email");
-            error_log("Nome: $name");
-            error_log("Token: $token");
-            
-            // Configurações SMTP usando constantes ou valores padrão
+            // Configurações SMTP 
             $mail->isSMTP();
-            $mail->Host = defined('SMTP_HOST') ? SMTP_HOST : '38.242.252.19';
-            $mail->SMTPAuth = defined('SMTP_AUTH') ? SMTP_AUTH : true;
-            $mail->Username = defined('SMTP_USER') ? SMTP_USER : 'capivara@capivaralearn.com.br';
-            $mail->Password = defined('SMTP_PASS') ? SMTP_PASS : '_,CeLlORRy,92';
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
-            $mail->Port = defined('SMTP_PORT') ? SMTP_PORT : 465;
+            $mail->Host = 'mail.capivaralearn.com.br';
+            $mail->SMTPAuth = true;
+            $mail->Username = 'capivara@capivaralearn.com.br';
+            $mail->Password = '_,CeLlORRy,92';
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS; // SSL para porta 465
+            $mail->Port = 465;
+            $mail->Timeout = 30;
             
-            // Debug level
-            $mail->SMTPDebug = SMTP::DEBUG_SERVER;
-            $mail->Debugoutput = function($str, $level) {
-                error_log("SMTP Debug [$level]: $str");
-            };
-            
-            // Log das configurações SMTP
-            error_log("=== SMTP Config ===");
-            error_log("Host: " . $mail->Host);
-            error_log("Port: " . $mail->Port);
-            error_log("User: " . $mail->Username);
-            error_log("Auth: " . ($mail->SMTPAuth ? "true" : "false"));
-            error_log("Secure: " . $mail->SMTPSecure);
+            $logMessage("Configuracoes SMTP definidas");
+            $logMessage("Host: " . $mail->Host);
+            $logMessage("Port: " . $mail->Port);
+            $logMessage("Username: " . $mail->Username);
+            $logMessage("SMTPSecure: " . $mail->SMTPSecure);
             
             // Configurações SSL
-            if (defined('SMTP_SSL_OPTIONS')) {
-                $mail->SMTPOptions = unserialize(SMTP_SSL_OPTIONS);
-            } else {
-                $mail->SMTPOptions = array(
-                    'ssl' => array(
-                        'verify_peer' => false,
-                        'verify_peer_name' => false,
-                        'allow_self_signed' => true
-                    )
-                );
-            }
+            $mail->SMTPOptions = array(
+                'ssl' => array(
+                    'verify_peer' => false,
+                    'verify_peer_name' => false,
+                    'allow_self_signed' => true
+                )
+            );
+            
+            $logMessage("Configuracoes SSL definidas");
+            
+            // Debug do PHPMailer
+            $debugOutput = '';
+            $mail->SMTPDebug = SMTP::DEBUG_SERVER;
+            $mail->Debugoutput = function($str, $level) use (&$debugOutput, $logMessage) {
+                $debugOutput .= "[$level] $str\n";
+                $logMessage("SMTP DEBUG [$level]: " . trim($str));
+            };
             
             // Configurações do remetente
-            $fromEmail = defined('SMTP_FROM_EMAIL') ? SMTP_FROM_EMAIL : 'capivara@capivaralearn.com.br';
-            $fromName = defined('SMTP_FROM_NAME') ? SMTP_FROM_NAME : 'CapivaraLearn';
+            $fromEmail = 'capivara@capivaralearn.com.br';
+            $fromName = 'CapivaraLearn';
             
             $mail->setFrom($fromEmail, $fromName);
             $mail->addAddress($email, $name);
@@ -76,34 +95,61 @@ class MailService {
             $mail->CharSet = 'UTF-8';
             $mail->Subject = 'Confirme seu cadastro no CapivaraLearn';
             
+            $logMessage("Configuracoes de email definidas");
+            
             // URL de confirmação
             $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
             $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
             $path = dirname($_SERVER['PHP_SELF'] ?? '/');
             $confirmUrl = $protocol . $host . $path . '/confirm_email.php?token=' . urlencode($token);
             
-            error_log("=== Email Content ===");
-            error_log("URL de confirmação: $confirmUrl");
+            $logMessage("URL confirmacao: $confirmUrl");
             
             // HTML do email
             $mail->Body = $this->getConfirmationEmailTemplate($name, $confirmUrl);
             $mail->AltBody = "Olá $name,\n\nPara confirmar seu cadastro, acesse: $confirmUrl\n\nEquipe CapivaraLearn";
             
-            error_log("=== Enviando email ===");
+            $logMessage("Conteudo do email definido");
+            $logMessage("Tentando enviar email...");
+            
+            $startTime = microtime(true);
             $mail->send();
-            error_log("=== Email enviado com sucesso ===");
+            $endTime = microtime(true);
+            $duration = round($endTime - $startTime, 2);
+            
+            $logMessage("EMAIL ENVIADO COM SUCESSO! Tempo: {$duration}s");
+            $logMessage("=== ENVIO FINALIZADO COM SUCESSO ===");
+            
+            // Log global de sucesso
+            log_sistema("[MailService] Email enviado com sucesso para $email", 'SUCCESS');
+            
             $this->lastError = '';
             return true;
             
         } catch (Exception $e) {
+            $endTime = microtime(true);
+            $duration = isset($startTime) ? round($endTime - $startTime, 2) : 0;
+            
             $this->lastError = $e->getMessage();
-            error_log("=== ERRO no envio de email ===");
-            error_log("Mensagem de erro: " . $this->lastError);
-            if (isset($mail)) {
-                error_log("PHPMailer ErrorInfo: " . $mail->ErrorInfo);
+            
+            $logMessage("=== ERRO NO ENVIO ===", "ERROR");
+            $logMessage("Mensagem: " . $this->lastError, "ERROR");
+            $logMessage("Tempo: {$duration}s", "ERROR");
+            
+            if (isset($mail) && !empty($mail->ErrorInfo)) {
+                $logMessage("PHPMailer ErrorInfo: " . $mail->ErrorInfo, "ERROR");
             }
-            error_log("=== Stack Trace ===");
-            error_log($e->getTraceAsString());
+            
+            if (!empty($debugOutput)) {
+                $logMessage("=== DEBUG OUTPUT ===", "ERROR");
+                $logMessage($debugOutput, "ERROR");
+            }
+            
+            $logMessage("=== ENVIO FINALIZADO COM ERRO ===", "ERROR");
+            
+            // Log global de erro
+            log_sistema("[MailService] ERRO ao enviar email para $email: " . $this->lastError, 'ERROR');
+            
             return false;
         }
     }
@@ -114,11 +160,11 @@ class MailService {
     
     public function getConfig() {
         return [
-            'host' => defined('SMTP_HOST') ? SMTP_HOST : 'NÃO DEFINIDO',
-            'port' => defined('SMTP_PORT') ? SMTP_PORT : 'NÃO DEFINIDO',
-            'user' => defined('SMTP_USER') ? SMTP_USER : 'NÃO DEFINIDO',
-            'from_name' => defined('SMTP_FROM_NAME') ? SMTP_FROM_NAME : 'NÃO DEFINIDO',
-            'from_email' => defined('SMTP_FROM_EMAIL') ? SMTP_FROM_EMAIL : 'NÃO DEFINIDO'
+            'host' => defined('MAIL_HOST') ? MAIL_HOST : 'NÃO DEFINIDO',
+            'port' => defined('MAIL_PORT') ? MAIL_PORT : 'NÃO DEFINIDO',
+            'user' => defined('MAIL_USERNAME') ? MAIL_USERNAME : 'NÃO DEFINIDO',
+            'from_name' => defined('MAIL_FROM_NAME') ? MAIL_FROM_NAME : 'NÃO DEFINIDO',
+            'from_email' => defined('MAIL_FROM_EMAIL') ? MAIL_FROM_EMAIL : 'NÃO DEFINIDO'
         ];
     }
     
@@ -140,8 +186,7 @@ class MailService {
         <body>
             <div class='container'>
                 <div class='header'>
-                    <img src='data:image/png;base64,<?php echo base64_encode(file_get_contents($_SERVER["DOCUMENT_ROOT"] . "/assets/images/logo-small.png")); ?>' alt='CapivaraLearn Logo' style='max-width: 150px;'>
-                    <h1>CapivaraLearn</h1>
+                    <h1>🦫 CapivaraLearn</h1>
                     <p>Sistema de Organização de Estudos</p>
                 </div>
                 <div class='content'>

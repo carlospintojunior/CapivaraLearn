@@ -1,24 +1,63 @@
 <?php
-require_once 'includes/config.php';
-
+// Carregar configuração e sistema de log
+require_once __DIR__ . '/includes/config.php';
+require_once __DIR__ . '/includes/log_sistema.php';
+// Incluir DatabaseConnection fallback
+require_once __DIR__ . '/includes/DatabaseConnection.php';
+if (!class_exists('Database') && class_exists('CapivaraLearn\\DatabaseConnection')) {
+    class_alias('CapivaraLearn\\DatabaseConnection', 'Database');
+}
+// Global error handlers
+set_exception_handler(function (\Throwable $e) {
+    log_sistema("Exceção não capturada em dashboard.php: " . $e->getMessage(), 'ERROR');
+});
+set_error_handler(function ($severity, $message, $file, $line) {
+    log_sistema("Erro [" . $severity . "] " . $message . " em " . $file . ":" . $line, 'ERROR');
+    return false;
+});
+register_shutdown_function(function () {
+    $error = error_get_last();
+    if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        log_sistema("Fatal shutdown em dashboard.php: " . $error['message'], 'ERROR');
+    }
+});
+// Log inicial de dashboard
+log_sistema('Dashboard carregado', 'INFO');
+// Debug de sessão e cookies
+log_sistema('Dashboard load: session_id=' . session_id() . ' | session=' . json_encode($_SESSION) . ' | cookies=' . json_encode($_COOKIE), 'DEBUG');
 // Verificar se está logado
 if (!isset($_SESSION['user_id'])) {
+    log_sistema('Usuário não autenticado, redirecionando para login', 'WARNING');
     header('Location: login.php');
     exit();
 }
 
 $db = Database::getInstance();
-$userId = $_SESSION['user_id'];
+$userId = $_SESSION['user_id'];    // Buscar dados do usuário e suas matrículas
+    try {
+        $user = $db->select(
+            "SELECT u.*, c.tema, c.notificacoes_email 
+             FROM usuarios u 
+             LEFT JOIN configuracoes_usuario c ON u.id = c.usuario_id 
+             WHERE u.id = ?", 
+            [$userId]
+        );
 
-// Buscar dados do usuário
-try {
-    $user = $db->select(
-        "SELECT u.*, c.tema, c.notificacoes_email 
-         FROM usuarios u 
-         LEFT JOIN configuracoes_usuario c ON u.id = c.usuario_id 
-         WHERE u.id = ?", 
-        [$userId]
-    );
+        // Buscar universidades e cursos do usuário
+        $matriculas = $db->select(
+            "SELECT 
+                ucu.*, 
+                u.nome as universidade_nome, 
+                u.sigla as universidade_sigla,
+                c.nome as curso_nome,
+                c.nivel as curso_nivel
+             FROM usuario_curso_universidade ucu
+             JOIN universidades u ON ucu.universidade_id = u.id
+             JOIN cursos c ON ucu.curso_id = c.id
+             WHERE ucu.usuario_id = ?
+             ORDER BY ucu.data_inicio DESC",
+            [$userId]
+        );
 
     if (!$user) {
         header('Location: login.php');
@@ -63,13 +102,19 @@ try {
         [$userId]
     );
 
-    // Buscar tópicos ativos/próximos
+    // Buscar tópicos ativos/próximos com arquivos
     $topicos_proximos = $db->select(
-        "SELECT t.*, m.nome as modulo_nome, m.codigo as modulo_codigo
+        "SELECT 
+            t.*, 
+            m.nome as modulo_nome, 
+            m.codigo as modulo_codigo,
+            COUNT(DISTINCT ta.arquivo_id) as total_arquivos
          FROM topicos t
          JOIN modulos m ON t.modulo_id = m.id
+         LEFT JOIN topico_arquivo ta ON t.id = ta.topico_id
          WHERE m.usuario_id = ? AND m.ativo = 1 
          AND (t.data_fim >= CURDATE() OR (t.data_fim < CURDATE() AND t.concluido = 0))
+         GROUP BY t.id, t.nome, m.nome, m.codigo
          ORDER BY t.data_fim ASC
          LIMIT 5",
         [$userId]
@@ -86,6 +131,8 @@ try {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - CapivaraLearn</title>
     <link rel="icon" type="image/png" href="public/assets/images/logo.png">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css">
     <style>
         * {
             margin: 0;
@@ -98,6 +145,129 @@ try {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 0;
+        }
+
+        .nav-pills .nav-link {
+            color: #fff;
+            background-color: rgba(255, 255, 255, 0.1);
+            margin: 0 5px;
+        }
+
+        .nav-pills .nav-link:hover {
+            background-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .nav-pills .nav-link.active {
+            background-color: #fff;
+            color: #764ba2;
+        }
+
+        .card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .progress {
+            height: 10px;
+            border-radius: 5px;
+        }
+
+        .status-badge {
+            font-size: 0.8em;
+            padding: 5px 10px;
+            border-radius: 12px;
+        }
+
+        .status-cursando {
+            background-color: #28a745;
+            color: white;
+        }
+
+        .status-trancado {
+            background-color: #ffc107;
+            color: black;
+        }
+
+        .status-concluido {
+            background-color: #17a2b8;
+            color: white;
+        }
+
+        .status-abandonado {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        .enrollment-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .enrollment-card {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+
+        .enrollment-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0, 0, 0, 0.15);
+        }
+
+        .university-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .university-info h3 {
+            font-size: 1.2em;
+            color: #2c3e50;
+            margin: 0;
+        }
+
+        .university-code {
+            background: #f8f9fa;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+
+        .course-info {
+            margin-bottom: 15px;
+        }
+
+        .course-info h4 {
+            font-size: 1.1em;
+            color: #3498db;
+            margin: 0 0 5px 0;
+        }
+
+        .course-level {
+            font-size: 0.9em;
+            color: #7f8c8d;
+        }
+
+        .enrollment-status {
+            margin-bottom: 15px;
+        }
+
+        .enrollment-period {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            font-size: 0.9em;
+            color: #7f8c8d;
         }
 
         .header {
@@ -465,6 +635,21 @@ try {
             color: #7f8c8d;
             font-weight: 500;
         }
+        
+        .topic-files {
+            margin-top: 8px;
+        }
+
+        .file-count {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 0.85em;
+            color: #3498db;
+            background: rgba(52, 152, 219, 0.1);
+            padding: 4px 8px;
+            border-radius: 12px;
+        }
 
         .status-badge {
             display: inline-block;
@@ -562,6 +747,47 @@ try {
         </div>
         <?php endif; ?>
 
+        <!-- Universidades e Cursos -->
+        <div class="section mb-4">
+            <div class="section-title">
+                🎓 Minhas Matrículas
+                <a href="manage_enrollments.php" class="btn btn-primary">+ Nova Matrícula</a>
+            </div>
+
+            <?php if (empty($matriculas)): ?>
+                <div class="empty-state">
+                    <h3>Nenhuma matrícula encontrada</h3>
+                    <p>Clique em "Nova Matrícula" para começar!</p>
+                </div>
+            <?php else: ?>
+                <div class="enrollment-grid">
+                    <?php foreach ($matriculas as $matricula): ?>
+                        <div class="enrollment-card">
+                            <div class="university-info">
+                                <h3><?= h($matricula['universidade_nome']) ?></h3>
+                                <span class="university-code"><?= h($matricula['universidade_sigla']) ?></span>
+                            </div>
+                            <div class="course-info">
+                                <h4><?= h($matricula['curso_nome']) ?></h4>
+                                <span class="course-level"><?= ucfirst(str_replace('_', ' ', $matricula['curso_nivel'])) ?></span>
+                            </div>
+                            <div class="enrollment-status">
+                                <span class="status-badge status-<?= $matricula['situacao'] ?>">
+                                    <?= ucfirst($matricula['situacao']) ?>
+                                </span>
+                            </div>
+                            <div class="enrollment-period">
+                                <span>Início: <?= formatDate($matricula['data_inicio']) ?></span>
+                                <?php if ($matricula['data_fim']): ?>
+                                    <span>Término: <?= formatDate($matricula['data_fim']) ?></span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </div>
+
         <!-- Estatísticas -->
         <div class="stats-grid">
             <div class="stat-card modules">
@@ -656,8 +882,8 @@ try {
                 <?php else: ?>
                     <div class="topic-list">
                         <?php foreach ($topicos_proximos as $topico): ?>
-                            <?php $status = getTopicStatus($topico['data_inicio'], $topico['data_fim'], $topico['concluido']); ?>
-                            <div class="topic-item <?= $status['status'] ?>">
+                            <?php $status = getModuleStatus($topico['data_inicio'], $topico['data_fim'], $topico['concluido']); ?>
+                            <div class="topic-item <?= $status['class'] ?>">
                                 <div class="topic-title"><?= h($topico['nome']) ?></div>
                                 <div class="topic-module"><?= h($topico['modulo_codigo']) ?></div>
                                 <div class="topic-dates">
@@ -666,6 +892,13 @@ try {
                                         <?= $status['text'] ?>
                                     </span>
                                 </div>
+                                <?php if ($topico['total_arquivos'] > 0): ?>
+                                    <div class="topic-files">
+                                        <span class="file-count">
+                                            📎 <?= $topico['total_arquivos'] ?> <?= $topico['total_arquivos'] > 1 ? 'anexos' : 'anexo' ?>
+                                        </span>
+                                    </div>
+                                <?php endif; ?>
                             </div>
                         <?php endforeach; ?>
                     </div>

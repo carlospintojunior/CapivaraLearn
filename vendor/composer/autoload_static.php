@@ -29,6 +29,7 @@ class ComposerStaticInitc9350a0b4bd8d32d3dde247f0c7494db
     );
 
     public static $classMap = array (
+        'CapivaraLearn\\DatabaseConnection' => __DIR__ . '/../..' . '/includes/DatabaseConnection.php',
         'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
         'PHPMailer\\PHPMailer\\DSNConfigurator' => __DIR__ . '/..' . '/phpmailer/phpmailer/src/DSNConfigurator.php',
         'PHPMailer\\PHPMailer\\Exception' => __DIR__ . '/..' . '/phpmailer/phpmailer/src/Exception.php',

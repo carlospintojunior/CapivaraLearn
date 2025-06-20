@@ -47,9 +47,35 @@ obs: o XAMPP precisa estar em /opt/lampp
 5. Abra o navegador e acesse: `http://localhost:3000`
 
 
-Volte para o diretório do projeto (sempre faça isso para testar localmenente)
+## 🔄 Sincronização Desenvolvimento → Produção
 
+O CapivaraLearn utiliza um fluxo de trabalho onde o desenvolvimento é feito em `/home/carlos/Documents/GitHub/CapivaraLearn` e depois sincronizado para o XAMPP em `/opt/lampp/htdocs/CapivaraLearn`.
+
+### Método 1: Script Automático (Recomendado)
+```bash
+cd /home/carlos/Documents/GitHub/CapivaraLearn
+./sync_to_xampp.sh
+```
+
+### Método 2: Comandos Manuais
+```bash
+cd /home/carlos/Documents/GitHub/CapivaraLearn
+
+sudo rm -r /opt/lampp/htdocs/CapivaraLearn
 sudo cp -r . /opt/lampp/htdocs/CapivaraLearn
+
+sudo chown -R daemon:daemon /opt/lampp/htdocs/CapivaraLearn 
+sudo chmod -R 644 /opt/lampp/htdocs/CapivaraLearn 
+sudo find /opt/lampp/htdocs/CapivaraLearn -type d -exec chmod 755 {} \;
+
+sudo mkdir -p /opt/lampp/htdocs/CapivaraLearn/logs
+sudo chmod 777 /opt/lampp/htdocs/CapivaraLearn/logs
+sudo touch /opt/lampp/htdocs/CapivaraLearn/logs/php_errors.log
+sudo chmod 666 /opt/lampp/htdocs/CapivaraLearn/logs/php_errors.log
+```
+
+**⚠️ Importante:** Execute a sincronização sempre que fizer alterações no código de desenvolvimento!
+
 
 Abra o navegador e acesse: `http://localhost/CapivaraLearn/install.php`
 
@@ -57,15 +83,31 @@ Abra o navegador e acesse: `http://localhost/CapivaraLearn/install.php`
 cd /opt/lampp/htdocs/CapivaraLearn
 
 # Criar pasta de logs
-sudo mkdir -p logs
+sudo mkdir -p /opt/lampp/htdocs/CapivaraLearn/logs
 
 # Dar permissões corretas
 HTDOCS_OWNER=$(stat -c '%U:%G' /opt/lampp/htdocs)
 echo "Proprietário detectado: $HTDOCS_OWNER"
 sudo chown -R $HTDOCS_OWNER logs
 
+
+Ah, agora entendi o problema! As permissões dos arquivos foram alteradas quando copiamos os arquivos usando sudo. Vamos corrigir as permissões de todos os arquivos do projeto no XAMPP para que você possa editá-los: 
+
+Esse comando faz três coisas:
+1. Muda o dono de todos os arquivos para seu usuário (`chown -R $USER:$USER`)
+2. Define permissão 644 (leitura/escrita para dono, leitura para outros) para arquivos
+3. Define permissão 755 (execução + leitura/escrita para dono, execução + leitura para outros) para diretórios
+
+Agora você deve conseguir editar os arquivos normalmente no VS Code sem precisar de sudo. 
+
+Se ainda aparecer o erro de método indefinido (`undefined method`), podemos tentar resolver, mas primeiro tente editar o arquivo novamente para ver se agora você consegue salvar normalmente.
+~~~
+sudo chown -R $USER:$USER /opt/lampp/htdocs/CapivaraLearn/ && sudo chmod -R 644 /opt/lampp/htdocs/CapivaraLearn/ && sudo find /opt/lampp/htdocs/CapivaraLearn/ -type d -exec chmod 755 {} \;
+~~~
+
+
 # Dar permissões corretas
-sudo chmod -R 755 logs
+sudo chmod -R 755 /opt/lampp/htdocs/CapivaraLearn/logs
 (777) no desespero!
 
 # Verificar se foi criada
@@ -85,3 +127,22 @@ sudo composer require phpmailer/phpmailer
 # MariaDB
 
 /opt/lampp/bin/mysql -u root capivaralearn 
+
+
+sudo cp -r . /opt/lampp/htdocs/CapivaraLearn
+sudo rm /opt/lampp/htdocs/CapivaraLearn/logs/php_errors.log 
+
+sudo mkdir -p /opt/lampp/htdocs/CapivaraLearn/logs && sudo chmod 777 /opt/lampp/htdocs/CapivaraLearn/logs && sudo touch /opt/lampp/htdocs/CapivaraLearn/logs/php_errors.log && sudo chmod 666 /opt/lampp/htdocs/CapivaraLearn/logs/php_errors.log
+
+
+tail /opt/lampp/htdocs/CapivaraLearn/logs/php_errors.log
+
+
+sudo /opt/lampp/xampp restart
+
+
+## Premissas
+
+* O arquivo includes/config.php é gerado automaticamente durante o processo de install.php
+* Os códigos não devem ser modificados diretamente no servidor apache e sim no diretório de trabalho. O sincronismo é feito através do script ./sync_to_xampp.sh
+* O log deve ser registrado em arquivo durante a execução da aplicação no próprio diretório do servidor. Neste caso, /opt/lampp/htdocs/CapivaraLearn/logs/

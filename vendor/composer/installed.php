@@ -3,7 +3,7 @@
         'name' => 'capivaralearn/app',
         'pretty_version' => 'dev-main',
         'version' => 'dev-main',
-        'reference' => '006e6a8f63b79b27376426bca044a785885bb2b2',
+        'reference' => 'c7901c248e57d72576eb577d35dfa9f7425d3c78',
         'type' => 'project',
         'install_path' => __DIR__ . '/../../',
         'aliases' => array(),
@@ -13,7 +13,7 @@
         'capivaralearn/app' => array(
             'pretty_version' => 'dev-main',
             'version' => 'dev-main',
-            'reference' => '006e6a8f63b79b27376426bca044a785885bb2b2',
+            'reference' => 'c7901c248e57d72576eb577d35dfa9f7425d3c78',
             'type' => 'project',
             'install_path' => __DIR__ . '/../../',
             'aliases' => array(),

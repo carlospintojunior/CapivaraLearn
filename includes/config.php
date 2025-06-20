@@ -1,45 +1,55 @@
 <?php
 /**
- * CapivaraLearn - Configurações do Sistema
- * Domínio: capivaralearn.com.br
- * Versão completa - corrigida e funcional
+ * ===============================================
+ * 🦫 CapivaraLearn - Arquivo de Configuração
+ * ===============================================
  * 
- * Para definir o ambiente manualmente, copie o arquivo environment.ini.example
- * para environment.ini e ajuste as configurações conforme necessário.
- * Se o arquivo environment.ini não existir, o ambiente será detectado
- * automaticamente com base no domínio.
+ * ⚠️  ATENÇÃO: ARQUIVO GERADO AUTOMATICAMENTE
+ * 
+ * Este arquivo foi criado automaticamente pelo instalador em 19/06/2025 02:12:23
+ * 
+ * 🚨 IMPORTANTE:
+ * - NÃO EDITE este arquivo manualmente
+ * - Todas as alterações manuais serão PERDIDAS na próxima reinstalação
+ * - Para configurações de ambiente, edite o arquivo 'includes/environment.ini'
+ * - Para modificações permanentes, edite o template em 'install.php'
+ * 
+ * 📝 Para recriar este arquivo:
+ * 1. Execute: php install.php (via navegador ou linha de comando)
+ * 2. Ou delete este arquivo e acesse qualquer página do sistema
+ * 
+ * 🔧 Gerado pela versão: 1.0.0
+ * 📅 Data de criação: 19/06/2025 02:12:23
+ * 🖥️  Servidor: localhost
+ * 
+ * ===============================================
  */
 
 // =============================================
-// DETECTAR AMBIENTE PRIMEIRO
+// CONFIGURAÇÃO DE PRODUÇÃO (SEMPRE)
 // =============================================
 
-// Tentar carregar configuração do arquivo .ini
+// Carregar configuração do arquivo .ini
 $envFile = __DIR__ . '/environment.ini';
 $config = null;
 
 if (file_exists($envFile)) {
     $config = parse_ini_file($envFile, true);
-    $isProduction = isset($config['environment']['environment']) && 
-                   strtolower($config['environment']['environment']) === 'production';
-} else {
-    // Fallback para detecção automática baseada no domínio
-    $isProduction = (isset($_SERVER['HTTP_HOST']) && strpos($_SERVER['HTTP_HOST'], 'capivaralearn.com.br') !== false);
 }
+
+// SEMPRE PRODUÇÃO
+$isProduction = true;
 
 // =============================================
 // CONFIGURAÇÕES DE SESSÃO (ANTES de session_start)
 // =============================================
 if (session_status() === PHP_SESSION_NONE) {
-    // Configurar parâmetros de sessão apenas se sessão não estiver ativa
     @ini_set('session.cookie_httponly', 1);
     @ini_set('session.use_only_cookies', 1);
-    
     if ($isProduction) {
         @ini_set('session.cookie_secure', 1);
         @ini_set('session.cookie_samesite', 'Strict');
     }
-    
     session_start();
 }
 
@@ -53,71 +63,89 @@ define('DB_PASS', '');
 define('DB_CHARSET', 'utf8mb4');
 
 // =============================================
-// CONFIGURAÇÕES DA APLICAÇÃO
+// CONFIGURAÇÕES BASEADAS NO AMBIENTE
 // =============================================
-define('APP_NAME', 'CapivaraLearn');
-define('APP_VERSION', '1.0.0');
-define('APP_DESCRIPTION', 'Sistema de Organização de Estudos Modulares');
-
-if ($isProduction) {
-    // CONFIGURAÇÕES DE PRODUÇÃO
-    define('APP_URL', 'https://capivaralearn.com.br');
-    define('APP_ENV', 'production');
-    define('DEBUG_MODE', false);
-    
-    // Forçar HTTPS apenas se não estiver em CLI
-    if (php_sapi_name() !== 'cli') {
-        if (!isset($_SERVER['HTTPS']) || $_SERVER['HTTPS'] !== 'on') {
-            $redirect_url = 'https://' . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
-            header("Location: $redirect_url", true, 301);
-            exit();
-        }
-    }
-} else {
-    // CONFIGURAÇÕES DE DESENVOLVIMENTO
-    define('APP_URL', 'http://localhost/CapivaraLearn');
-    define('APP_ENV', 'development');
-    define('DEBUG_MODE', true);
-}
+// CONFIGURAÇÕES DE PRODUÇÃO (SEMPRE)
+// =============================================
+define('APP_URL', 'http://localhost/CapivaraLearn');
+define('APP_ENV', 'production');
+define('DEBUG_MODE', true); // Manter debug ativo para logs
 
 define('TIMEZONE', 'America/Sao_Paulo');
 
 // =============================================
 // CONFIGURAÇÕES DE SEGURANÇA
 // =============================================
-define('SECRET_KEY', 'capivaralearn_2025_' . ($isProduction ? 'prod' : 'dev') . '_secret_key');
+define('SECRET_KEY', '1888ab4c943c806ebcfa8cd9fe7ae961f9264c49e544ee8d0b3ad3023a1e6a50');
 define('SESSION_LIFETIME', 3600 * 24 * 7); // 7 dias
 define('PASSWORD_MIN_LENGTH', 6);
+
+// =============================================
+// CONFIGURAÇÕES DA APLICAÇÃO
+// =============================================
+define('APP_NAME', 'CapivaraLearn');
+define('APP_VERSION', '1.0.0');
 
 // Configurar timezone
 date_default_timezone_set(TIMEZONE);
 
 // =============================================
-// CONFIGURAÇÕES DE EMAIL - CORRIGIDAS
+// CONFIGURAÇÕES DE LOG
 // =============================================
+require_once __DIR__ . '/Logger.php';
 
-// Configurações padrão que funcionam (baseadas no seu teste que funciona)
-// SEMPRE usar o IP direto que funciona nos testes, tanto em dev quanto em prod
-define('MAIL_HOST', '38.242.252.19'); // IP direto que funciona
-define('MAIL_PORT', 465);
-define('MAIL_USERNAME', 'capivara@capivaralearn.com.br');
-define('MAIL_PASSWORD', '_,CeLlORRy,92');
-define('MAIL_FROM_NAME', 'CapivaraLearn');
+$logDir = __DIR__ . '/../logs';
+$logFile = $logDir . '/php_errors.log';
 
-// Configurações adicionais de email
-define('MAIL_FROM_EMAIL', MAIL_USERNAME);
-define('MAIL_SECURE', 'ssl'); // ssl para porta 465
-define('MAIL_AUTH', true);
+// Garantir que o diretório de logs existe
+if (!is_dir($logDir)) {
+    mkdir($logDir, 0777, true);
+}
 
-// Configurações adicionais de compatibilidade para scripts que usam SMTP_*
-define('SMTP_HOST', MAIL_HOST);
-define('SMTP_PORT', MAIL_PORT);
-define('SMTP_USER', MAIL_USERNAME);
-define('SMTP_PASS', MAIL_PASSWORD);
-define('SMTP_FROM_NAME', MAIL_FROM_NAME);
+// Garantir que o arquivo de log existe
+if (!file_exists($logFile)) {
+    touch($logFile);
+    chmod($logFile, 0666);
+}
+
+// Configurar logs do PHP
+ini_set('log_errors', 1);
+ini_set('error_log', $logFile);
+
+// Definir constante para o arquivo de log
+define('LOG_FILE', $logFile);
+
+// Inicializar o sistema de logs
+$logger = Logger::getInstance();
+$logger->info("Sistema iniciado", ['timestamp' => date('Y-m-d H:i:s'), 'ip' => $_SERVER['REMOTE_ADDR'] ?? 'CLI']);
 
 // =============================================
-// CLASSE DE CONEXÃO COM BANCO
+// CONFIGURAÇÕES DE EMAIL (SEMPRE PRODUÇÃO)
+// =============================================
+if ($config && isset($config['production'])) {
+    $envConfig = $config['production'];
+    define('MAIL_HOST', $envConfig['mail_host'] ?? 'mail.capivaralearn.com.br');
+    define('MAIL_PORT', $envConfig['mail_port'] ?? 465);
+    define('MAIL_USERNAME', $envConfig['mail_username'] ?? 'capivara@capivaralearn.com.br');
+    define('MAIL_PASSWORD', $envConfig['mail_password'] ?? '_,CeLlORRy,92');
+    define('MAIL_FROM_NAME', $envConfig['mail_from_name'] ?? 'CapivaraLearn');
+    define('MAIL_FROM_EMAIL', $envConfig['mail_from_email'] ?? 'capivara@capivaralearn.com.br');
+    define('MAIL_SECURE', $envConfig['mail_secure'] ?? 'ssl');
+    define('MAIL_AUTH', $envConfig['mail_auth'] ?? true);
+} else {
+    // Configurações padrão de produção
+    define('MAIL_HOST', 'mail.capivaralearn.com.br');
+    define('MAIL_PORT', 465);
+    define('MAIL_USERNAME', 'capivara@capivaralearn.com.br');
+    define('MAIL_PASSWORD', '_,CeLlORRy,92');
+    define('MAIL_FROM_NAME', 'CapivaraLearn');
+    define('MAIL_FROM_EMAIL', 'capivara@capivaralearn.com.br');
+    define('MAIL_SECURE', 'ssl');
+    define('MAIL_AUTH', true);
+}
+
+// =============================================
+// CLASSE DE CONEXÃO COM BANCO - VERSÃO COMPLETA
 // =============================================
 class Database {
     private static $instance = null;
@@ -129,17 +157,12 @@ class Database {
             $options = [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                PDO::ATTR_EMULATE_PREPARES => false,
-                PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES " . DB_CHARSET
+                PDO::ATTR_EMULATE_PREPARES => false
             ];
             
             $this->connection = new PDO($dsn, DB_USER, DB_PASS, $options);
         } catch (PDOException $e) {
-            if (DEBUG_MODE) {
-                die("Erro de conexão: " . $e->getMessage());
-            } else {
-                die("Erro interno do sistema. Tente novamente em alguns minutos.");
-            }
+            die("Erro de conexão: " . $e->getMessage());
         }
     }
     
@@ -154,7 +177,6 @@ class Database {
         return $this->connection;
     }
     
-    // Método para executar queries SELECT
     public function select($sql, $params = []) {
         try {
             $stmt = $this->connection->prepare($sql);
@@ -166,7 +188,6 @@ class Database {
         }
     }
     
-    // Método para executar queries INSERT/UPDATE/DELETE
     public function execute($sql, $params = []) {
         try {
             $stmt = $this->connection->prepare($sql);
@@ -177,28 +198,177 @@ class Database {
         }
     }
     
-    // Método para pegar o último ID inserido
+    // MÉTODOS ADICIONADOS PARA COMPATIBILIDADE
+    public function insert($table, $data) {
+        try {
+            $columns = array_keys($data);
+            $placeholders = array_map(function($col) { return ':' . $col; }, $columns);
+            
+            $sql = "INSERT INTO $table (" . implode(', ', $columns) . ") VALUES (" . implode(', ', $placeholders) . ")";
+            
+            $stmt = $this->connection->prepare($sql);
+            
+            // Bind dos parâmetros
+            foreach ($data as $column => $value) {
+                $stmt->bindValue(':' . $column, $value);
+            }
+            
+            $result = $stmt->execute();
+            
+            if (DEBUG_MODE) {
+                error_log("Database INSERT - Tabela: $table, Dados: " . json_encode($data));
+            }
+            
+            return $result;
+        } catch (PDOException $e) {
+            error_log("Erro SQL INSERT: " . $e->getMessage() . " - Tabela: $table");
+            if (DEBUG_MODE) {
+                error_log("Dados do INSERT: " . json_encode($data));
+            }
+            return false;
+        }
+    }
+    
+    public function update($table, $data, $where, $whereParams = []) {
+        try {
+            $setClause = [];
+            foreach (array_keys($data) as $column) {
+                $setClause[] = "$column = :$column";
+            }
+            
+            $sql = "UPDATE $table SET " . implode(', ', $setClause) . " WHERE $where";
+            
+            $stmt = $this->connection->prepare($sql);
+            
+            // Bind dos dados
+            foreach ($data as $column => $value) {
+                $stmt->bindValue(':' . $column, $value);
+            }
+            
+            // Bind dos parâmetros WHERE
+            foreach ($whereParams as $param => $value) {
+                $stmt->bindValue($param, $value);
+            }
+            
+            $result = $stmt->execute();
+            
+            if (DEBUG_MODE) {
+                error_log("Database UPDATE - Tabela: $table, WHERE: $where");
+            }
+            
+            return $result;
+        } catch (PDOException $e) {
+            error_log("Erro SQL UPDATE: " . $e->getMessage() . " - Tabela: $table");
+            return false;
+        }
+    }
+    
     public function lastInsertId() {
         return $this->connection->lastInsertId();
     }
-    
-    // Método para contar registros
-    public function count($sql, $params = []) {
-        try {
-            $stmt = $this->connection->prepare($sql);
-            $stmt->execute($params);
-            return $stmt->fetchColumn();
-        } catch (PDOException $e) {
-            error_log("Erro SQL COUNT: " . $e->getMessage());
-            return 0;
-        }
+}
+
+// =============================================
+// FUNÇÕES AUXILIARES
+// =============================================
+function hashPassword($password) {
+    return password_hash($password, PASSWORD_DEFAULT);
+}
+
+function verifyPassword($password, $hash) {
+    return password_verify($password, $hash);
+}
+
+function generateToken() {
+    return bin2hex(random_bytes(32));
+}
+
+function formatDate($date, $format = 'd/m/Y') {
+    if (empty($date)) return '';
+    $dateObj = new DateTime($date);
+    return $dateObj->format($format);
+}
+
+function isLoggedIn() {
+    return isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
+}
+
+function requireLogin() {
+    if (!isLoggedIn()) {
+        header('Location: login.php');
+        exit();
     }
+}
+
+function h($string) {
+    return htmlspecialchars($string, ENT_QUOTES, 'UTF-8');
+}
+
+function jsonResponse($data, $statusCode = 200) {
+    http_response_code($statusCode);
+    header('Content-Type: application/json');
+    echo json_encode($data, JSON_UNESCAPED_UNICODE);
+    exit();
+}
+
+// =============================================
+// FUNÇÕES DE LOG E ATIVIDADE
+// =============================================
+function logActivity($action, $description = '', $userId = null) {
+    try {
+        $db = Database::getInstance();
+        $sql = "INSERT INTO logs_atividade (usuario_id, acao, descricao, data_hora, ip_address, user_agent) 
+                VALUES (:usuario_id, :acao, :descricao, NOW(), :ip, :user_agent)";
+        
+        $params = [
+            ':usuario_id' => $userId ?? ($_SESSION['user_id'] ?? null),
+            ':acao' => $action,
+            ':descricao' => $description,
+            ':ip' => $_SERVER['REMOTE_ADDR'] ?? 'CLI',
+            ':user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'CLI'
+        ];
+        
+        $db->execute($sql, $params);
+    } catch (Exception $e) {
+        error_log('Erro ao registrar atividade: ' . $e->getMessage());
+    }
+}
+
+function logError($message, $context = []) {
+    $logMessage = '[' . date('Y-m-d H:i:s') . '] ERROR: ' . $message;
+    if (!empty($context)) {
+        $logMessage .= ' Context: ' . json_encode($context);
+    }
+    error_log($logMessage);
+}
+
+// =============================================
+// CONFIGURAÇÕES DE ERRO
+// =============================================
+if (APP_ENV === 'production') {
+    // Produção - Não mostrar erros
+    ini_set('display_errors', 0);
+    ini_set('display_startup_errors', 0);
+    error_reporting(0);
+} else {
+    // Desenvolvimento - Mostrar todos os erros
+    ini_set('display_errors', 1);
+    ini_set('display_startup_errors', 1);
+    error_reporting(E_ALL);
+}
+
+// Configurar timezone
+date_default_timezone_set(TIMEZONE);
+
+// Iniciar sessão se ainda não iniciada
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
 
 // =============================================
 // CLASSE DE SERVIÇO DE EMAIL - CORRIGIDA
 // =============================================
-require_once "vendor/autoload.php";
+require_once __DIR__ . "/../vendor/autoload.php";
 
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
@@ -208,10 +378,7 @@ class MailService {
     private static $instance = null;
     private $lastError = '';
     
-    private function __construct() {
-        // Log de inicialização
-        error_log("MailService inicializado - Host: " . MAIL_HOST . ", Port: " . MAIL_PORT . ", User: " . MAIL_USERNAME);
-    }
+    private function __construct() {}
     
     public static function getInstance() {
         if (self::$instance === null) {
@@ -219,35 +386,33 @@ class MailService {
         }
         return self::$instance;
     }
-
-    public function getLastError() {
-        return $this->lastError;
-    }
     
-    public function sendConfirmationEmail($email, $nome, $token) {
+    public function sendConfirmationEmail($email, $name, $token) {
+        error_log("DEBUG MailService: Iniciando sendConfirmationEmail para $email");
+        
         try {
-            error_log("MailService: Tentando enviar email para $email");
-            
+            error_log("DEBUG MailService: Modo produção - envio real via SMTP");
             $mail = new PHPMailer(true);
             
-            // Configurações SMTP usando as constantes definidas
+            error_log("DEBUG MailService: Configurando SMTP...");
+            // Configurações SMTP usando constantes
             $mail->isSMTP();
             $mail->Host = MAIL_HOST;
             $mail->SMTPAuth = MAIL_AUTH;
             $mail->Username = MAIL_USERNAME;
             $mail->Password = MAIL_PASSWORD;
-            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS; // SSL para porta 465
-            $mail->Port = MAIL_PORT;
             
-            // Debug apenas em desenvolvimento
-            if (DEBUG_MODE) {
-                $mail->SMTPDebug = SMTP::DEBUG_SERVER;
-                $mail->Debugoutput = function($str, $level) {
-                    error_log("SMTP Debug: $str");
-                };
+            // Configuração SSL/TLS baseada na porta
+            if (MAIL_PORT == 465) {
+                $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS; // SSL para porta 465
+            } else {
+                $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS; // TLS para porta 587
             }
             
-            // Configurações SSL (mesmo do teste que funciona)
+            $mail->Port = MAIL_PORT;
+            
+            // Timeout e configurações de conexão
+            $mail->Timeout = 30; // 30 segundos timeout (aumentado)
             $mail->SMTPOptions = array(
                 'ssl' => array(
                     'verify_peer' => false,
@@ -256,40 +421,44 @@ class MailService {
                 )
             );
             
-            // Configurações do email
+            error_log("DEBUG MailService: Configurando remetente e destinatário...");
+            // Remetente
             $mail->setFrom(MAIL_FROM_EMAIL, MAIL_FROM_NAME);
-            $mail->addAddress($email, $nome);
-            $mail->addReplyTo(MAIL_FROM_EMAIL, MAIL_FROM_NAME);
             
+            // Destinatário
+            $mail->addAddress($email, $name);
+            
+            // Conteúdo
             $mail->isHTML(true);
-            $mail->CharSet = 'UTF-8';
-            $mail->Subject = 'Confirme seu cadastro no CapivaraLearn';
+            $mail->Subject = 'Confirme seu cadastro - ' . APP_NAME;
             
-            // URL de confirmação
-            $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
-            $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
-            $path = dirname($_SERVER['PHP_SELF'] ?? '/');
-            $confirmUrl = $protocol . $host . $path . '/confirm_email.php?token=' . urlencode($token);
+            $confirmUrl = APP_URL . '/confirm_email.php?token=' . $token;
+            $mail->Body = $this->getConfirmationEmailTemplate($name, $confirmUrl);
             
-            error_log("MailService: URL de confirmação: $confirmUrl");
-            
-            // HTML do email
-            $mail->Body = $this->getConfirmationEmailTemplate($nome, $confirmUrl);
-            $mail->AltBody = "Olá $nome,\n\nPara confirmar seu cadastro, acesse: $confirmUrl\n\nEquipe CapivaraLearn";
-            
-            $mail->send();
-            error_log("MailService: Email enviado com sucesso para $email");
-            $this->lastError = '';
-            return true;
-            
-        } catch (Exception $e) {
-            $this->lastError = $e->getMessage();
-            error_log("MailService: Erro ao enviar email: " . $this->lastError);
-            if (isset($mail)) {
-                error_log("MailService: ErrorInfo: " . $mail->ErrorInfo);
+            error_log("DEBUG MailService: Tentando enviar email...");
+            if ($mail->send()) {
+                error_log("DEBUG MailService: Email enviado com sucesso!");
+                return true;
+            } else {
+                error_log("DEBUG MailService: Falha ao enviar - " . $mail->ErrorInfo);
+                $this->lastError = 'Erro ao enviar email: ' . $mail->ErrorInfo;
+                return false;
             }
+        } catch (Exception $e) {
+            error_log("DEBUG MailService: Exception capturada - " . $e->getMessage());
+            $this->lastError = 'Erro no MailService: ' . $e->getMessage();
+            
+            // Log do erro para debug
+            error_log("ERRO SMTP COMPLETO: " . $e->getMessage());
+            error_log("HOST: " . MAIL_HOST . " PORT: " . MAIL_PORT);
+            error_log("USERNAME: " . MAIL_USERNAME);
+            
             return false;
         }
+    }
+    
+    public function getLastError() {
+        return $this->lastError;
     }
     
     public function getConfig() {
@@ -314,39 +483,29 @@ class MailService {
                 body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
                 .container { max-width: 600px; margin: 0 auto; padding: 20px; }
                 .header { background: linear-gradient(135deg, #3498db, #2980b9); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
-                .content { background: #f9f9f9; padding: 30px; }
-                .button { display: inline-block; background: #27ae60; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; }
-                .footer { background: #ecf0f1; padding: 20px; text-align: center; font-size: 12px; color: #7f8c8d; border-radius: 0 0 10px 10px; }
+                .content { background: #f8f9fa; padding: 30px; border-radius: 0 0 10px 10px; }
+                .button { display: inline-block; background: #27ae60; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; margin: 20px 0; font-weight: bold; }
+                .footer { text-align: center; margin-top: 30px; color: #666; font-size: 12px; }
             </style>
         </head>
         <body>
             <div class='container'>
                 <div class='header'>
-                    <h1>🎓 CapivaraLearn</h1>
-                    <p>Sistema de Organização de Estudos</p>
+                    <h1>🦫 CapivaraLearn</h1>
+                    <p>Bem-vindo(a) ao sistema!</p>
                 </div>
                 <div class='content'>
-                    <h2>Olá, $nome!</h2>
-                    <p>Bem-vindo ao <strong>CapivaraLearn</strong>! Para completar seu cadastro, você precisa confirmar seu endereço de email.</p>
-                    <p>Clique no botão abaixo para ativar sua conta:</p>
-                    <p style='text-align: center; margin: 30px 0;'>
-                        <a href='$confirmUrl' class='button'>✅ Confirmar Email</a>
-                    </p>
-                    <p><small>Ou copie e cole este link no seu navegador:<br>
-                    <a href='$confirmUrl'>$confirmUrl</a></small></p>
-                    
-                    <hr style='margin: 30px 0; border: none; border-top: 1px solid #ddd;'>
-                    
-                    <p><strong>⚠️ Importante:</strong></p>
-                    <ul>
-                        <li>Este link expira em 24 horas</li>
-                        <li>Se você não solicitou este cadastro, pode ignorar este email</li>
-                        <li>Não compartilhe este link com outras pessoas</li>
-                    </ul>
-                </div>
-                <div class='footer'>
-                    <p>Este email foi enviado automaticamente pelo sistema CapivaraLearn.<br>
-                    Se você tem dúvidas, entre em contato conosco.</p>
+                    <h2>Olá, {$nome}!</h2>
+                    <p>Obrigado por se cadastrar no CapivaraLearn. Para ativar sua conta, clique no botão abaixo:</p>
+                    <div style='text-align: center;'>
+                        <a href='{$confirmUrl}' class='button'>✅ Confirmar Cadastro</a>
+                    </div>
+                    <p><strong>Ou copie e cole este link no seu navegador:</strong></p>
+                    <p style='word-break: break-all; background: #e9ecef; padding: 10px; border-radius: 5px;'>{$confirmUrl}</p>
+                    <div class='footer'>
+                        <p>Este email foi enviado automaticamente. Não responda.</p>
+                        <p>© 2025 CapivaraLearn - Sistema de Organização de Estudos</p>
+                    </div>
                 </div>
             </div>
         </body>
@@ -355,269 +514,25 @@ class MailService {
 }
 
 // =============================================
-// FUNÇÕES AUXILIARES
+// LOG INICIAL DO SISTEMA
 // =============================================
-
-/**
- * Função para gerar hash de senha
- */
-function hashPassword($password) {
-    return password_hash($password, PASSWORD_DEFAULT);
-}
-
-/**
- * Função para verificar senha
- */
-function verifyPassword($password, $hash) {
-    return password_verify($password, $hash);
-}
-
-/**
- * Função para gerar token de sessão
- */
-function generateToken() {
-    return bin2hex(random_bytes(32));
-}
-
-/**
- * Função para formatar datas
- */
-function formatDate($date, $format = 'd/m/Y') {
-    if (empty($date)) return '';
-    $dateObj = new DateTime($date);
-    return $dateObj->format($format);
-}
-
-/**
- * Função para calcular status do tópico
- */
-function getTopicStatus($startDate, $endDate, $completed = false) {
-    $today = new DateTime();
-    $start = new DateTime($startDate);
-    $end = new DateTime($endDate);
-    
-    if ($completed) {
-        return [
-            'status' => 'completed',
-            'class' => 'status-completed',
-            'text' => 'Concluído',
-            'color' => '#27ae60'
-        ];
-    }
-    
-    if ($today > $end) {
-        return [
-            'status' => 'overdue',
-            'class' => 'status-overdue', 
-            'text' => 'Atrasado',
-            'color' => '#e74c3c'
-        ];
-    }
-    
-    if ($today >= $start && $today <= $end) {
-        return [
-            'status' => 'active',
-            'class' => 'status-active',
-            'text' => 'Ativo',
-            'color' => '#f39c12'
-        ];
-    }
-    
-    return [
-        'status' => 'upcoming',
-        'class' => 'status-upcoming',
-        'text' => 'Futuro',
-        'color' => '#3498db'
-    ];
-}
-
-/**
- * Função para verificar se usuário está logado
- */
-function isLoggedIn() {
-    return isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
-}
-
-/**
- * Função para redirecionar se não estiver logado
- */
-function requireLogin() {
-    if (!isLoggedIn()) {
-        header('Location: login.php');
-        exit();
-    }
-}
-
-/**
- * Função para fazer logout
- */
-function logout() {
-    // Invalidar token na base (implementar se necessário)
-    if (isset($_SESSION['token'])) {
-        $db = Database::getInstance();
-        $db->execute(
-            "UPDATE sessoes SET ativo = 0 WHERE token = ?",
-            [$_SESSION['token']]
-        );
-    }
-    
-    // Limpar sessão
-    session_destroy();
-    
-    // Redirecionar
-    header('Location: login.php');
-    exit();
-}
-
-/**
- * Função para escapar output HTML
- */
-function h($string) {
-    return htmlspecialchars($string, ENT_QUOTES, 'UTF-8');
-}
-
-/**
- * Função para debug (apenas em desenvolvimento)
- */
-function debug($data) {
-    if (DEBUG_MODE) {
-        echo '<pre>';
-        print_r($data);
-        echo '</pre>';
-    }
-}
-
-/**
- * Função para retornar JSON
- */
-function jsonResponse($data, $statusCode = 200) {
-    http_response_code($statusCode);
-    header('Content-Type: application/json');
-    echo json_encode($data, JSON_UNESCAPED_UNICODE);
-    exit();
-}
-
-/**
- * Função para validar email
- */
-function isValidEmail($email) {
-    return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
-}
-
-/**
- * Função para limpar entrada
- */
-function clean($input) {
-    return trim(strip_tags($input));
-}
-
-/**
- * Função para gerar URLs absolutas
- */
-function url($path = '') {
-    return APP_URL . ($path ? '/' . ltrim($path, '/') : '');
-}
-
-/**
- * Função para gerar URLs de assets
- */
-function asset($path) {
-    return url('public/assets/' . ltrim($path, '/'));
-}
-
-// =============================================
-// CONFIGURAÇÕES DE ERRO
-// =============================================
-if (DEBUG_MODE) {
-    error_reporting(E_ALL);
-    ini_set('display_errors', 1);
-} else {
-    error_reporting(E_ALL); // Temporariamente habilitado para debug
-    ini_set('display_errors', 1); // Temporariamente habilitado para debug
-    ini_set('log_errors', 1);
-    
-    // Criar pasta de logs se não existir
-    $logDir = __DIR__ . '/../logs';
-    if (!is_dir($logDir)) {
-        @mkdir($logDir, 0755, true);
-    }
-    
-    if (is_dir($logDir) && is_writable($logDir)) {
-        ini_set('error_log', $logDir . '/php_errors.log');
-    }
-}
-
-// Configurar o arquivo de log de erros do PHP
-ini_set('log_errors', 1);
-ini_set('error_log', __DIR__ . '/../logs/php_errors.log');
-
-/**
- * Função para verificar permissões de pasta
- */
-function checkFolderPermissions($folder) {
-    // Verificar se a pasta existe
-    if (!is_dir($folder)) {
-        return false;
-    }
-    
-    // Verificar permissões
-    $permissions = substr(sprintf('%o', fileperms($folder)), -4);
-    return $permissions === '0777' || $permissions === '0755';
-}
-
-// Verificar permissões da pasta de logs
-$logDir = __DIR__ . '/../logs';
-if (!is_dir($logDir)) {
-    @mkdir($logDir, 0755, true);
-}
-
-// =============================================
-// HEADERS DE SEGURANÇA (apenas em produção)
-// =============================================
-if (APP_ENV === 'production') {
-    // Configurações de segurança
-    header('X-Content-Type-Options: nosniff');
-    header('X-Frame-Options: SAMEORIGIN');
-    header('X-XSS-Protection: 1; mode=block');
-    header('Referrer-Policy: strict-origin-when-cross-origin');
-    
-    // HSTS (apenas HTTPS)
-    if (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') {
-        header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
-    }
-}
-
-// =============================================
-// LOG DE SISTEMA
-// =============================================
-function logActivity($action, $details = '') {
-    // Só logar em desenvolvimento e se a pasta existir e for writável
-    if (!DEBUG_MODE) return;
-    
-    $logDir = __DIR__ . '/../logs';
-    
-    if (is_dir($logDir) && is_writable($logDir)) {
-        $logEntry = [
-            'timestamp' => date('Y-m-d H:i:s'),
-            'user_id' => $_SESSION['user_id'] ?? 'guest',
-            'action' => $action,
-            'details' => $details,
-            'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
-            'user_agent' => substr($_SERVER['HTTP_USER_AGENT'] ?? 'unknown', 0, 200) // Limitar tamanho
-        ];
-        
-        $logContent = json_encode($logEntry, JSON_UNESCAPED_UNICODE) . "\n";
-        
-        // Usar @ para suprimir warnings e verificar resultado
-        if (@file_put_contents($logDir . '/activity.log', $logContent, FILE_APPEND | LOCK_EX) === false) {
-            // Se falhar, não fazer nada (modo silencioso)
-        }
-    }
-}
-
-// Log desta inicialização (apenas em desenvolvimento)
 if (DEBUG_MODE) {
     logActivity('config_loaded', 'Sistema inicializado para ' . APP_ENV);
-    error_log("Config carregado: MAIL_HOST=" . MAIL_HOST . ", MAIL_PORT=" . MAIL_PORT . ", MAIL_USER=" . MAIL_USERNAME);
 }
+
+/*
+ * ===============================================
+ * 🔚 FIM DO ARQUIVO DE CONFIGURAÇÃO
+ * ===============================================
+ * 
+ * ⚠️  LEMBRE-SE: Este arquivo foi gerado automaticamente!
+ * 
+ * Para modificar configurações:
+ * 1. Edite 'includes/environment.ini' para configurações de ambiente
+ * 2. Edite 'install.php' para modificações permanentes no template
+ * 3. Execute nova instalação para aplicar as mudanças
+ * 
+ * 📧 Suporte: https://github.com/seu-usuario/CapivaraLearn
+ * ===============================================
+ */
 ?>
