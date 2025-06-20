@@ -1,5 +1,37 @@
 <?php
-require_once 'includes/config.php';
+// Carregar configuração com classe Database
+require_once __DIR__ . '/includes/config.php';
+// Incluir DatabaseConnection e fallback caso Database não exista
+require_once __DIR__ . '/includes/DatabaseConnection.php';
+if (!class_exists('Database') && class_exists('CapivaraLearn\\DatabaseConnection')) {
+    class_alias('CapivaraLearn\\DatabaseConnection', 'Database');
+}
+
+// Sistema de logs
+require_once __DIR__ . '/includes/log_sistema.php';
+// Garantir existência de logActivity() para registrar atividades, se não definida
+if (!function_exists('logActivity')) {
+    function logActivity($action, $description = '', $userId = null) {
+        log_sistema("[logActivity fallback] {$action} | {$description}", 'INFO');
+    }
+}
+
+// Handlers para capturar erros fatais e exceções
+set_exception_handler(function (\Throwable $e) {
+    log_sistema("Exceção não capturada em confirm_email.php: " . $e->getMessage() . " em " . $e->getFile() . ":" . $e->getLine(), 'ERROR');
+});
+set_error_handler(function ($severity, $message, $file, $line) {
+    log_sistema("Erro [" . $severity . "] " . $message . " em " . $file . ":" . $line, 'ERROR');
+    return false;
+});
+register_shutdown_function(function () {
+    $error = error_get_last();
+    if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        log_sistema("Fatal shutdown error em confirm_email.php: " . $error['message'] . " em " . $error['file'] . ":" . $error['line'], 'ERROR');
+    }
+});
+// Registrar acesso à confirmação de email
+log_sistema('Tela de confirmação de email carregada', 'INFO');
 
 $message = '';
 $success = false;
@@ -22,16 +54,19 @@ if (empty($token)) {
              AND et.data_expiracao > NOW()",
             [$token]
         );
-        
+        // Debug: registrar conteúdo retornado de tokenData
+        log_sistema("[confirm_email] tokenData: " . json_encode($tokenData), 'DEBUG');
+
         if (empty($tokenData)) {
+            // Log token inválido/expirado para auditoria (já registrado em WARNING above)
             $message = 'Token inválido, expirado ou já utilizado.';
         } else {
             $tokenInfo = $tokenData[0];
             
-            // Marcar email como verificado
+            // Marcar email como verificado (sem data_verificacao, coluna não existe em algumas versões)
             $verified = $db->execute(
                 "UPDATE usuarios 
-                 SET email_verificado = TRUE, data_verificacao = NOW() 
+                 SET email_verificado = TRUE 
                  WHERE id = ?",
                 [$tokenInfo['usuario_id']]
             );
@@ -51,13 +86,16 @@ if (empty($token)) {
                 // Log da confirmação
                 logActivity('email_confirmed', "Email confirmado para usuário: {$tokenInfo['email']}");
             } else {
+                // Log falha de atualização de confirmação
+                log_sistema("Falha ao atualizar confirmação de email. verified: " . var_export($verified, true) . "; tokenUsed: " . var_export($tokenUsed, true) . "; tokenID: " . $tokenInfo['id'], 'ERROR');
                 $message = 'Erro interno. Tente novamente mais tarde.';
             }
         }
         
     } catch (Exception $e) {
         $message = 'Erro interno do sistema. Tente novamente mais tarde.';
-        error_log("Erro confirmação email: " . $e->getMessage());
+        // Registrar no sistema.log
+        log_sistema("Erro confirmação email: " . $e->getMessage(), 'ERROR');
     }
 }
 ?>

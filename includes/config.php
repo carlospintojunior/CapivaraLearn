@@ -44,15 +44,12 @@ $isProduction = true;
 // CONFIGURAÇÕES DE SESSÃO (ANTES de session_start)
 // =============================================
 if (session_status() === PHP_SESSION_NONE) {
-    // Configurar parâmetros de sessão apenas se sessão não estiver ativa
     @ini_set('session.cookie_httponly', 1);
     @ini_set('session.use_only_cookies', 1);
-    
     if ($isProduction) {
         @ini_set('session.cookie_secure', 1);
         @ini_set('session.cookie_samesite', 'Strict');
     }
-    
     session_start();
 }
 

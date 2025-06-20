@@ -1,31 +1,32 @@
 <?php
-// Carregar configuração com classe Database
+// Carregar configurações e sistema de logs (faz session_start)
 require_once __DIR__ . '/includes/config.php';
 require_once __DIR__ . '/includes/log_sistema.php';
-// Carregar conexão alternativa se classe Database não estiver disponível
+// Garantir fallback para conexão de banco
 require_once __DIR__ . '/includes/DatabaseConnection.php';
 if (!class_exists('Database') && class_exists('CapivaraLearn\\DatabaseConnection')) {
     class_alias('CapivaraLearn\\DatabaseConnection', 'Database');
 }
-// Garantir existência de generateToken() para registro
+// Fallback para generateToken()
 if (!function_exists('generateToken')) {
     function generateToken() {
         try { return bin2hex(random_bytes(32)); }
         catch (Exception $e) { return md5(uniqid('', true)); }
     }
 }
-// Garantir existência de logActivity() para registrar atividades, se não definida
+// Fallback para logActivity()
 if (!function_exists('logActivity')) {
     function logActivity($action, $description = '', $userId = null) {
-        // Usa log_sistema como fallback
         log_sistema("[logActivity fallback] {$action} | {$description}", 'INFO');
     }
 }
-// Carregar serviço de email para registro e confirmação
+// Configurar envio de email
 require_once __DIR__ . '/includes/MailService.php';
 
 // Registrar acesso à página de login
 log_sistema('Tela de login carregada', 'INFO');
+// Debug de sessão e cookies para entender persistência
+log_sistema('Login page load: session_id=' . session_id() . ' | session=' . json_encode($_SESSION) . ' | cookies=' . json_encode($_COOKIE), 'DEBUG');
 
 // Sempre produção: suprimir erros na tela
 ini_set('display_errors', 0);
@@ -57,30 +58,44 @@ $success = '';
 
 // Processar login/registro
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    // Log da requisição POST
+    log_sistema("REQUEST_METHOD=POST, action={$_POST['action']}", 'DEBUG');
     // Usar classe Database definida em config.php
     $db = Database::getInstance();
     $mail = MailService::getInstance();
     
     if ($_POST['action'] === 'login') {
+        // Tentativa de login: registrar email
+        $attemptEmail = trim($_POST['email'] ?? '');
+        log_sistema("Tentativa de login para email: {$attemptEmail}", 'INFO');
         try {
-            $email = trim($_POST['email'] ?? '');
+            // Extrair credenciais
+            $email = $attemptEmail;
             $password = $_POST['password'] ?? '';
+            log_sistema("Credenciais recebidas - email: {$email}, senha_length: " . strlen($password), 'DEBUG');
             
             if (empty($email) || empty($password)) {
+                log_sistema("Login falhou - email ou senha vazios", 'WARNING');
                 $error = 'E-mail e senha são obrigatórios';
             } else {
+                // Consultar usuário no banco
+                log_sistema("Buscando usuário no banco: {$email}", 'DEBUG');
                 $user = $db->select(
                     "SELECT id, nome, email, senha, ativo, email_verificado FROM usuarios WHERE email = ? AND ativo = 1",
                     [$email]
                 );
+                log_sistema("Resultado do select usuário: " . var_export($user, true), 'DEBUG');
                 
                 if (!$user) {
+                    log_sistema("Login falhou - usuário não encontrado ou inativo: {$email}", 'WARNING');
                     $error = 'E-mail não encontrado ou conta inativa';
                     error_log("Tentativa de login com email não encontrado: $email");
                 } elseif (!password_verify($password, $user[0]['senha'])) {
+                    log_sistema("Login falhou - senha incorreta para: {$email}", 'WARNING');
                     $error = 'Senha incorreta';
                     error_log("Tentativa de login com senha incorreta para: $email");
                 } elseif (!$user[0]['email_verificado']) {
+                    log_sistema("Login falhou - email não verificado para: {$email}", 'INFO');
                     $error = 'Você precisa confirmar seu email antes de fazer login. Verifique sua caixa de entrada.';
                     $success = '<div class="resend-container">
                         <p>Não recebeu o email? 
@@ -88,6 +103,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         Clique aqui para reenviar</a></p>
                     </div>';
                 } else {
+                    log_sistema("Login bem-sucedido para: {$email}", 'SUCCESS');
+                    // DEBUG antes do redirect: conferir sessão e envio de headers
+                    log_sistema("Session before redirect: id=" . session_id() . " | session=" . json_encode($_SESSION), 'DEBUG');
+                    log_sistema("Headers sent: " . (headers_sent() ? 'yes' : 'no'), 'DEBUG');
                     $_SESSION['user_id'] = $user[0]['id'];
                     $_SESSION['user_name'] = $user[0]['nome'];
                     $_SESSION['user_email'] = $user[0]['email'];
@@ -96,15 +115,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $db->execute("UPDATE usuarios SET data_ultimo_acesso = NOW() WHERE id = ?", [$user[0]['id']]);
                     logActivity('user_login', "Login realizado: {$user[0]['email']}");
                     
+                    // Redirect to dashboard href
                     header('Location: dashboard.php');
                     exit();
                 }
             }
         } catch (Exception $e) {
+            log_sistema("Exceção no login: " . $e->getMessage(), 'ERROR');
             var_dump($e); // Inspecionar o objeto da exceção
-            $error = (APP_ENV === 'development') ? 
-                '⚠️ Erro no login: ' . $e->getMessage() : 
-                '⚠️ Erro ao fazer login. Por favor, tente novamente mais tarde.';
+            $error = '⚠️ Erro ao fazer login. Por favor, tente novamente mais tarde.';
             error_log("Erro no login: " . $e->getMessage());
         }
     } elseif ($_POST['action'] === 'register') {

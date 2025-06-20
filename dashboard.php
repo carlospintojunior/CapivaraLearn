@@ -1,8 +1,33 @@
 <?php
-require_once 'includes/config.php';
-
+// Carregar configuração e sistema de log
+require_once __DIR__ . '/includes/config.php';
+require_once __DIR__ . '/includes/log_sistema.php';
+// Incluir DatabaseConnection fallback
+require_once __DIR__ . '/includes/DatabaseConnection.php';
+if (!class_exists('Database') && class_exists('CapivaraLearn\\DatabaseConnection')) {
+    class_alias('CapivaraLearn\\DatabaseConnection', 'Database');
+}
+// Global error handlers
+set_exception_handler(function (\Throwable $e) {
+    log_sistema("Exceção não capturada em dashboard.php: " . $e->getMessage(), 'ERROR');
+});
+set_error_handler(function ($severity, $message, $file, $line) {
+    log_sistema("Erro [" . $severity . "] " . $message . " em " . $file . ":" . $line, 'ERROR');
+    return false;
+});
+register_shutdown_function(function () {
+    $error = error_get_last();
+    if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        log_sistema("Fatal shutdown em dashboard.php: " . $error['message'], 'ERROR');
+    }
+});
+// Log inicial de dashboard
+log_sistema('Dashboard carregado', 'INFO');
+// Debug de sessão e cookies
+log_sistema('Dashboard load: session_id=' . session_id() . ' | session=' . json_encode($_SESSION) . ' | cookies=' . json_encode($_COOKIE), 'DEBUG');
 // Verificar se está logado
 if (!isset($_SESSION['user_id'])) {
+    log_sistema('Usuário não autenticado, redirecionando para login', 'WARNING');
     header('Location: login.php');
     exit();
 }
