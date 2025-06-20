@@ -1,11 +1,32 @@
 <?php
-// Carregar configuração e sistema de log
+// Iniciar sessão explicitamente antes de qualquer coisa
+if (session_status() === PHP_SESSION_NONE) {
+    // Configurar sessão para desenvolvimento local
+    ini_set('session.cookie_httponly', 1);
+    ini_set('session.use_only_cookies', 1);
+    ini_set('session.cookie_secure', 0); // HTTP local
+    ini_set('session.cookie_samesite', 'Lax');
+    session_start();
+}
+
+// Carregar configurações e sistema de log
 require_once __DIR__ . '/includes/config.php';
 require_once __DIR__ . '/includes/log_sistema.php';
 // Incluir DatabaseConnection fallback
 require_once __DIR__ . '/includes/DatabaseConnection.php';
 if (!class_exists('Database') && class_exists('CapivaraLearn\\DatabaseConnection')) {
     class_alias('CapivaraLearn\\DatabaseConnection', 'Database');
+}
+// Fallback para funções auxiliares se não estiverem definidas
+if (!function_exists('h')) {
+    function h($string) {
+        return htmlspecialchars($string, ENT_QUOTES, 'UTF-8');
+    }
+}
+if (!function_exists('logActivity')) {
+    function logActivity($action, $description = '', $userId = null) {
+        log_sistema("[logActivity fallback] {$action} | {$description}", 'INFO');
+    }
 }
 // Global error handlers
 set_exception_handler(function (\Throwable $e) {
@@ -26,59 +47,80 @@ log_sistema('Dashboard carregado', 'INFO');
 // Debug de sessão e cookies
 log_sistema('Dashboard load: session_id=' . session_id() . ' | session=' . json_encode($_SESSION) . ' | cookies=' . json_encode($_COOKIE), 'DEBUG');
 // Verificar se está logado
+log_sistema('Verificando autenticação: user_id=' . ($_SESSION['user_id'] ?? 'não definido') . ' | isset=' . (isset($_SESSION['user_id']) ? 'true' : 'false'), 'DEBUG');
 if (!isset($_SESSION['user_id'])) {
     log_sistema('Usuário não autenticado, redirecionando para login', 'WARNING');
     header('Location: login.php');
     exit();
+} else {
+    log_sistema('Usuário autenticado, continuando no dashboard: user_id=' . $_SESSION['user_id'], 'INFO');
 }
 
 $db = Database::getInstance();
 $userId = $_SESSION['user_id'];    // Buscar dados do usuário e suas matrículas
     try {
+        log_sistema('Buscando dados do usuário no banco: user_id=' . $userId, 'DEBUG');
+        // Consulta simplificada - apenas tabela usuarios (configuracoes_usuario pode não existir)
         $user = $db->select(
-            "SELECT u.*, c.tema, c.notificacoes_email 
-             FROM usuarios u 
-             LEFT JOIN configuracoes_usuario c ON u.id = c.usuario_id 
-             WHERE u.id = ?", 
+            "SELECT u.* FROM usuarios u WHERE u.id = ?", 
             [$userId]
         );
+        log_sistema('Resultado consulta usuário: ' . json_encode($user), 'DEBUG');
 
-        // Buscar universidades e cursos do usuário
-        $matriculas = $db->select(
-            "SELECT 
-                ucu.*, 
-                u.nome as universidade_nome, 
-                u.sigla as universidade_sigla,
-                c.nome as curso_nome,
-                c.nivel as curso_nivel
-             FROM usuario_curso_universidade ucu
-             JOIN universidades u ON ucu.universidade_id = u.id
-             JOIN cursos c ON ucu.curso_id = c.id
-             WHERE ucu.usuario_id = ?
-             ORDER BY ucu.data_inicio DESC",
-            [$userId]
-        );
+        // Buscar universidades e cursos do usuário (pode retornar vazio se tabelas não existem)
+        $matriculas = [];
+        try {
+            $matriculas = $db->select(
+                "SELECT 
+                    ucu.*, 
+                    u.nome as universidade_nome, 
+                    u.sigla as universidade_sigla,
+                    c.nome as curso_nome,
+                    c.nivel as curso_nivel
+                 FROM usuario_curso_universidade ucu
+                 JOIN universidades u ON ucu.universidade_id = u.id
+                 JOIN cursos c ON ucu.curso_id = c.id
+                 WHERE ucu.usuario_id = ?
+                 ORDER BY ucu.data_inicio DESC",
+                [$userId]
+            );
+        } catch (Exception $e) {
+            log_sistema('Erro ao buscar matrículas (tabelas podem não existir): ' . $e->getMessage(), 'WARNING');
+            $matriculas = [];
+        }
 
     if (!$user) {
+        log_sistema('ERRO: Usuário não encontrado no banco mesmo com sessão válida. user_id=' . $userId, 'ERROR');
         header('Location: login.php');
         exit();
+    } else {
+        log_sistema('Usuário encontrado no banco: ' . $user[0]['nome'], 'INFO');
     }
 
     $user = $user[0];
+    
+    // Definir configurações padrão se não existirem
+    $user['tema'] = $user['tema'] ?? 'claro';
+    $user['notificacoes_email'] = $user['notificacoes_email'] ?? 1;
 
-    // Buscar estatísticas do usuário
-    $stats = $db->select(
-        "SELECT 
-            COUNT(DISTINCT m.id) as total_modulos,
-            COUNT(DISTINCT t.id) as total_topicos,
-            COUNT(DISTINCT CASE WHEN t.concluido = 1 THEN t.id END) as topicos_concluidos,
-            COUNT(DISTINCT CASE WHEN t.data_fim < CURDATE() AND t.concluido = 0 THEN t.id END) as topicos_atrasados,
-            COUNT(DISTINCT CASE WHEN t.data_inicio <= CURDATE() AND t.data_fim >= CURDATE() AND t.concluido = 0 THEN t.id END) as topicos_ativos
-         FROM modulos m
-         LEFT JOIN topicos t ON m.id = t.modulo_id
-         WHERE m.usuario_id = ? AND m.ativo = 1",
-        [$userId]
-    );
+    // Buscar estatísticas do usuário (protegido contra tabelas inexistentes)
+    $stats = [];
+    try {
+        $stats = $db->select(
+            "SELECT 
+                COUNT(DISTINCT m.id) as total_modulos,
+                COUNT(DISTINCT t.id) as total_topicos,
+                COUNT(DISTINCT CASE WHEN t.concluido = 1 THEN t.id END) as topicos_concluidos,
+                COUNT(DISTINCT CASE WHEN t.data_fim < CURDATE() AND t.concluido = 0 THEN t.id END) as topicos_atrasados,
+                COUNT(DISTINCT CASE WHEN t.data_inicio <= CURDATE() AND t.data_fim >= CURDATE() AND t.concluido = 0 THEN t.id END) as topicos_ativos
+             FROM modulos m
+             LEFT JOIN topicos t ON m.id = t.modulo_id
+             WHERE m.usuario_id = ? AND m.ativo = 1",
+            [$userId]
+        );
+    } catch (Exception $e) {
+        log_sistema('Erro ao buscar estatísticas (tabelas podem não existir): ' . $e->getMessage(), 'WARNING');
+    }
 
     $stats = $stats[0] ?? [
         'total_modulos' => 0,
@@ -88,40 +130,64 @@ $userId = $_SESSION['user_id'];    // Buscar dados do usuário e suas matrícula
         'topicos_ativos' => 0
     ];
 
-    // Buscar módulos do usuário
-    $modulos = $db->select(
-        "SELECT m.*, 
-                COUNT(t.id) as total_topicos,
-                COUNT(CASE WHEN t.concluido = 1 THEN 1 END) as topicos_concluidos,
-                COUNT(CASE WHEN t.data_fim < CURDATE() AND t.concluido = 0 THEN 1 END) as topicos_atrasados
-         FROM modulos m
-         LEFT JOIN topicos t ON m.id = t.modulo_id
-         WHERE m.usuario_id = ? AND m.ativo = 1
-         GROUP BY m.id, m.nome, m.data_inicio, m.data_fim
-         ORDER BY m.data_inicio DESC",
-        [$userId]
-    );
+    // Buscar módulos do usuário (protegido contra tabelas inexistentes)
+    $modulos = [];
+    try {
+        $modulos = $db->select(
+            "SELECT m.*, 
+                    COUNT(t.id) as total_topicos,
+                    COUNT(CASE WHEN t.concluido = 1 THEN 1 END) as topicos_concluidos,
+                    COUNT(CASE WHEN t.data_fim < CURDATE() AND t.concluido = 0 THEN 1 END) as topicos_atrasados
+             FROM modulos m
+             LEFT JOIN topicos t ON m.id = t.modulo_id
+             WHERE m.usuario_id = ? AND m.ativo = 1
+             GROUP BY m.id, m.nome, m.data_inicio, m.data_fim
+             ORDER BY m.data_inicio DESC",
+            [$userId]
+        );
+    } catch (Exception $e) {
+        log_sistema('Erro ao buscar módulos (tabelas podem não existir): ' . $e->getMessage(), 'WARNING');
+        $modulos = [];
+    }
 
-    // Buscar tópicos ativos/próximos com arquivos
-    $topicos_proximos = $db->select(
-        "SELECT 
-            t.*, 
-            m.nome as modulo_nome, 
-            m.codigo as modulo_codigo,
-            COUNT(DISTINCT ta.arquivo_id) as total_arquivos
-         FROM topicos t
-         JOIN modulos m ON t.modulo_id = m.id
-         LEFT JOIN topico_arquivo ta ON t.id = ta.topico_id
-         WHERE m.usuario_id = ? AND m.ativo = 1 
-         AND (t.data_fim >= CURDATE() OR (t.data_fim < CURDATE() AND t.concluido = 0))
-         GROUP BY t.id, t.nome, m.nome, m.codigo
-         ORDER BY t.data_fim ASC
-         LIMIT 5",
-        [$userId]
-    );
+    // Buscar tópicos ativos/próximos com arquivos (protegido contra tabelas inexistentes)
+    $topicos_proximos = [];
+    try {
+        $topicos_proximos = $db->select(
+            "SELECT 
+                t.*, 
+                m.nome as modulo_nome, 
+                m.codigo as modulo_codigo,
+                COUNT(DISTINCT ta.arquivo_id) as total_arquivos
+             FROM topicos t
+             JOIN modulos m ON t.modulo_id = m.id
+             LEFT JOIN topico_arquivo ta ON t.id = ta.topico_id
+             WHERE m.usuario_id = ? AND m.ativo = 1 
+             AND (t.data_fim >= CURDATE() OR (t.data_fim < CURDATE() AND t.concluido = 0))
+             GROUP BY t.id, t.nome, m.nome, m.codigo
+             ORDER BY t.data_fim ASC
+             LIMIT 5",
+            [$userId]
+        );
+    } catch (Exception $e) {
+        log_sistema('Erro ao buscar tópicos próximos (tabelas podem não existir): ' . $e->getMessage(), 'WARNING');
+        $topicos_proximos = [];
+    }
 
 } catch (Exception $e) {
-    die("Erro ao carregar dashboard: " . $e->getMessage());
+    log_sistema("Erro ao carregar dashboard: " . $e->getMessage(), 'ERROR');
+    // Em vez de die(), vamos continuar com dados vazios
+    $user = ['nome' => 'Usuário', 'email' => $_SESSION['user_email'] ?? 'email@exemplo.com'];
+    $matriculas = [];
+    $stats = [
+        'total_modulos' => 0,
+        'total_topicos' => 0,
+        'topicos_concluidos' => 0,
+        'topicos_atrasados' => 0,
+        'topicos_ativos' => 0
+    ];
+    $modulos = [];
+    $topicos_proximos = [];
 }
 ?>
 <!DOCTYPE html>
