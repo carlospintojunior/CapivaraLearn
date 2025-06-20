@@ -44,12 +44,22 @@ $isProduction = true;
 // CONFIGURAÇÕES DE SESSÃO (ANTES de session_start)
 // =============================================
 if (session_status() === PHP_SESSION_NONE) {
+    // Configurar diretório de sessões local para evitar problemas de permissão
+    $sessionDir = __DIR__ . '/../logs/sessions';
+    if (!is_dir($sessionDir)) {
+        @mkdir($sessionDir, 0777, true);
+    }
+    @ini_set('session.save_path', $sessionDir);
+    
+    // Configurações básicas de cookies
     @ini_set('session.cookie_httponly', 1);
     @ini_set('session.use_only_cookies', 1);
-    if ($isProduction) {
-        @ini_set('session.cookie_secure', 1);
-        @ini_set('session.cookie_samesite', 'Strict');
-    }
+    
+    // Para desenvolvimento local HTTP - não usar cookie_secure
+    // Em produção HTTPS, essas configurações devem ser ajustadas
+    @ini_set('session.cookie_secure', 0);
+    @ini_set('session.cookie_samesite', 'Lax');
+    
     session_start();
 }
 

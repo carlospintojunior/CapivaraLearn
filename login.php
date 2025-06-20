@@ -1,5 +1,15 @@
 <?php
-// Carregar configurações e sistema de logs (faz session_start)
+// Iniciar sessão explicitamente antes de qualquer coisa
+if (session_status() === PHP_SESSION_NONE) {
+    // Configurar sessão para desenvolvimento local
+    ini_set('session.cookie_httponly', 1);
+    ini_set('session.use_only_cookies', 1);
+    ini_set('session.cookie_secure', 0); // HTTP local
+    ini_set('session.cookie_samesite', 'Lax');
+    session_start();
+}
+
+// Carregar configurações e sistema de logs
 require_once __DIR__ . '/includes/config.php';
 require_once __DIR__ . '/includes/log_sistema.php';
 // Garantir fallback para conexão de banco
@@ -48,7 +58,9 @@ register_shutdown_function(function () {
 });
 
 // Se já estiver logado, redirecionar
+log_sistema('Verificando se já está logado: user_id=' . ($_SESSION['user_id'] ?? 'não definido') . ' | isset=' . (isset($_SESSION['user_id']) ? 'true' : 'false'), 'DEBUG');
 if (isset($_SESSION['user_id'])) {
+    log_sistema('Usuário já autenticado, redirecionando para dashboard: user_id=' . $_SESSION['user_id'], 'INFO');
     header('Location: dashboard.php');
     exit();
 }
@@ -626,6 +638,73 @@ if (isset($_GET['resend_email'])) {
             line-height: 1.4;
         }
 
+        /* Loading Popup Styles */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+
+        .loading-content {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            max-width: 400px;
+            width: 90%;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        }
+
+        .loading-spinner {
+            width: 60px;
+            height: 60px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-content h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+            font-size: 1.5em;
+        }
+
+        .loading-content p {
+            color: #7f8c8d;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+
+        .loading-steps {
+            text-align: left;
+        }
+
+        .step {
+            padding: 8px 0;
+            color: #bdc3c7;
+            font-size: 14px;
+            transition: color 0.3s ease;
+        }
+
+        .step.active {
+            color: #27ae60;
+            font-weight: bold;
+        }
+
         @media (max-width: 480px) {
             .login-container {
                 margin: 10px;
@@ -670,20 +749,12 @@ if (isset($_GET['resend_email'])) {
 
             <?php if ($success): ?>
                 <div class="alert alert-success">✅ <?= $success ?></div>
+                <!-- Email Notice - Apenas após sucesso no cadastro -->
+                <div class="email-notice">
+                    <h5>📧 Sistema de Confirmação por Email</h5>
+                    <p>Ao se cadastrar, você receberá um email de confirmação. Verifique também a pasta de spam/lixo eletrônico.</p>
+                </div>
             <?php endif; ?>
-
-            <!-- Email Notice -->
-            <div class="email-notice">
-                <h5>📧 Sistema de Confirmação por Email</h5>
-                <p>Ao se cadastrar, você receberá um email de confirmação. Verifique também a pasta de spam/lixo eletrônico.</p>
-            </div>
-
-            <!-- Demo Login Info -->
-            <div class="demo-login">
-                <h4>🧪 Login de Demonstração</h4>
-                <p><strong>E-mail:</strong> <code>teste@capivaralearn.com</code></p>
-                <p><strong>Senha:</strong> <code>123456</code></p>
-            </div>
 
             <!-- Tabs -->
             <div class="tabs">
@@ -699,13 +770,13 @@ if (isset($_GET['resend_email'])) {
                     <div class="form-group">
                         <label for="email">📧 E-mail</label>
                         <input type="email" id="email" name="email" required 
-                               placeholder="seu@email.com" value="teste@capivaralearn.com">
+                               placeholder="seu@email.com">
                     </div>
 
                     <div class="form-group">
                         <label for="password">🔒 Senha</label>
                         <input type="password" id="password" name="password" required 
-                               placeholder="Sua senha" value="123456">
+                               placeholder="Sua senha">
                     </div>
 
                     <button type="submit" class="btn btn-login">
@@ -743,7 +814,7 @@ if (isset($_GET['resend_email'])) {
                                placeholder="Digite a senha novamente">
                     </div>
 
-                    <button type="submit" class="btn btn-register">
+                    <button type="submit" class="btn btn-register" onclick="showRegistrationLoader(event)">
                         ✨ Criar Conta Gratuita
                     </button>
                 </form>
@@ -751,8 +822,56 @@ if (isset($_GET['resend_email'])) {
         </div>
     </div>
 
+    <!-- Loading Popup -->
+    <div id="loading-popup" style="display: none;">
+        <div class="loading-overlay">
+            <div class="loading-content">
+                <div class="loading-spinner"></div>
+                <h3>🦫 Criando sua conta...</h3>
+                <p>Aguarde enquanto processamos seu cadastro e enviamos o email de confirmação.</p>
+                <div class="loading-steps">
+                    <div class="step active" id="step1">✓ Validando dados</div>
+                    <div class="step" id="step2">📧 Enviando email</div>
+                    <div class="step" id="step3">🎉 Finalizando</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
-        function switchTab(tabName) {
+        function showRegistrationLoader(event) {
+            // Verificar se é o formulário de registro
+            const form = event.target.closest('form');
+            const action = form.querySelector('input[name="action"]').value;
+            
+            if (action === 'register') {
+                // Validação básica antes de mostrar o loader
+                const nome = form.querySelector('input[name="nome"]').value.trim();
+                const email = form.querySelector('input[name="email"]').value.trim();
+                const password = form.querySelector('input[name="password"]').value;
+                const confirmPassword = form.querySelector('input[name="confirm_password"]').value;
+                
+                if (!nome || !email || !password || password !== confirmPassword) {
+                    return true; // Permite o submit normal para mostrar erros de validação
+                }
+                
+                // Mostrar popup de carregamento
+                document.getElementById('loading-popup').style.display = 'block';
+                
+                // Simular progressão dos steps
+                setTimeout(() => {
+                    document.getElementById('step2').classList.add('active');
+                }, 1000);
+                
+                setTimeout(() => {
+                    document.getElementById('step3').classList.add('active');
+                }, 3000);
+            }
+            
+            return true; // Permite o submit do formulário
+        }
+        
+         function switchTab(tabName) {
             // Remove active class from all tabs and content
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
