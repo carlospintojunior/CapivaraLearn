@@ -1,5 +1,5 @@
 <?php
-require_once "vendor/autoload.php";
+require_once __DIR__ . '/../vendor/autoload.php';
 require_once __DIR__ . '/log_sistema.php';
 
 use PHPMailer\PHPMailer\PHPMailer;
@@ -27,12 +27,15 @@ class MailService {
         $logMessage = function($message, $level = 'INFO') use ($logFile) {
             $logDir = dirname($logFile);
             if (!is_dir($logDir)) {
-                @mkdir($logDir, 0777, true);
+                if (!mkdir($logDir, 0777, true) && !is_dir($logDir)) {
+                    log_sistema("[MailService] Falha ao criar diretório de log: $logDir", 'ERROR');
+                }
             }
-            
             $timestamp = date('Y-m-d H:i:s');
             $logLine = "[$timestamp] $level | $message" . PHP_EOL;
-            @file_put_contents($logFile, $logLine, FILE_APPEND | LOCK_EX);
+            if (file_put_contents($logFile, $logLine, FILE_APPEND | LOCK_EX) === false) {
+                log_sistema("[MailService] Falha ao escrever no arquivo de log: $logFile", 'ERROR');
+            }
         };
         
         $logMessage("=== INICIANDO ENVIO EMAIL ===");

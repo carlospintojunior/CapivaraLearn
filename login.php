@@ -1,16 +1,50 @@
 <?php
-require_once 'includes/config.php';
-require_once 'includes/log_sistema.php';
-
-// Adicionar exibição de erros diretamente na página em modo de desenvolvimento
-if (APP_ENV === 'development') {
-    ini_set('display_errors', 1);
-    ini_set('display_startup_errors', 1);
-    error_reporting(E_ALL);
-} else {
-    ini_set('display_errors', 0);
-    error_reporting(0);
+// Carregar configuração com classe Database
+require_once __DIR__ . '/includes/config.php';
+require_once __DIR__ . '/includes/log_sistema.php';
+// Carregar conexão alternativa se classe Database não estiver disponível
+require_once __DIR__ . '/includes/DatabaseConnection.php';
+if (!class_exists('Database') && class_exists('CapivaraLearn\\DatabaseConnection')) {
+    class_alias('CapivaraLearn\\DatabaseConnection', 'Database');
 }
+// Garantir existência de generateToken() para registro
+if (!function_exists('generateToken')) {
+    function generateToken() {
+        try { return bin2hex(random_bytes(32)); }
+        catch (Exception $e) { return md5(uniqid('', true)); }
+    }
+}
+// Garantir existência de logActivity() para registrar atividades, se não definida
+if (!function_exists('logActivity')) {
+    function logActivity($action, $description = '', $userId = null) {
+        // Usa log_sistema como fallback
+        log_sistema("[logActivity fallback] {$action} | {$description}", 'INFO');
+    }
+}
+// Carregar serviço de email para registro e confirmação
+require_once __DIR__ . '/includes/MailService.php';
+
+// Registrar acesso à página de login
+log_sistema('Tela de login carregada', 'INFO');
+
+// Sempre produção: suprimir erros na tela
+ini_set('display_errors', 0);
+error_reporting(0);
+
+// Registrar manipuladores globais de erros e exceções para capture de fatal errors
+set_exception_handler(function (\Throwable $e) {
+    log_sistema("Exceção não capturada em login.php: " . $e->getMessage() . " em " . $e->getFile() . ":" . $e->getLine(), 'ERROR');
+});
+set_error_handler(function ($severity, $message, $file, $line) {
+    log_sistema("Erro [" . $severity . "] " . $message . " em " . $file . ":" . $line, 'ERROR');
+    return false; // permite execução do handler interno do PHP
+});
+register_shutdown_function(function () {
+    $error = error_get_last();
+    if ($error && in_array($error['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+        log_sistema("Fatal shutdown error: " . $error['message'] . " em " . $error['file'] . ":" . $error['line'], 'ERROR');
+    }
+});
 
 // Se já estiver logado, redirecionar
 if (isset($_SESSION['user_id'])) {
@@ -23,6 +57,7 @@ $success = '';
 
 // Processar login/registro
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    // Usar classe Database definida em config.php
     $db = Database::getInstance();
     $mail = MailService::getInstance();
     
@@ -600,9 +635,6 @@ if (isset($_GET['resend_email'])) {
 <body>
     <div class="login-container">
         <div class="login-header">
-            <div class="environment-indicator <?= APP_ENV === 'development' ? 'environment-development' : 'environment-production' ?>">
-                🛠️ <?= strtoupper(APP_ENV) ?>
-            </div>
             <div class="logo-container">
                 <img src="public/assets/images/logo.png" alt="CapivaraLearn" class="logo-image" onerror="this.style.display='none';">
                 <div>
