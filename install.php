@@ -236,7 +236,7 @@ $deps = checkDependencies();
                 $log .= "✅ Banco '$dbname' criado/selecionado\n";
                 log_sistema("Banco de dados '$dbname' criado/selecionado com sucesso", 'SUCCESS');
                 
-                // Criar tabelas (versão simplificada)
+                // Criar tabelas completas com isolamento por usuário
                 $tables = [
                     "usuarios" => "CREATE TABLE IF NOT EXISTS usuarios (
                         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -260,6 +260,101 @@ $deps = checkDependencies();
                         ip_address VARCHAR(45),
                         FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
                         INDEX idx_token (token)
+                    ) ENGINE=InnoDB",
+                    
+                    "universidades" => "CREATE TABLE IF NOT EXISTS universidades (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        nome VARCHAR(255) NOT NULL,
+                        sigla VARCHAR(20),
+                        cidade VARCHAR(100),
+                        estado VARCHAR(50),
+                        usuario_id INT NOT NULL,
+                        ativo BOOLEAN DEFAULT TRUE,
+                        data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+                        INDEX idx_usuario_nome (usuario_id, nome),
+                        INDEX idx_usuario_sigla (usuario_id, sigla)
+                    ) ENGINE=InnoDB",
+                    
+                    "cursos" => "CREATE TABLE IF NOT EXISTS cursos (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        nome VARCHAR(255) NOT NULL,
+                        descricao TEXT,
+                        carga_horaria INT,
+                        usuario_id INT NOT NULL,
+                        ativo BOOLEAN DEFAULT TRUE,
+                        data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+                        INDEX idx_usuario_nome (usuario_id, nome)
+                    ) ENGINE=InnoDB",
+                    
+                    "disciplinas" => "CREATE TABLE IF NOT EXISTS disciplinas (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        nome VARCHAR(255) NOT NULL,
+                        descricao TEXT,
+                        codigo VARCHAR(50),
+                        carga_horaria INT,
+                        usuario_id INT NOT NULL,
+                        ativo BOOLEAN DEFAULT TRUE,
+                        data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+                        INDEX idx_usuario_nome (usuario_id, nome),
+                        INDEX idx_usuario_codigo (usuario_id, codigo)
+                    ) ENGINE=InnoDB",
+                    
+                    "topicos" => "CREATE TABLE IF NOT EXISTS topicos (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        nome VARCHAR(255) NOT NULL,
+                        descricao TEXT,
+                        disciplina_id INT NOT NULL,
+                        usuario_id INT NOT NULL,
+                        ordem INT DEFAULT 0,
+                        ativo BOOLEAN DEFAULT TRUE,
+                        data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (disciplina_id) REFERENCES disciplinas(id) ON DELETE CASCADE,
+                        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+                        INDEX idx_disciplina_ordem (disciplina_id, ordem),
+                        INDEX idx_usuario_nome (usuario_id, nome)
+                    ) ENGINE=InnoDB",
+                    
+                    "universidade_cursos" => "CREATE TABLE IF NOT EXISTS universidade_cursos (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        universidade_id INT NOT NULL,
+                        curso_id INT NOT NULL,
+                        usuario_id INT NOT NULL,
+                        ativo BOOLEAN DEFAULT TRUE,
+                        data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (universidade_id) REFERENCES universidades(id) ON DELETE CASCADE,
+                        FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE,
+                        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+                        UNIQUE KEY unique_user_univ_curso (universidade_id, curso_id, usuario_id),
+                        INDEX idx_usuario (usuario_id),
+                        INDEX idx_universidade (universidade_id),
+                        INDEX idx_curso (curso_id)
+                    ) ENGINE=InnoDB",
+                    
+                    "inscricoes" => "CREATE TABLE IF NOT EXISTS inscricoes (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        usuario_id INT NOT NULL,
+                        universidade_id INT NOT NULL,
+                        curso_id INT NOT NULL,
+                        status ENUM('ativo', 'concluido', 'trancado', 'cancelado') DEFAULT 'ativo',
+                        progresso DECIMAL(5,2) DEFAULT 0.00,
+                        data_matricula TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        data_conclusao TIMESTAMP NULL,
+                        nota_final DECIMAL(4,2) NULL,
+                        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+                        FOREIGN KEY (universidade_id) REFERENCES universidades(id) ON DELETE CASCADE,
+                        FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE,
+                        UNIQUE KEY unique_matricula (usuario_id, universidade_id, curso_id),
+                        INDEX idx_usuario_status (usuario_id, status),
+                        INDEX idx_universidade (universidade_id),
+                        INDEX idx_curso (curso_id)
                     ) ENGINE=InnoDB"
                 ];
                 
@@ -274,8 +369,8 @@ $deps = checkDependencies();
                     }
                 }
                 
-                echo '<div class="success">✅ Estrutura básica do banco criada</div>';
-                log_sistema("Estrutura básica do banco de dados criada com sucesso", 'SUCCESS');
+                echo '<div class="success">✅ Estrutura completa do banco criada (8 tabelas com isolamento por usuário)</div>';
+                log_sistema("Estrutura completa do banco de dados criada com sucesso - 8 tabelas com isolamento por usuário", 'SUCCESS');
                 
                 // Criar arquivo de configuração básico
                 $configContent = "<?php
