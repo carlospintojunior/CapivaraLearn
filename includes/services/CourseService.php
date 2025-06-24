@@ -1,15 +1,44 @@
 <?php
-require_once __DIR__ . '/../config.php';
+require_once __DIR__ . '/../log_sistema.php';
 
 /**
- * Serviço para gerenciamento de cursos
+ * Serviço para gerenciamento de cursos com isolamento por usuário
+ * Versão: 2.0 - Compatível com estrutura do banco validada
  */
 class CourseService {
     private $db;
+    private $userId;
     private static $instance = null;
 
     private function __construct() {
-        $this->db = Database::getInstance();
+        // Garantir que a sessão está iniciada
+        if (session_status() === PHP_SESSION_NONE) {
+            session_start();
+        }
+        
+        // Verificar se usuário está logado
+        if (!isset($_SESSION['user_id']) || !$_SESSION['logged_in']) {
+            throw new Exception('Usuário não autenticado');
+        }
+        
+        $this->userId = $_SESSION['user_id'];
+        
+        // Conectar diretamente ao banco
+        try {
+            $this->db = new PDO(
+                "mysql:host=localhost;dbname=capivaralearn;charset=utf8mb4",
+                "root",
+                "",
+                [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
+                ]
+            );
+        } catch (PDOException $e) {
+            throw new Exception("Erro de conexão: " . $e->getMessage());
+        }
+        
+        log_sistema("CourseService inicializado para usuário ID: {$this->userId}", 'INFO');
     }
 
     public static function getInstance() {
@@ -20,34 +49,431 @@ class CourseService {
     }
 
     /**
-     * Lista todos os cursos ativos
+     * Lista todos os cursos ativos do usuário logado
      */
     public function listAll() {
-        return $this->db->select(
-            "SELECT * FROM cursos WHERE ativo = 1 ORDER BY nome"
-        );
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT * FROM cursos 
+                 WHERE usuario_id = ? AND ativo = 1 
+                 ORDER BY nome"
+            );
+            $stmt->execute([$this->userId]);
+            $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            log_sistema("Listados " . count($result) . " cursos para usuário {$this->userId}", 'INFO');
+            return $result;
+        } catch (Exception $e) {
+            log_sistema("Erro ao listar cursos: " . $e->getMessage(), 'ERROR');
+            throw $e;
+        }
     }
 
     /**
-     * Busca um curso por ID
+     * Busca um curso por ID (apenas do usuário logado)
      */
     public function getById($id) {
-        $result = $this->db->select(
-            "SELECT * FROM cursos WHERE id = ? AND ativo = 1",
-            [$id]
-        );
-        return $result[0] ?? null;
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT * FROM cursos 
+                 WHERE id = ? AND usuario_id = ? AND ativo = 1"
+            );
+            $stmt->execute([$id, $this->userId]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result) {
+                log_sistema("Curso ID {$id} encontrado para usuário {$this->userId}", 'INFO');
+            } else {
+                log_sistema("Curso ID {$id} não encontrado para usuário {$this->userId}", 'WARNING');
+            }
+            
+            return $result ?: null;
+        } catch (Exception $e) {
+            log_sistema("Erro ao buscar curso ID {$id}: " . $e->getMessage(), 'ERROR');
+            throw $e;
+        }
     }
 
     /**
-     * Lista todos os cursos de uma universidade que um usuário está matriculado
+     * Cria um novo curso para o usuário logado
      */
-    public function listByUserAndUniversity($userId, $universityId) {
-        return $this->db->select(
-            "SELECT c.* FROM cursos c
-             INNER JOIN usuario_curso_universidade ucu ON c.id = ucu.curso_id
-             WHERE ucu.usuario_id = ? AND ucu.universidade_id = ? AND c.ativo = 1
-             ORDER BY c.nome",
+    public function create($data) {
+        try {
+            // Validar dados obrigatórios
+            if (empty($data['nome'])) {
+                throw new Exception('Nome do curso é obrigatório');
+            }
+            
+            $stmt = $this->db->prepare(
+                "INSERT INTO cursos (nome, descricao, codigo, carga_horaria, usuario_id) 
+                 VALUES (?, ?, ?, ?, ?)"
+            );
+            
+            $result = $stmt->execute([
+                $data['nome'],
+                $data['descricao'] ?? null,
+                $data['codigo'] ?? null,
+                $data['carga_horaria'] ?? null,
+                $this->userId
+            ]);
+            
+            if ($result) {
+                $courseId = $this->db->lastInsertId();
+                log_sistema("Curso '{$data['nome']}' criado com ID {$courseId} para usuário {$this->userId}", 'SUCCESS');
+                return $courseId;
+            }
+            
+            throw new Exception('Falha ao criar curso');
+        } catch (Exception $e) {
+            log_sistema("Erro ao criar curso: " . $e->getMessage(), 'ERROR');
+            throw $e;
+        }
+    }
+
+    /**
+     * Atualiza um curso existente (apenas do usuário logado)
+     */
+    public function update($id, $data) {
+        try {
+            // Verificar se o curso pertence ao usuário
+            if (!$this->getById($id)) {
+                throw new Exception('Curso não encontrado ou não pertence ao usuário');
+            }
+            
+            // Validar dados obrigatórios
+            if (empty($data['nome'])) {
+                throw new Exception('Nome do curso é obrigatório');
+            }
+            
+            $stmt = $this->db->prepare(
+                "UPDATE cursos 
+                 SET nome = ?, descricao = ?, codigo = ?, carga_horaria = ?
+                 WHERE id = ? AND usuario_id = ?"
+            );
+            
+            $result = $stmt->execute([
+                $data['nome'],
+                $data['descricao'] ?? null,
+                $data['codigo'] ?? null,
+                $data['carga_horaria'] ?? null,
+                $id,
+                $this->userId
+            ]);
+            
+            if ($result) {
+                log_sistema("Curso ID {$id} atualizado para usuário {$this->userId}", 'SUCCESS');
+                return true;
+            }
+            
+            throw new Exception('Falha ao atualizar curso');
+        } catch (Exception $e) {
+            log_sistema("Erro ao atualizar curso ID {$id}: " . $e->getMessage(), 'ERROR');
+            throw $e;
+        }
+    }
+
+    /**
+     * Remove (soft delete) um curso (apenas do usuário logado)
+     */
+    public function delete($id) {
+        try {
+            // Verificar se o curso pertence ao usuário
+            if (!$this->getById($id)) {
+                throw new Exception('Curso não encontrado ou não pertence ao usuário');
+            }
+            
+            $stmt = $this->db->prepare(
+                "UPDATE cursos 
+                 SET ativo = 0 
+                 WHERE id = ? AND usuario_id = ?"
+            );
+            
+            $result = $stmt->execute([$id, $this->userId]);
+            
+            if ($result) {
+                log_sistema("Curso ID {$id} removido (soft delete) para usuário {$this->userId}", 'SUCCESS');
+                return true;
+            }
+            
+            throw new Exception('Falha ao remover curso');
+        } catch (Exception $e) {
+            log_sistema("Erro ao remover curso ID {$id}: " . $e->getMessage(), 'ERROR');
+            throw $e;
+        }
+    }
+
+    /**
+     * Lista disciplinas de um curso do usuário logado
+     */
+    public function listDisciplinas($courseId) {
+        try {
+            // Verificar se o curso pertence ao usuário
+            if (!$this->getById($courseId)) {
+                throw new Exception('Curso não encontrado ou não pertence ao usuário');
+            }
+            
+            $stmt = $this->db->prepare(
+                "SELECT * FROM disciplinas 
+                 WHERE curso_id = ? AND usuario_id = ? AND ativo = 1
+                 ORDER BY nome"
+            );
+            $stmt->execute([$courseId, $this->userId]);
+            $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            log_sistema("Listadas " . count($result) . " disciplinas do curso {$courseId} para usuário {$this->userId}", 'INFO');
+            return $result;
+        } catch (Exception $e) {
+            log_sistema("Erro ao listar disciplinas do curso {$courseId}: " . $e->getMessage(), 'ERROR');
+            throw $e;
+        }
+    }
+
+    /**
+     * Lista universidades que oferecem este curso (do usuário logado)
+     */
+    public function listUniversidades($courseId) {
+        try {
+            // Verificar se o curso pertence ao usuário
+            if (!$this->getById($courseId)) {
+                throw new Exception('Curso não encontrado ou não pertence ao usuário');
+            }
+            
+            $stmt = $this->db->prepare(
+                "SELECT u.* FROM universidades u 
+                 INNER JOIN universidade_cursos uc ON u.id = uc.universidade_id 
+                 WHERE uc.curso_id = ? AND uc.usuario_id = ? 
+                   AND uc.ativo = 1 AND u.ativo = 1
+                 ORDER BY u.nome"
+            );
+            $stmt->execute([$courseId, $this->userId]);
+            $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            log_sistema("Listadas " . count($result) . " universidades do curso {$courseId} para usuário {$this->userId}", 'INFO');
+            return $result;
+        } catch (Exception $e) {
+            log_sistema("Erro ao listar universidades do curso {$courseId}: " . $e->getMessage(), 'ERROR');
+            throw $e;
+        }
+    }
+}
+?>
+
+    public static function getInstance() {
+        if (self::$instance === null) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+
+    /**
+     * Lista todos os cursos ativos do usuário logado
+     */
+    public function listAll() {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT * FROM cursos 
+                 WHERE usuario_id = ? AND ativo = 1 
+                 ORDER BY nome"
+            );
+            $stmt->execute([$this->userId]);
+            $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            log_sistema("Listados " . count($result) . " cursos para usuário {$this->userId}", 'INFO');
+            return $result;
+        } catch (Exception $e) {
+            log_sistema("Erro ao listar cursos: " . $e->getMessage(), 'ERROR');
+            throw $e;
+        }
+    }
+
+    /**
+     * Busca um curso por ID (apenas do usuário logado)
+     */
+    public function getById($id) {
+        try {
+            $stmt = $this->db->prepare(
+                "SELECT * FROM cursos 
+                 WHERE id = ? AND usuario_id = ? AND ativo = 1"
+            );
+            $stmt->execute([$id, $this->userId]);
+            $result = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if ($result) {
+                log_sistema("Curso ID {$id} encontrado para usuário {$this->userId}", 'INFO');
+            } else {
+                log_sistema("Curso ID {$id} não encontrado para usuário {$this->userId}", 'WARNING');
+            }
+            
+            return $result ?: null;
+        } catch (Exception $e) {
+            log_sistema("Erro ao buscar curso ID {$id}: " . $e->getMessage(), 'ERROR');
+            throw $e;
+        }
+    }
+
+    /**
+     * Cria um novo curso para o usuário logado
+     */
+    public function create($data) {
+        try {
+            // Validar dados obrigatórios
+            if (empty($data['nome'])) {
+                throw new Exception('Nome do curso é obrigatório');
+            }
+            
+            $stmt = $this->db->prepare(
+                "INSERT INTO cursos (nome, descricao, codigo, carga_horaria, usuario_id) 
+                 VALUES (?, ?, ?, ?, ?)"
+            );
+            
+            $result = $stmt->execute([
+                $data['nome'],
+                $data['descricao'] ?? null,
+                $data['codigo'] ?? null,
+                $data['carga_horaria'] ?? null,
+                $this->userId
+            ]);
+            
+            if ($result) {
+                $courseId = $this->db->lastInsertId();
+                log_sistema("Curso '{$data['nome']}' criado com ID {$courseId} para usuário {$this->userId}", 'SUCCESS');
+                return $courseId;
+            }
+            
+            throw new Exception('Falha ao criar curso');
+        } catch (Exception $e) {
+            log_sistema("Erro ao criar curso: " . $e->getMessage(), 'ERROR');
+            throw $e;
+        }
+    }
+
+    /**
+     * Atualiza um curso existente (apenas do usuário logado)
+     */
+    public function update($id, $data) {
+        try {
+            // Verificar se o curso pertence ao usuário
+            if (!$this->getById($id)) {
+                throw new Exception('Curso não encontrado ou não pertence ao usuário');
+            }
+            
+            // Validar dados obrigatórios
+            if (empty($data['nome'])) {
+                throw new Exception('Nome do curso é obrigatório');
+            }
+            
+            $stmt = $this->db->prepare(
+                "UPDATE cursos 
+                 SET nome = ?, descricao = ?, codigo = ?, carga_horaria = ?
+                 WHERE id = ? AND usuario_id = ?"
+            );
+            
+            $result = $stmt->execute([
+                $data['nome'],
+                $data['descricao'] ?? null,
+                $data['codigo'] ?? null,
+                $data['carga_horaria'] ?? null,
+                $id,
+                $this->userId
+            ]);
+            
+            if ($result) {
+                log_sistema("Curso ID {$id} atualizado para usuário {$this->userId}", 'SUCCESS');
+                return true;
+            }
+            
+            throw new Exception('Falha ao atualizar curso');
+        } catch (Exception $e) {
+            log_sistema("Erro ao atualizar curso ID {$id}: " . $e->getMessage(), 'ERROR');
+            throw $e;
+        }
+    }
+
+    /**
+     * Remove (soft delete) um curso (apenas do usuário logado)
+     */
+    public function delete($id) {
+        try {
+            // Verificar se o curso pertence ao usuário
+            if (!$this->getById($id)) {
+                throw new Exception('Curso não encontrado ou não pertence ao usuário');
+            }
+            
+            $stmt = $this->db->prepare(
+                "UPDATE cursos 
+                 SET ativo = 0 
+                 WHERE id = ? AND usuario_id = ?"
+            );
+            
+            $result = $stmt->execute([$id, $this->userId]);
+            
+            if ($result) {
+                log_sistema("Curso ID {$id} removido (soft delete) para usuário {$this->userId}", 'SUCCESS');
+                return true;
+            }
+            
+            throw new Exception('Falha ao remover curso');
+        } catch (Exception $e) {
+            log_sistema("Erro ao remover curso ID {$id}: " . $e->getMessage(), 'ERROR');
+            throw $e;
+        }
+    }
+
+    /**
+     * Lista disciplinas de um curso do usuário logado
+     */
+    public function listDisciplinas($courseId) {
+        try {
+            // Verificar se o curso pertence ao usuário
+            if (!$this->getById($courseId)) {
+                throw new Exception('Curso não encontrado ou não pertence ao usuário');
+            }
+            
+            $stmt = $this->db->prepare(
+                "SELECT * FROM disciplinas 
+                 WHERE curso_id = ? AND usuario_id = ? AND ativo = 1
+                 ORDER BY nome"
+            );
+            $stmt->execute([$courseId, $this->userId]);
+            $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            log_sistema("Listadas " . count($result) . " disciplinas do curso {$courseId} para usuário {$this->userId}", 'INFO');
+            return $result;
+        } catch (Exception $e) {
+            log_sistema("Erro ao listar disciplinas do curso {$courseId}: " . $e->getMessage(), 'ERROR');
+            throw $e;
+        }
+    }
+
+    /**
+     * Lista universidades que oferecem este curso (do usuário logado)
+     */
+    public function listUniversidades($courseId) {
+        try {
+            // Verificar se o curso pertence ao usuário
+            if (!$this->getById($courseId)) {
+                throw new Exception('Curso não encontrado ou não pertence ao usuário');
+            }
+            
+            $stmt = $this->db->prepare(
+                "SELECT u.* FROM universidades u 
+                 INNER JOIN universidade_cursos uc ON u.id = uc.universidade_id 
+                 WHERE uc.curso_id = ? AND uc.usuario_id = ? 
+                   AND uc.ativo = 1 AND u.ativo = 1
+                 ORDER BY u.nome"
+            );
+            $stmt->execute([$courseId, $this->userId]);
+            $result = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            log_sistema("Listadas " . count($result) . " universidades do curso {$courseId} para usuário {$this->userId}", 'INFO');
+            return $result;
+        } catch (Exception $e) {
+            log_sistema("Erro ao listar universidades do curso {$courseId}: " . $e->getMessage(), 'ERROR');
+            throw $e;
+        }
+    }
+}
+?>
             [$userId, $universityId]
         );
     }

@@ -284,7 +284,18 @@ require_once __DIR__ . '/includes/header.php';
 </form>
 
 <script>
-// Carregar cursos da universidade via AJAX (simulado)
+// Funções auxiliares de escape para JavaScript
+function escapeHTML(str) {
+    const div = document.createElement('div');
+    div.appendChild(document.createTextNode(str));
+    return div.innerHTML;
+}
+
+function addslashes(str) {
+    return (str + '').replace(/[\\"']/g, '\\$&').replace(/\u0000/g, '\\0');
+}
+
+// Carregar cursos da universidade via AJAX
 document.addEventListener('DOMContentLoaded', function() {
     <?php foreach ($universities as $university): ?>
         loadUniversityCourses(<?= $university['id'] ?>);
@@ -292,19 +303,60 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function loadUniversityCourses(universityId) {
-    // Por enquanto, vamos simular o carregamento
-    setTimeout(() => {
-        const container = document.getElementById(`courses-${universityId}`);
-        
-        // Aqui você implementaria uma chamada AJAX real para buscar os cursos
-        // Por enquanto, vamos mostrar uma mensagem
-        container.innerHTML = `
-            <div class="text-muted small">
-                <i class="fas fa-info-circle me-1"></i>
-                Carregue os cursos via AJAX ou implemente listCourses()
+    const container = document.getElementById(`courses-${universityId}`);
+    if (!container) return;
+
+    // Exibe o spinner de carregamento
+    container.innerHTML = `
+        <div class="text-center text-muted">
+            <div class="spinner-border spinner-border-sm" role="status">
+                <span class="visually-hidden">Carregando...</span>
             </div>
-        `;
-    }, 500);
+        </div>`;
+
+    fetch(`ajax_get_courses.php?university_id=${universityId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Erro na requisição: ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            if (data.length === 0) {
+                container.innerHTML = `<div class="text-muted small text-center p-2"><i class="fas fa-info-circle me-1"></i>Nenhum curso associado.</div>`;
+                return;
+            }
+
+            let coursesHtml = '';
+            data.forEach(course => {
+                // Usamos as funções de escape para segurança
+                const safeCourseName = escapeHTML(course.nome);
+                const slashesCourseName = addslashes(course.nome);
+
+                coursesHtml += `
+                    <div class="course-item">
+                        <span class="course-name text-truncate" title="${safeCourseName}">${safeCourseName}</span>
+                        <button class="btn btn-sm btn-outline-danger py-0 px-1" 
+                                onclick="removeCourseFromUniversity(${universityId}, ${course.id}, '${slashesCourseName}')">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                `;
+            });
+            container.innerHTML = coursesHtml;
+        })
+        .catch(error => {
+            console.error('Erro ao carregar cursos:', error);
+            container.innerHTML = `
+                <div class="text-danger small p-2">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    Erro ao carregar.
+                </div>`;
+        });
 }
 
 function editUniversity(id, nome, sigla, cidade, estado) {

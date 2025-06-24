@@ -156,9 +156,9 @@ INSERT INTO cursos (nome, usuario_id) VALUES ('Medicina', 2);
 
 1. ✅ Documentar estrutura atual
 2. ✅ Tabelas do CRUD já existem no banco!
-3. ⏳ Verificar se há services básicos funcionais
-4. ⏳ Implementar CRUD de universidades (tabela já existe)
-5. ⏳ Implementar CRUD de cursos (tabela já existe)
+3. ✅ Services básicos corrigidos com isolamento por usuário
+4. 🔄 Implementar interfaces web para CRUD de universidades
+5. 🔄 Implementar interfaces web para CRUD de cursos
 6. ⏳ Implementar CRUD de disciplinas (tabela já existe)
 7. ⏳ Implementar CRUD de tópicos (tabela já existe)
 

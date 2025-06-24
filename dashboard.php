@@ -745,6 +745,46 @@ $userId = $_SESSION['user_id'];    // Buscar dados do usuário e suas matrícula
             gap: 15px;
         }
 
+        .management-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            padding: 20px;
+            background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+            border: 2px solid #e9ecef;
+            border-radius: 15px;
+            text-decoration: none;
+            color: #2c3e50;
+            transition: all 0.3s ease;
+            text-align: center;
+        }
+
+        .management-btn:hover {
+            color: #3498db;
+            border-color: #3498db;
+            transform: translateY(-3px);
+            box-shadow: 0 8px 20px rgba(52, 152, 219, 0.2);
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+        }
+
+        .management-btn i {
+            font-size: 1.5em;
+            margin-bottom: 5px;
+        }
+
+        .management-btn span {
+            font-weight: 600;
+            font-size: 1em;
+        }
+
+        .management-btn small {
+            font-size: 0.8em;
+            color: #7f8c8d;
+            text-align: center;
+            line-height: 1.2;
+        }
+
         @media (max-width: 768px) {
             .header-content {
                 flex-direction: column;
@@ -793,6 +833,9 @@ $userId = $_SESSION['user_id'];    // Buscar dados do usuário e suas matrícula
                 <div class="dropdown">
                     <button class="dropdown-btn" onclick="toggleDropdown()">⚙️</button>
                     <div class="dropdown-menu" id="userDropdown">
+                        <a href="manage_universities.php" class="dropdown-item">🏛️ Universidades</a>
+                        <a href="manage_courses.php" class="dropdown-item">🎓 Cursos</a>
+                        <a href="manage_modules.php" class="dropdown-item">📚 Módulos</a>
                         <a href="#" class="dropdown-item">👤 Meu Perfil</a>
                         <a href="#" class="dropdown-item">⚙️ Configurações</a>
                         <a href="logout.php" class="dropdown-item">🚪 Sair</a>
@@ -878,13 +921,47 @@ $userId = $_SESSION['user_id'];    // Buscar dados do usuário e suas matrícula
             </div>
         </div>
 
+        <!-- Seção de Gerenciamento -->
+        <div class="section mb-4">
+            <div class="section-title">
+                ⚙️ Gerenciamento
+            </div>
+            <div class="management-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                <a href="manage_universities.php" class="management-btn">
+                    <i class="bi bi-building"></i>
+                    <span>Universidades</span>
+                    <small>Cadastrar e gerenciar universidades</small>
+                </a>
+                <a href="manage_courses.php" class="management-btn">
+                    <i class="bi bi-mortarboard"></i>
+                    <span>Cursos</span>
+                    <small>Cadastrar e gerenciar cursos</small>
+                </a>
+                <a href="manage_modules.php" class="management-btn">
+                    <i class="bi bi-journal-bookmark"></i>
+                    <span>Módulos</span>
+                    <small>Cadastrar e gerenciar módulos</small>
+                </a>
+                <a href="manage_topics.php" class="management-btn">
+                    <i class="bi bi-card-checklist"></i>
+                    <span>Tópicos</span>
+                    <small>Cadastrar e gerenciar tópicos</small>
+                </a>
+                <a href="manage_enrollments.php" class="management-btn">
+                    <i class="bi bi-person-plus"></i>
+                    <span>Matrículas</span>
+                    <small>Gerenciar suas matrículas</small>
+                </a>
+            </div>
+        </div>
+
         <!-- Conteúdo Principal -->
         <div class="main-content">
             <!-- Módulos -->
             <div class="section">
                 <div class="section-title">
                     📚 Meus Módulos
-                    <a href="#" class="btn btn-primary" onclick="alert('Funcionalidade em desenvolvimento')">+ Novo Módulo</a>
+                    <a href="manage_modules.php" class="btn btn-primary">+ Novo Módulo</a>
                 </div>
 
                 <?php if (empty($modulos)): ?>
@@ -976,9 +1053,9 @@ $userId = $_SESSION['user_id'];    // Buscar dados do usuário e suas matrícula
         <div class="section">
             <div class="section-title">⚡ Ações Rápidas</div>
             <div class="quick-actions">
-                <a href="#" class="btn btn-primary" onclick="alert('Em desenvolvimento')">📚 Criar Módulo</a>
-                <a href="#" class="btn" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white;" onclick="alert('Em desenvolvimento')">📊 Ver Relatórios</a>
-                <a href="#" class="btn" style="background: linear-gradient(135deg, #27ae60, #219a52); color: white;" onclick="alert('Em desenvolvimento')">💾 Backup/Export</a>
+                <a href="manage_modules.php" class="btn btn-primary">📚 Criar Módulo</a>
+                <a href="manage_topics.php" class="btn" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white;">📝 Criar Tópico</a>
+                <a href="manage_universities.php" class="btn" style="background: linear-gradient(135deg, #27ae60, #219a52); color: white;">🏛️ Nova Universidade</a>
                 <a href="logout.php" class="btn btn-logout">🚪 Sair do Sistema</a>
             </div>
         </div>
