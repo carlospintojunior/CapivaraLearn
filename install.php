@@ -321,6 +321,24 @@ $deps = checkDependencies();
                         INDEX idx_usuario_nome (usuario_id, nome)
                     ) ENGINE=InnoDB",
                     
+                    "unidades_aprendizagem" => "CREATE TABLE IF NOT EXISTS unidades_aprendizagem (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        nome VARCHAR(255) NOT NULL,
+                        descricao TEXT,
+                        topico_id INT NOT NULL,
+                        usuario_id INT NOT NULL,
+                        ordem INT DEFAULT 0,
+                        nota DECIMAL(3,1) DEFAULT 0.0 CHECK (nota >= 0.0 AND nota <= 10.0),
+                        ativo BOOLEAN DEFAULT TRUE,
+                        data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (topico_id) REFERENCES topicos(id) ON DELETE CASCADE,
+                        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+                        INDEX idx_topico_ordem (topico_id, ordem),
+                        INDEX idx_usuario_nome (usuario_id, nome),
+                        INDEX idx_nota (nota)
+                    ) ENGINE=InnoDB",
+                    
                     "universidade_cursos" => "CREATE TABLE IF NOT EXISTS universidade_cursos (
                         id INT AUTO_INCREMENT PRIMARY KEY,
                         universidade_id INT NOT NULL,
