@@ -833,9 +833,11 @@ $userId = $_SESSION['user_id'];    // Buscar dados do usuário e suas matrícula
                 <div class="dropdown">
                     <button class="dropdown-btn" onclick="toggleDropdown()">⚙️</button>
                     <div class="dropdown-menu" id="userDropdown">
-                        <a href="manage_universities.php" class="dropdown-item">🏛️ Universidades</a>
-                        <a href="manage_courses.php" class="dropdown-item">🎓 Cursos</a>
-                        <a href="manage_modules.php" class="dropdown-item">📚 Módulos</a>
+                        <a href="crud/universities_simple.php" class="dropdown-item">🏛️ Universidades</a>
+                        <a href="crud/courses_simple.php" class="dropdown-item">🎓 Cursos</a>
+                        <a href="crud/modules_simple.php" class="dropdown-item">📚 Disciplinas</a>
+                        <a href="crud/topics_simple.php" class="dropdown-item">📝 Tópicos</a>
+                        <a href="crud/enrollments_simple.php" class="dropdown-item">🎯 Matrículas</a>
                         <a href="#" class="dropdown-item">👤 Meu Perfil</a>
                         <a href="#" class="dropdown-item">⚙️ Configurações</a>
                         <a href="logout.php" class="dropdown-item">🚪 Sair</a>
@@ -927,7 +929,7 @@ $userId = $_SESSION['user_id'];    // Buscar dados do usuário e suas matrícula
                 ⚙️ Gerenciamento
             </div>
             <div class="management-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
-                <a href="manage_universities.php" class="management-btn">
+                <a href="crud/universities_simple.php" class="management-btn">
                     <i class="bi bi-building"></i>
                     <span>Universidades</span>
                     <small>Cadastrar e gerenciar universidades</small>
@@ -1049,13 +1051,79 @@ $userId = $_SESSION['user_id'];    // Buscar dados do usuário e suas matrícula
             </div>
         </div>
 
+        <!-- Status do Sistema -->
+        <div class="section">
+            <div class="section-title">📊 Status do Sistema</div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0"><i class="fas fa-database"></i> Seus Dados</h6>
+                        </div>
+                        <div class="card-body">
+                            <?php
+                            try {
+                                require_once __DIR__ . '/Medoo.php';
+                                
+                                $db = new Medoo\Medoo([
+                                    'type' => 'mysql',
+                                    'host' => 'localhost',
+                                    'database' => 'capivaralearn',
+                                    'username' => 'root',
+                                    'password' => '',
+                                    'charset' => 'utf8mb4'
+                                ]);
+                                
+                                $user_id = $_SESSION['user_id'];
+                                $stats = [
+                                    '🏛️ Universidades' => $db->count("universidades", ["usuario_id" => $user_id]),
+                                    '🎓 Cursos' => $db->count("cursos", ["usuario_id" => $user_id]),
+                                    '📚 Disciplinas' => $db->count("disciplinas", ["usuario_id" => $user_id]),
+                                    '📝 Tópicos' => $db->count("topicos", ["usuario_id" => $user_id]),
+                                    '🎯 Matrículas' => $db->count("inscricoes", ["usuario_id" => $user_id])
+                                ];
+                                
+                                foreach ($stats as $label => $count) {
+                                    echo "<div class='d-flex justify-content-between'>";
+                                    echo "<span>$label:</span>";
+                                    echo "<span class='badge bg-primary'>$count</span>";
+                                    echo "</div>";
+                                }
+                            } catch (Exception $e) {
+                                echo "<p class='text-danger'><small>Erro ao carregar estatísticas</small></p>";
+                            }
+                            ?>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header">
+                            <h6 class="mb-0"><i class="fas fa-tools"></i> Links Úteis</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="list-group list-group-flush">
+                                <a href="crud/universities_simple.php" class="list-group-item list-group-item-action">🏛️ Gerenciar Universidades</a>
+                                <a href="crud/courses_simple.php" class="list-group-item list-group-item-action">🎓 Gerenciar Cursos</a>
+                                <a href="crud/modules_simple.php" class="list-group-item list-group-item-action">📚 Gerenciar Disciplinas</a>
+                                <a href="crud/topics_simple.php" class="list-group-item list-group-item-action">📝 Gerenciar Tópicos</a>
+                                <a href="crud/enrollments_simple.php" class="list-group-item list-group-item-action">🎯 Gerenciar Matrículas</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Ações Rápidas -->
         <div class="section">
             <div class="section-title">⚡ Ações Rápidas</div>
             <div class="quick-actions">
-                <a href="manage_modules.php" class="btn btn-primary">📚 Criar Módulo</a>
-                <a href="manage_topics.php" class="btn" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white;">📝 Criar Tópico</a>
-                <a href="manage_universities.php" class="btn" style="background: linear-gradient(135deg, #27ae60, #219a52); color: white;">🏛️ Nova Universidade</a>
+                <a href="crud/universities_simple.php" class="btn" style="background: linear-gradient(135deg, #27ae60, #219a52); color: white;">🏛️ Nova Universidade</a>
+                <a href="crud/courses_simple.php" class="btn btn-primary">🎓 Novo Curso</a>
+                <a href="crud/modules_simple.php" class="btn btn-info">📚 Nova Disciplina</a>
+                <a href="crud/topics_simple.php" class="btn" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white;">📝 Novo Tópico</a>
+                <a href="crud/enrollments_simple.php" class="btn btn-warning">� Nova Matrícula</a>
                 <a href="logout.php" class="btn btn-logout">🚪 Sair do Sistema</a>
             </div>
         </div>
