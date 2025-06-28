@@ -835,9 +835,10 @@ $userId = $_SESSION['user_id'];    // Buscar dados do usuário e suas matrícula
                     <div class="dropdown-menu" id="userDropdown">
                         <a href="crud/universities_simple.php" class="dropdown-item">🏛️ Universidades</a>
                         <a href="crud/courses_simple.php" class="dropdown-item">🎓 Cursos</a>
-                        <a href="crud/modules_simple.php" class="dropdown-item">📚 Disciplinas</a>
-                        <a href="crud/topics_simple.php" class="dropdown-item">📝 Tópicos</a>
                         <a href="crud/enrollments_simple.php" class="dropdown-item">🎯 Matrículas</a>
+                        <a href="crud/modules_simple.php" class="dropdown-item">� Disciplinas</a>
+                        <a href="crud/topics_simple.php" class="dropdown-item">📝 Tópicos</a>
+                        <a href="crud/learning_units_simple.php" class="dropdown-item">🧩 Unidades de Aprendizagem</a>
                         <a href="#" class="dropdown-item">👤 Meu Perfil</a>
                         <a href="#" class="dropdown-item">⚙️ Configurações</a>
                         <a href="logout.php" class="dropdown-item">🚪 Sair</a>
@@ -1080,6 +1081,7 @@ $userId = $_SESSION['user_id'];    // Buscar dados do usuário e suas matrícula
                                     '🎓 Cursos' => $db->count("cursos", ["usuario_id" => $user_id]),
                                     '📚 Disciplinas' => $db->count("disciplinas", ["usuario_id" => $user_id]),
                                     '📝 Tópicos' => $db->count("topicos", ["usuario_id" => $user_id]),
+                                    '🧩 Unidades de Aprendizagem' => $db->count("unidades_aprendizagem", ["usuario_id" => $user_id]),
                                     '🎯 Matrículas' => $db->count("inscricoes", ["usuario_id" => $user_id])
                                 ];
                                 
@@ -1107,6 +1109,7 @@ $userId = $_SESSION['user_id'];    // Buscar dados do usuário e suas matrícula
                                 <a href="crud/courses_simple.php" class="list-group-item list-group-item-action">🎓 Gerenciar Cursos</a>
                                 <a href="crud/modules_simple.php" class="list-group-item list-group-item-action">📚 Gerenciar Disciplinas</a>
                                 <a href="crud/topics_simple.php" class="list-group-item list-group-item-action">📝 Gerenciar Tópicos</a>
+                                <a href="crud/learning_units_simple.php" class="list-group-item list-group-item-action">🧩 Gerenciar Unidades de Aprendizagem</a>
                                 <a href="crud/enrollments_simple.php" class="list-group-item list-group-item-action">🎯 Gerenciar Matrículas</a>
                             </div>
                         </div>
@@ -1123,7 +1126,8 @@ $userId = $_SESSION['user_id'];    // Buscar dados do usuário e suas matrícula
                 <a href="crud/courses_simple.php" class="btn btn-primary">🎓 Novo Curso</a>
                 <a href="crud/modules_simple.php" class="btn btn-info">📚 Nova Disciplina</a>
                 <a href="crud/topics_simple.php" class="btn" style="background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white;">📝 Novo Tópico</a>
-                <a href="crud/enrollments_simple.php" class="btn btn-warning">� Nova Matrícula</a>
+                <a href="crud/learning_units_simple.php" class="btn btn-success">🧩 Nova Unidade de Aprendizagem</a>
+                <a href="crud/enrollments_simple.php" class="btn btn-warning">🎯 Nova Matrícula</a>
                 <a href="logout.php" class="btn btn-logout">🚪 Sair do Sistema</a>
             </div>
         </div>
