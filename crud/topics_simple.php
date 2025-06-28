@@ -50,6 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $descricao = trim($_POST['descricao'] ?? '');
             $disciplina_id = intval($_POST['disciplina_id'] ?? 0);
             $ordem = intval($_POST['ordem'] ?? 0);
+            $data_prazo = trim($_POST['data_prazo'] ?? '') ?: null;
             $ativo = isset($_POST['ativo']) ? 1 : 0;
             
             if (empty($nome) || $disciplina_id <= 0) {
@@ -70,6 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         "disciplina_id" => $disciplina_id,
                         "usuario_id" => $user_id,
                         "ordem" => $ordem,
+                        "data_prazo" => $data_prazo,
                         "ativo" => $ativo
                     ]);
                     
@@ -88,6 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $descricao = trim($_POST['descricao'] ?? '');
             $disciplina_id = intval($_POST['disciplina_id'] ?? 0);
             $ordem = intval($_POST['ordem'] ?? 0);
+            $data_prazo = trim($_POST['data_prazo'] ?? '') ?: null;
             $ativo = isset($_POST['ativo']) ? 1 : 0;
             
             if (empty($nome) || $disciplina_id <= 0 || $id <= 0) {
@@ -115,6 +118,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         "descricao" => $descricao,
                         "disciplina_id" => $disciplina_id,
                         "ordem" => $ordem,
+                        "data_prazo" => $data_prazo,
                         "ativo" => $ativo
                     ], [
                         "id" => $id,
@@ -171,6 +175,7 @@ $topicos = $database->select("topicos", [
     "topicos.disciplina_id",
     "disciplinas.nome(disciplina_nome)",
     "topicos.ordem",
+    "topicos.data_prazo",
     "topicos.ativo",
     "topicos.data_criacao"
 ], [
@@ -300,6 +305,13 @@ if (isset($_GET['edit'])) {
                             <div class="form-text">Ordem de exibição do tópico (0 = primeiro)</div>
                         </div>
                         
+                        <div class="mb-3">
+                            <label for="data_prazo" class="form-label">Data Limite</label>
+                            <input type="date" class="form-control" id="data_prazo" name="data_prazo" 
+                                   value="<?php echo $editando['data_prazo'] ?? ''; ?>">
+                            <div class="form-text">Data limite para conclusão do tópico (opcional)</div>
+                        </div>
+                        
                         <div class="mb-3 form-check">
                             <input type="checkbox" class="form-check-input" id="ativo" name="ativo" 
                                    <?php echo (!$editando || $editando['ativo']) ? 'checked' : ''; ?>>
@@ -344,6 +356,7 @@ if (isset($_GET['edit'])) {
                                         <th>Nome</th>
                                         <th>Disciplina</th>
                                         <th>Ordem</th>
+                                        <th>Data Limite</th>
                                         <th>Status</th>
                                         <th>Criado em</th>
                                         <th>Ações</th>
@@ -363,6 +376,35 @@ if (isset($_GET['edit'])) {
                                             </td>
                                             <td>
                                                 <span class="badge bg-secondary"><?php echo $topico['ordem']; ?></span>
+                                            </td>
+                                            <td>
+                                                <?php if ($topico['data_prazo']): ?>
+                                                    <?php 
+                                                    $hoje = new DateTime();
+                                                    $prazo = new DateTime($topico['data_prazo']);
+                                                    $diff = $hoje->diff($prazo);
+                                                    $dias_restantes = $prazo < $hoje ? -$diff->days : $diff->days;
+                                                    
+                                                    $classe_prazo = 'bg-secondary';
+                                                    if ($dias_restantes < 0) $classe_prazo = 'bg-danger';
+                                                    elseif ($dias_restantes == 0) $classe_prazo = 'bg-warning';
+                                                    elseif ($dias_restantes <= 3) $classe_prazo = 'bg-danger';
+                                                    elseif ($dias_restantes <= 7) $classe_prazo = 'bg-warning';
+                                                    else $classe_prazo = 'bg-success';
+                                                    ?>
+                                                    <span class="badge <?php echo $classe_prazo; ?>">
+                                                        <?php echo date('d/m/Y', strtotime($topico['data_prazo'])); ?>
+                                                        <?php if ($dias_restantes < 0): ?>
+                                                            <br><small><?php echo abs($dias_restantes); ?> dias atrasado</small>
+                                                        <?php elseif ($dias_restantes == 0): ?>
+                                                            <br><small>Vence hoje!</small>
+                                                        <?php elseif ($dias_restantes <= 7): ?>
+                                                            <br><small><?php echo $dias_restantes; ?> dias</small>
+                                                        <?php endif; ?>
+                                                    </span>
+                                                <?php else: ?>
+                                                    <span class="text-muted">Sem prazo</span>
+                                                <?php endif; ?>
                                             </td>
                                             <td>
                                                 <?php if ($topico['ativo']): ?>

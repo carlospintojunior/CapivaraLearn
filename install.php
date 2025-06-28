@@ -312,13 +312,15 @@ $deps = checkDependencies();
                         disciplina_id INT NOT NULL,
                         usuario_id INT NOT NULL,
                         ordem INT DEFAULT 0,
+                        data_prazo DATE NULL,
                         ativo BOOLEAN DEFAULT TRUE,
                         data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                         FOREIGN KEY (disciplina_id) REFERENCES disciplinas(id) ON DELETE CASCADE,
                         FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
                         INDEX idx_disciplina_ordem (disciplina_id, ordem),
-                        INDEX idx_usuario_nome (usuario_id, nome)
+                        INDEX idx_usuario_nome (usuario_id, nome),
+                        INDEX idx_data_prazo (data_prazo)
                     ) ENGINE=InnoDB",
                     
                     "unidades_aprendizagem" => "CREATE TABLE IF NOT EXISTS unidades_aprendizagem (
@@ -329,6 +331,7 @@ $deps = checkDependencies();
                         usuario_id INT NOT NULL,
                         ordem INT DEFAULT 0,
                         nota DECIMAL(3,1) DEFAULT 0.0 CHECK (nota >= 0.0 AND nota <= 10.0),
+                        link_livro VARCHAR(500) NULL,
                         ativo BOOLEAN DEFAULT TRUE,
                         data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                         data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -358,6 +361,7 @@ $deps = checkDependencies();
                     
                     "inscricoes" => "CREATE TABLE IF NOT EXISTS inscricoes (
                         id INT AUTO_INCREMENT PRIMARY KEY,
+                        numero_matricula VARCHAR(50) NULL,
                         usuario_id INT NOT NULL,
                         universidade_id INT NOT NULL,
                         curso_id INT NOT NULL,
@@ -372,7 +376,8 @@ $deps = checkDependencies();
                         UNIQUE KEY unique_matricula (usuario_id, universidade_id, curso_id),
                         INDEX idx_usuario_status (usuario_id, status),
                         INDEX idx_universidade (universidade_id),
-                        INDEX idx_curso (curso_id)
+                        INDEX idx_curso (curso_id),
+                        INDEX idx_numero_matricula (numero_matricula)
                     ) ENGINE=InnoDB"
                 ];
                 
