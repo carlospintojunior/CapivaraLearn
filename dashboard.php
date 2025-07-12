@@ -83,6 +83,7 @@ $topicos_urgentes = $database->select("topicos", [
     "disciplinas.nome(disciplina_nome)"
 ], [
     "topicos.usuario_id" => $user_id,
+    "topicos.ativo" => 1,
     "topicos.data_prazo[!]" => null,
     "topicos.data_prazo[<=]" => date('Y-m-d', strtotime('+7 days')),
     "ORDER" => ["topicos.data_prazo" => "ASC"]
@@ -98,6 +99,7 @@ $topicos_atrasados = $database->select("topicos", [
     "disciplinas.nome(disciplina_nome)"
 ], [
     "topicos.usuario_id" => $user_id,
+    "topicos.ativo" => 1,
     "topicos.data_prazo[<]" => date('Y-m-d'),
     "ORDER" => ["topicos.data_prazo" => "ASC"]
 ]);
@@ -489,6 +491,29 @@ $atividades_recentes = $database->select("unidades_aprendizagem", [
             transition: all 0.3s ease;
         }
 
+        .stat-item.clickable {
+            text-decoration: none;
+            color: inherit;
+            cursor: pointer;
+            display: block;
+        }
+
+        .stat-item.clickable:hover {
+            text-decoration: none;
+            color: inherit;
+            border-color: #667eea;
+            transform: scale(1.05);
+            background: linear-gradient(135deg, #667eea, #764ba2);
+        }
+
+        .stat-item.clickable:hover .stat-number {
+            color: white;
+        }
+
+        .stat-item.clickable:hover .stat-label {
+            color: white;
+        }
+
         .stat-item:hover {
             border-color: #667eea;
             transform: scale(1.05);
@@ -865,36 +890,30 @@ $atividades_recentes = $database->select("unidades_aprendizagem", [
             </div>
             <div class="card-body">
                 <div class="stats-grid">
-                    <div class="stat-item">
+                    <a href="crud/universities_simple.php" class="stat-item clickable">
                         <span class="stat-number"><?= $stats['universidades'] ?></span>
                         <div class="stat-label">Universidades</div>
-                    </div>
-                    <div class="stat-item">
+                    </a>
+                    <a href="crud/courses_simple.php" class="stat-item clickable">
                         <span class="stat-number"><?= $stats['cursos'] ?></span>
                         <div class="stat-label">Cursos</div>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-number"><?= $stats['disciplinas'] ?></span>
-                        <div class="stat-label">Disciplinas</div>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-number"><?= $stats['topicos'] ?></span>
-                        <div class="stat-label">Tópicos</div>
-                    </div>
-                    <div class="stat-item">
-                        <span class="stat-number"><?= $stats['unidades'] ?></span>
-                        <div class="stat-label">Unidades</div>
-                    </div>
-                    <div class="stat-item">
+                    </a>
+                    <a href="crud/enrollments_simple.php" class="stat-item clickable">
                         <span class="stat-number"><?= $stats['matriculas'] ?></span>
                         <div class="stat-label">Matrículas</div>
-                    </div>
-                </div>
-                
-                <div class="quick-actions">
-                    <a href="crud/topics_simple.php" class="quick-action">+ Novo Tópico</a>
-                    <a href="crud/learning_units_simple.php" class="quick-action">+ Nova Unidade</a>
-                    <a href="crud/enrollments_simple.php" class="quick-action">+ Nova Matrícula</a>
+                    </a>
+                    <a href="crud/modules_simple.php" class="stat-item clickable">
+                        <span class="stat-number"><?= $stats['disciplinas'] ?></span>
+                        <div class="stat-label">Disciplinas</div>
+                    </a>
+                    <a href="crud/topics_simple.php" class="stat-item clickable">
+                        <span class="stat-number"><?= $stats['topicos'] ?></span>
+                        <div class="stat-label">Tópicos</div>
+                    </a>
+                    <a href="crud/learning_units_simple.php" class="stat-item clickable">
+                        <span class="stat-number"><?= $stats['unidades'] ?></span>
+                        <div class="stat-label">Unidades</div>
+                    </a>
                 </div>
             </div>
         </div>

@@ -174,155 +174,169 @@ if (isset($_GET['edit'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universidades - CapivaraLearn</title>
+    <title>Gerenciar Universidades - CapivaraLearn</title>
+    
+    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .card {
+            box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+            border: 1px solid rgba(0, 0, 0, 0.125);
+        }
+        .card-header {
+            background-color: #fff;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.125);
+        }
+    </style>
 </head>
-<body class="bg-light">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="../dashboard.php">
-                <i class="fas fa-graduation-cap me-2"></i>CapivaraLearn
-            </a>
-            <div class="navbar-nav ms-auto">
-                <a class="nav-link" href="../dashboard.php">Dashboard</a>
-                <a class="nav-link" href="../logout.php">Sair</a>
-            </div>
-        </div>
-    </nav>
+<body>
 
-    <div class="container-fluid py-4">
-        <div class="row">
-            <div class="col-md-8">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="fas fa-university me-2"></i>Universidades
-                            <small class="text-muted">(<?= count($universities) ?> registros)</small>
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <?php if ($message): ?>
-                            <div class="alert alert-<?= $messageType === 'success' ? 'success' : 'danger' ?> alert-dismissible fade show">
-                                <i class="fas fa-<?= $messageType === 'success' ? 'check-circle' : 'exclamation-triangle' ?> me-2"></i>
-                                <?= htmlspecialchars($message) ?>
-                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-                            </div>
-                        <?php endif; ?>
-                        
-                        <?php if (empty($universities)): ?>
-                            <div class="text-center py-4">
-                                <i class="fas fa-university fa-3x text-muted mb-3"></i>
-                                <h5 class="text-muted">Nenhuma universidade cadastrada</h5>
-                                <p class="text-muted">Use o formulário ao lado para adicionar sua primeira universidade.</p>
-                            </div>
-                        <?php else: ?>
-                            <div class="table-responsive">
-                                <table class="table table-striped table-hover">
-                                    <thead>
-                                        <tr>
-                                            <th>Nome</th>
-                                            <th>Sigla</th>
-                                            <th>Cidade</th>
-                                            <th>Estado</th>
-                                            <th width="120">Ações</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        <?php foreach ($universities as $university): ?>
-                                            <tr>
-                                                <td><strong><?= htmlspecialchars($university['nome']) ?></strong></td>
-                                                <td><span class="badge bg-primary"><?= htmlspecialchars($university['sigla']) ?></span></td>
-                                                <td><i class="fas fa-map-marker-alt text-muted me-1"></i><?= htmlspecialchars($university['cidade']) ?></td>
-                                                <td><span class="badge bg-secondary"><?= htmlspecialchars($university['estado']) ?></span></td>
-                                                <td>
-                                                    <a href="?edit=<?= $university['id'] ?>" class="btn btn-sm btn-outline-primary" title="Editar">
-                                                        <i class="fas fa-edit"></i>
-                                                    </a>
-                                                    <form method="POST" class="d-inline" onsubmit="return confirm('Tem certeza que deseja excluir esta universidade?')">
-                                                        <input type="hidden" name="action" value="delete">
-                                                        <input type="hidden" name="id" value="<?= $university['id'] ?>">
-                                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
-                                                            <i class="fas fa-trash"></i>
-                                                        </button>
-                                                    </form>
-                                                </td>
-                                            </tr>
-                                        <?php endforeach; ?>
-                                    </tbody>
-                                </table>
-                            </div>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
-            
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-header">
-                        <h5 class="mb-0">
-                            <i class="fas fa-<?= $editUniversity ? 'edit' : 'plus' ?> me-2"></i>
-                            <?= $editUniversity ? 'Editar Universidade' : 'Nova Universidade' ?>
-                        </h5>
-                    </div>
-                    <div class="card-body">
-                        <form method="POST">
-                            <input type="hidden" name="action" value="<?= $editUniversity ? 'update' : 'create' ?>">
-                            <?php if ($editUniversity): ?>
-                                <input type="hidden" name="id" value="<?= $editUniversity['id'] ?>">
-                            <?php endif; ?>
-                            
-                            <div class="mb-3">
-                                <label for="nome" class="form-label">Nome da Universidade</label>
-                                <input type="text" class="form-control" id="nome" name="nome" 
-                                       value="<?= $editUniversity ? htmlspecialchars($editUniversity['nome']) : '' ?>" 
-                                       required maxlength="255" placeholder="Ex: Universidade de São Paulo">
-                            </div>
-                            
-                            <div class="row">
-                                <div class="col-6">
-                                    <div class="mb-3">
-                                        <label for="sigla" class="form-label">Sigla</label>
-                                        <input type="text" class="form-control" id="sigla" name="sigla" 
-                                               value="<?= $editUniversity ? htmlspecialchars($editUniversity['sigla']) : '' ?>" 
-                                               required maxlength="10" placeholder="USP">
-                                    </div>
-                                </div>
-                                <div class="col-6">
-                                    <div class="mb-3">
-                                        <label for="estado" class="form-label">Estado</label>
-                                        <input type="text" class="form-control" id="estado" name="estado" 
-                                               value="<?= $editUniversity ? htmlspecialchars($editUniversity['estado']) : '' ?>" 
-                                               required maxlength="2" placeholder="SP" style="text-transform: uppercase;">
-                                    </div>
-                                </div>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label for="cidade" class="form-label">Cidade</label>
-                                <input type="text" class="form-control" id="cidade" name="cidade" 
-                                       value="<?= $editUniversity ? htmlspecialchars($editUniversity['cidade']) : '' ?>" 
-                                       required maxlength="100" placeholder="São Paulo">
-                            </div>
-                            
-                            <div class="d-grid gap-2">
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fas fa-save me-2"></i>
-                                    <?= $editUniversity ? 'Atualizar' : 'Criar' ?>
-                                </button>
-                                <?php if ($editUniversity): ?>
-                                    <a href="universities_simple.php" class="btn btn-secondary">
-                                        <i class="fas fa-times me-2"></i>Cancelar
-                                    </a>
-                                <?php endif; ?>
-                            </div>
-                        </form>
-                    </div>
-                </div>
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <h2><i class="fas fa-university"></i> Gerenciar Universidades</h2>
+                <a href="../dashboard.php" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> Voltar ao Dashboard
+                </a>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <?php if ($message): ?>
+        <div class="alert alert-<?= $messageType === 'success' ? 'success' : 'danger' ?> alert-dismissible fade show" role="alert">
+            <i class="fas fa-<?= $messageType === 'success' ? 'check-circle' : 'exclamation-triangle' ?>"></i> <?= htmlspecialchars($message) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    <?php endif; ?>
+
+    <div class="row">
+        <!-- Lista de Universidades -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-list"></i> Lista de Universidades
+                        <small class="text-muted">(<?= count($universities) ?> registros)</small>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <?php if (empty($universities)): ?>
+                        <div class="text-center py-4">
+                            <i class="fas fa-university fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">Nenhuma universidade cadastrada</h5>
+                            <p class="text-muted">Use o formulário ao lado para adicionar sua primeira universidade.</p>
+                        </div>
+                    <?php else: ?>
+                        <div class="table-responsive">
+                            <table class="table table-striped table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Nome</th>
+                                        <th>Sigla</th>
+                                        <th>Cidade</th>
+                                        <th>Estado</th>
+                                        <th width="120">Ações</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <?php foreach ($universities as $university): ?>
+                                        <tr>
+                                            <td><strong><?= htmlspecialchars($university['nome']) ?></strong></td>
+                                            <td><span class="badge bg-primary"><?= htmlspecialchars($university['sigla']) ?></span></td>
+                                            <td><i class="fas fa-map-marker-alt text-muted me-1"></i><?= htmlspecialchars($university['cidade']) ?></td>
+                                            <td><span class="badge bg-secondary"><?= htmlspecialchars($university['estado']) ?></span></td>
+                                            <td>
+                                                <a href="?edit=<?= $university['id'] ?>" class="btn btn-sm btn-outline-primary" title="Editar">
+                                                    <i class="fas fa-edit"></i>
+                                                </a>
+                                                <form method="POST" class="d-inline" onsubmit="return confirm('Tem certeza que deseja excluir esta universidade?')">
+                                                    <input type="hidden" name="action" value="delete">
+                                                    <input type="hidden" name="id" value="<?= $university['id'] ?>">
+                                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
+                                                        <i class="fas fa-trash"></i>
+                                                    </button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        </div>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Formulário de Criação/Edição -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="fas fa-<?= $editUniversity ? 'edit' : 'plus' ?>"></i>
+                        <?= $editUniversity ? 'Editar Universidade' : 'Nova Universidade' ?>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="POST">
+                        <input type="hidden" name="action" value="<?= $editUniversity ? 'update' : 'create' ?>">
+                        <?php if ($editUniversity): ?>
+                            <input type="hidden" name="id" value="<?= $editUniversity['id'] ?>">
+                        <?php endif; ?>
+                        
+                        <div class="mb-3">
+                            <label for="nome" class="form-label">Nome da Universidade *</label>
+                            <input type="text" class="form-control" id="nome" name="nome" 
+                                   value="<?= $editUniversity ? htmlspecialchars($editUniversity['nome']) : '' ?>" 
+                                   required maxlength="255" placeholder="Ex: Universidade de São Paulo">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="sigla" class="form-label">Sigla *</label>
+                            <input type="text" class="form-control" id="sigla" name="sigla" 
+                                   value="<?= $editUniversity ? htmlspecialchars($editUniversity['sigla']) : '' ?>" 
+                                   required maxlength="10" placeholder="Ex: USP">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="cidade" class="form-label">Cidade *</label>
+                            <input type="text" class="form-control" id="cidade" name="cidade" 
+                                   value="<?= $editUniversity ? htmlspecialchars($editUniversity['cidade']) : '' ?>" 
+                                   required maxlength="100" placeholder="Ex: São Paulo">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="estado" class="form-label">Estado *</label>
+                            <input type="text" class="form-control" id="estado" name="estado" 
+                                   value="<?= $editUniversity ? htmlspecialchars($editUniversity['estado']) : '' ?>" 
+                                   required maxlength="2" placeholder="Ex: SP" style="text-transform: uppercase;">
+                            <div class="form-text">Digite apenas a sigla do estado (2 caracteres)</div>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save"></i>
+                                <?= $editUniversity ? 'Atualizar Universidade' : 'Criar Universidade' ?>
+                            </button>
+                            <?php if ($editUniversity): ?>
+                                <a href="universities_simple.php" class="btn btn-secondary">
+                                    <i class="fas fa-times"></i> Cancelar
+                                </a>
+                            <?php endif; ?>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>
