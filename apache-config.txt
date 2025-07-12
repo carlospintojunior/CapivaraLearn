@@ -1,0 +1,12 @@
+<VirtualHost *:80>
+    ServerName capivaralearn.local
+    DocumentRoot /opt/lampp/htdocs/CapivaraLearn/public
+    
+    <Directory /opt/lampp/htdocs/CapivaraLearn/public>
+        AllowOverride All
+        Require all granted
+    </Directory>
+    
+    ErrorLog /opt/lampp/logs/capivaralearn_error.log
+    CustomLog /opt/lampp/logs/capivaralearn_access.log combined
+</VirtualHost>

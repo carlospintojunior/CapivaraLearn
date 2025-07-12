@@ -1,5 +1,0 @@
-[2025-06-22 22:13:05] INFO | Instalador iniciado
-[2025-06-22 22:13:05] INFO | Iniciando instalação do sistema - Host: localhost, DB: capivaralearn_test
-[2025-06-22 22:13:05] CRITICAL | ERRO CRÍTICO durante instalação: could not find driver
-[2025-06-22 22:18:48] ERROR | ERRO durante validação: could not find driver
-[2025-06-22 22:18:56] ERROR | ERRO durante validação: could not find driver

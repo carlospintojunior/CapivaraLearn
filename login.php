@@ -11,7 +11,16 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // Carregar configurações e sistema de logs
 require_once __DIR__ . '/includes/config.php';
+require_once __DIR__ . '/includes/logger_config.php'; // Novo sistema de logs
 require_once __DIR__ . '/includes/log_sistema.php';
+
+// Log do carregamento da página
+logInfo('Página de login acessada', [
+    'session_id' => session_id(),
+    'ip' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
+    'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'unknown'
+]);
+
 // Garantir fallback para conexão de banco
 require_once __DIR__ . '/includes/DatabaseConnection.php';
 if (!class_exists('Database') && class_exists('CapivaraLearn\\DatabaseConnection')) {
@@ -22,12 +31,6 @@ if (!function_exists('generateToken')) {
     function generateToken() {
         try { return bin2hex(random_bytes(32)); }
         catch (Exception $e) { return md5(uniqid('', true)); }
-    }
-}
-// Fallback para logActivity()
-if (!function_exists('logActivity')) {
-    function logActivity($action, $description = '', $userId = null) {
-        log_sistema("[logActivity fallback] {$action} | {$description}", 'INFO');
     }
 }
 // Configurar envio de email
@@ -100,14 +103,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 
                 if (!$user) {
                     log_sistema("Login falhou - usuário não encontrado ou inativo: {$email}", 'WARNING');
+                    logWarning('Login falhou - usuário não encontrado', ['email' => $email]);
                     $error = 'E-mail não encontrado ou conta inativa';
                     error_log("Tentativa de login com email não encontrado: $email");
                 } elseif (!password_verify($password, $user[0]['senha'])) {
                     log_sistema("Login falhou - senha incorreta para: {$email}", 'WARNING');
+                    logWarning('Login falhou - senha incorreta', ['email' => $email]);
                     $error = 'Senha incorreta';
                     error_log("Tentativa de login com senha incorreta para: $email");
                 } elseif (!$user[0]['email_verificado']) {
                     log_sistema("Login falhou - email não verificado para: {$email}", 'INFO');
+                    logInfo('Login falhou - email não verificado', ['email' => $email]);
                     $error = 'Você precisa confirmar seu email antes de fazer login. Verifique sua caixa de entrada.';
                     $success = '<div class="resend-container">
                         <p>Não recebeu o email? 
@@ -116,6 +122,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     </div>';
                 } else {
                     log_sistema("Login bem-sucedido para: {$email}", 'SUCCESS');
+                    logInfo('Login bem-sucedido', [
+                        'email' => $email,
+                        'user_id' => $user[0]['id'],
+                        'user_name' => $user[0]['nome']
+                    ]);
+                    
                     // DEBUG antes do redirect: conferir sessão e envio de headers
                     log_sistema("Session before redirect: id=" . session_id() . " | session=" . json_encode($_SESSION), 'DEBUG');
                     log_sistema("Headers sent: " . (headers_sent() ? 'yes' : 'no'), 'DEBUG');
@@ -125,7 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $_SESSION['logged_in'] = true;
                     
                     $db->execute("UPDATE usuarios SET data_ultimo_acesso = NOW() WHERE id = ?", [$user[0]['id']]);
-                    logActivity('user_login', "Login realizado: {$user[0]['email']}");
+                    logActivity($user[0]['id'], 'user_login', "Login realizado: {$user[0]['email']}", $pdo ?? null);
                     
                     // Redirect to dashboard href
                     header('Location: dashboard.php');
@@ -205,7 +217,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             log_sistema("Email de confirmação enviado com sucesso para: $email (Usuario ID: $userId)", 'SUCCESS');
                             
                             $success = 'Conta criada com sucesso! Verifique seu email para confirmar o cadastro.';
-                            logActivity('user_registered', "Novo usuário registrado: $email");
+                            logActivity($userId, 'user_registered', "Novo usuário registrado: $email", $pdo ?? null);
                         } else {
                             // Capturar erro específico do MailService
                             $mailError = $mail->getLastError();
@@ -238,7 +250,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $error = (APP_ENV === 'development') ? 
                         '⚠️ Erro: ' . $e->getMessage() : 
                         '⚠️ Erro interno. Por favor, tente novamente mais tarde.';
-                    logActivity('registration_error', $e->getMessage());
+                    logActivity(null, 'registration_error', $e->getMessage(), $pdo ?? null);
                     error_log("Erro no registro: " . $e->getMessage());
                 }
             }

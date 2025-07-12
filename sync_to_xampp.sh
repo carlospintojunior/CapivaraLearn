@@ -1,7 +1,7 @@
 #!/bin/bash
 # CapivaraLearn - Script de Sincronização Desenvolvimento → Produção
 # Este script sincroniza o diretório de desenvolvimento para o XAMPP
-# Baseado no script original fornecido pelo usuário
+# PRESERVANDO OS LOGS existentes
 
 echo "🔄 Iniciando sincronização CapivaraLearn..."
 
@@ -18,12 +18,26 @@ cd /home/carlos/Documents/GitHub/CapivaraLearn
 
 echo "📂 Diretório de desenvolvimento: $(pwd)"
 
-# Executar o script original do usuário (comandos validados)
+# PRESERVAR LOGS: Fazer backup dos logs se existirem
+if [ -d "/opt/lampp/htdocs/CapivaraLearn/logs" ]; then
+    echo "💾 Fazendo backup dos logs existentes..."
+    sudo cp -r /opt/lampp/htdocs/CapivaraLearn/logs /tmp/capivaralearn_logs_backup
+    echo "✅ Logs salvos em /tmp/capivaralearn_logs_backup"
+fi
+
 echo "🗑️  Removendo instalação anterior..."
 sudo rm -r /opt/lampp/htdocs/CapivaraLearn
 
 echo "📋 Copiando arquivos para XAMPP..."
 sudo cp -r . /opt/lampp/htdocs/CapivaraLearn
+
+# RESTAURAR LOGS: Restaurar os logs se existir backup
+if [ -d "/tmp/capivaralearn_logs_backup" ]; then
+    echo "🔄 Restaurando logs preservados..."
+    sudo cp -r /tmp/capivaralearn_logs_backup/* /opt/lampp/htdocs/CapivaraLearn/logs/
+    sudo rm -r /tmp/capivaralearn_logs_backup
+    echo "✅ Logs restaurados com sucesso!"
+fi
 
 echo "🔐 Configurando proprietário (daemon:daemon)..."
 sudo chown -R daemon:daemon /opt/lampp/htdocs/CapivaraLearn 

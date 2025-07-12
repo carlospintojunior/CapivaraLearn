@@ -51,6 +51,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     
     switch ($action) {
         case 'create':
+            $numero_matricula = trim($_POST['numero_matricula'] ?? '');
             $universidade_id = intval($_POST['universidade_id'] ?? 0);
             $curso_id = intval($_POST['curso_id'] ?? 0);
             $status = $_POST['status'] ?? 'ativo';
@@ -90,6 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         $data_conclusao = ($status === 'concluido') ? date('Y-m-d H:i:s') : null;
                         
                         $result = $database->insert("inscricoes", [
+                            "numero_matricula" => $numero_matricula ?: null,
                             "usuario_id" => $user_id,
                             "universidade_id" => $universidade_id,
                             "curso_id" => $curso_id,
@@ -111,6 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             
         case 'update':
             $id = intval($_POST['id'] ?? 0);
+            $numero_matricula = trim($_POST['numero_matricula'] ?? '');
             $universidade_id = intval($_POST['universidade_id'] ?? 0);
             $curso_id = intval($_POST['curso_id'] ?? 0);
             $status = $_POST['status'] ?? 'ativo';
@@ -159,6 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         $data_conclusao = ($status === 'concluido') ? date('Y-m-d H:i:s') : null;
                         
                         $result = $database->update("inscricoes", [
+                            "numero_matricula" => $numero_matricula ?: null,
                             "universidade_id" => $universidade_id,
                             "curso_id" => $curso_id,
                             "status" => $status,
@@ -217,6 +221,7 @@ $matriculas = $database->select("inscricoes", [
     "[>]cursos" => ["curso_id" => "id"]
 ], [
     "inscricoes.id",
+    "inscricoes.numero_matricula",
     "inscricoes.universidade_id",
     "inscricoes.curso_id",
     "universidades.nome(universidade_nome)",
@@ -329,6 +334,14 @@ $status_options = [
                         <?php if ($editando): ?>
                             <input type="hidden" name="id" value="<?php echo $editando['id']; ?>">
                         <?php endif; ?>
+                        
+                        <div class="mb-3">
+                            <label for="numero_matricula" class="form-label">Número de Matrícula</label>
+                            <input type="text" class="form-control" id="numero_matricula" name="numero_matricula" 
+                                   value="<?php echo $editando['numero_matricula'] ?? ''; ?>" 
+                                   placeholder="Ex: 2024001234">
+                            <div class="form-text">Número da matrícula fornecido pela instituição (opcional)</div>
+                        </div>
                         
                         <div class="mb-3">
                             <label for="universidade_id" class="form-label">Universidade *</label>
