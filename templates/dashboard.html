@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CapivaraLearn - Dashboard</title>
+    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="icon" type="image/png" sizes="32x32" href="/assets/images/favicon-32x32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/assets/images/favicon-16x16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/assets/images/apple-touch-icon.png">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+        }
+        
+        .navbar {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .navbar-brand {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .navbar-user {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .user-menu {
+            position: relative;
+        }
+        
+        .user-toggle {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            padding: 0.5rem;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        
+        .user-toggle:hover {
+            background-color: rgba(255,255,255,0.1);
+        }
+        
+        .user-dropdown {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            min-width: 150px;
+            z-index: 1000;
+            display: none;
+        }
+        
+        .user-dropdown.show {
+            display: block;
+        }
+        
+        .user-dropdown a {
+            display: block;
+            padding: 0.75rem 1rem;
+            text-decoration: none;
+            color: #333;
+            transition: background-color 0.3s;
+        }
+        
+        .user-dropdown a:hover {
+            background-color: #f8f9fa;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .welcome {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            margin-bottom: 2rem;
+        }
+        
+        .welcome h1 {
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s;
+        }
+        
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .stat-card h3 {
+            color: #667eea;
+            margin-bottom: 0.5rem;
+        }
+        
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: bold;
+            color: #764ba2;
+        }
+        
+        .actions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        .action-card {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            transition: transform 0.3s;
+        }
+        
+        .action-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .action-card h3 {
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
+        
+        .action-buttons {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        
+        .btn {
+            padding: 0.75rem 1rem;
+            border: none;
+            border-radius: 5px;
+            text-decoration: none;
+            text-align: center;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: inline-block;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        @media (max-width: 768px) {
+            .navbar {
+                padding: 1rem;
+            }
+            
+            .container {
+                padding: 1rem;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .actions-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-brand">
+            CapivaraLearn
+        </div>
+        <div class="navbar-user">
+            <span>Olá, {{user_name}}!</span>
+            <div class="user-menu">
+                <button class="user-toggle" onclick="toggleUserMenu()">⚙️</button>
+                <div class="user-dropdown" id="userDropdown">
+                    <a href="/logout">Sair</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container">
+        <div class="welcome">
+            <h1>Bem-vindo ao CapivaraLearn!</h1>
+            <p>Gerencie seus cursos, módulos e conteúdos educacionais de forma fácil e eficiente.</p>
+        </div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h3>Universidades</h3>
+                <div class="stat-number">{{total_universidades}}</div>
+            </div>
+            <div class="stat-card">
+                <h3>Cursos</h3>
+                <div class="stat-number">{{total_cursos}}</div>
+            </div>
+            <div class="stat-card">
+                <h3>Módulos</h3>
+                <div class="stat-number">{{total_modulos}}</div>
+            </div>
+            <div class="stat-card">
+                <h3>Tópicos</h3>
+                <div class="stat-number">{{total_topicos}}</div>
+            </div>
+            <div class="stat-card">
+                <h3>Inscrições</h3>
+                <div class="stat-number">{{total_inscricoes}}</div>
+            </div>
+        </div>
+
+        <div class="actions-grid">
+            <div class="action-card">
+                <h3>Gerenciar Universidades</h3>
+                <p>Adicione, edite ou remova universidades do sistema.</p>
+                <div class="action-buttons">
+                    <a href="/crud/universities" class="btn btn-primary">Gerenciar Universidades</a>
+                </div>
+            </div>
+            
+            <div class="action-card">
+                <h3>Gerenciar Cursos</h3>
+                <p>Administre os cursos disponíveis no sistema.</p>
+                <div class="action-buttons">
+                    <a href="/crud/courses" class="btn btn-primary">Gerenciar Cursos</a>
+                </div>
+            </div>
+            
+            <div class="action-card">
+                <h3>Gerenciar Módulos</h3>
+                <p>Organize os módulos dos cursos.</p>
+                <div class="action-buttons">
+                    <a href="/crud/modules" class="btn btn-primary">Gerenciar Módulos</a>
+                </div>
+            </div>
+            
+            <div class="action-card">
+                <h3>Gerenciar Tópicos</h3>
+                <p>Administre os tópicos e conteúdos dos módulos.</p>
+                <div class="action-buttons">
+                    <a href="/crud/topics" class="btn btn-primary">Gerenciar Tópicos</a>
+                </div>
+            </div>
+            
+            <div class="action-card">
+                <h3>Gerenciar Inscrições</h3>
+                <p>Controle as inscrições de usuários nos cursos.</p>
+                <div class="action-buttons">
+                    <a href="/crud/enrollments" class="btn btn-primary">Gerenciar Inscrições</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function toggleUserMenu() {
+            const dropdown = document.getElementById('userDropdown');
+            dropdown.classList.toggle('show');
+        }
+        
+        // Fechar dropdown quando clicar fora
+        document.addEventListener('click', function(event) {
+            const userMenu = document.querySelector('.user-menu');
+            if (!userMenu.contains(event.target)) {
+                document.getElementById('userDropdown').classList.remove('show');
+            }
+        });
+    </script>
+</body>
+</html>

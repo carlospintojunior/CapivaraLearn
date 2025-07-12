@@ -378,6 +378,20 @@ $deps = checkDependencies();
                         INDEX idx_universidade (universidade_id),
                         INDEX idx_curso (curso_id),
                         INDEX idx_numero_matricula (numero_matricula)
+                    ) ENGINE=InnoDB",
+                    
+                    "logs_atividade" => "CREATE TABLE IF NOT EXISTS logs_atividade (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        usuario_id INT NULL,
+                        acao VARCHAR(255) NULL,
+                        descricao TEXT NULL,
+                        data_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        ip_address VARCHAR(45) NULL,
+                        user_agent TEXT NULL,
+                        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+                        INDEX idx_usuario_id (usuario_id),
+                        INDEX idx_data_hora (data_hora)
                     ) ENGINE=InnoDB"
                 ];
                 

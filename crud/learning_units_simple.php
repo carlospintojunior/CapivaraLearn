@@ -56,6 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $descricao = trim($_POST['descricao'] ?? '');
             $topico_id = intval($_POST['topico_id'] ?? 0);
             $nota = floatval($_POST['nota'] ?? 0.0);
+            $link_livro = trim($_POST['link_livro'] ?? '');
             $ativo = isset($_POST['ativo']) ? 1 : 0;
             
             if (empty($nome) || $topico_id <= 0) {
@@ -79,6 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         "usuario_id" => $user_id,
                         "ordem" => 0,
                         "nota" => $nota,
+                        "link_livro" => $link_livro ?: null,
                         "ativo" => $ativo
                     ]);
                     
@@ -119,6 +121,62 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 }
             }
             break;
+            
+        case 'update':
+            $id = intval($_POST['id'] ?? 0);
+            $nome = trim($_POST['nome'] ?? '');
+            $descricao = trim($_POST['descricao'] ?? '');
+            $topico_id = intval($_POST['topico_id'] ?? 0);
+            $nota = floatval($_POST['nota'] ?? 0.0);
+            $link_livro = trim($_POST['link_livro'] ?? '');
+            $ativo = isset($_POST['ativo']) ? 1 : 0;
+            
+            if ($id <= 0) {
+                $error = 'ID inválido';
+            } elseif (empty($nome) || $topico_id <= 0) {
+                $error = 'Nome e tópico são obrigatórios';
+            } elseif ($nota < 0.0 || $nota > 10.0) {
+                $error = 'A nota deve estar entre 0.0 e 10.0';
+            } else {
+                // Verificar se a unidade pertence ao usuário
+                $unidade_check = $database->get("unidades_aprendizagem", "id", [
+                    "id" => $id,
+                    "usuario_id" => $user_id
+                ]);
+                
+                if (!$unidade_check) {
+                    $error = 'Unidade de aprendizagem não encontrada ou não pertence ao usuário';
+                } else {
+                    // Verificar se o novo tópico pertence ao usuário
+                    $topico_check = $database->get("topicos", "id", [
+                        "id" => $topico_id,
+                        "usuario_id" => $user_id
+                    ]);
+                    
+                    if (!$topico_check) {
+                        $error = 'Tópico não encontrado ou não pertence ao usuário';
+                    } else {
+                        $result = $database->update("unidades_aprendizagem", [
+                            "nome" => $nome,
+                            "descricao" => $descricao,
+                            "topico_id" => $topico_id,
+                            "nota" => $nota,
+                            "link_livro" => $link_livro ?: null,
+                            "ativo" => $ativo
+                        ], [
+                            "id" => $id,
+                            "usuario_id" => $user_id
+                        ]);
+                        
+                        if ($result->rowCount() || $database->id()) {
+                            $message = 'Unidade de aprendizagem atualizada com sucesso!';
+                        } else {
+                            $error = 'Erro ao atualizar unidade de aprendizagem: ' . implode(', ', $database->error());
+                        }
+                    }
+                }
+            }
+            break;
     }
 }
 
@@ -130,9 +188,11 @@ $unidades = $database->select("unidades_aprendizagem", [
     "unidades_aprendizagem.id",
     "unidades_aprendizagem.nome",
     "unidades_aprendizagem.descricao",
+    "unidades_aprendizagem.topico_id",
     "topicos.nome(topico_nome)",
     "disciplinas.nome(disciplina_nome)",
     "unidades_aprendizagem.nota",
+    "unidades_aprendizagem.link_livro",
     "unidades_aprendizagem.ativo",
     "unidades_aprendizagem.data_criacao"
 ], [
@@ -219,6 +279,13 @@ $unidades = $database->select("unidades_aprendizagem", [
                                    value="0.0" min="0.0" max="10.0" step="0.1" required>
                         </div>
                         
+                        <div class="mb-3">
+                            <label for="link_livro" class="form-label">Link do Livro</label>
+                            <input type="url" class="form-control" id="link_livro" name="link_livro" 
+                                   placeholder="https://exemplo.com/livro-pdf">
+                            <div class="form-text">Link para o livro ou material de estudo (opcional)</div>
+                        </div>
+                        
                         <div class="mb-3 form-check">
                             <input type="checkbox" class="form-check-input" id="ativo" name="ativo" checked>
                             <label class="form-check-label" for="ativo">Ativo</label>
@@ -300,6 +367,10 @@ $unidades = $database->select("unidades_aprendizagem", [
                                                         <i class="fas fa-trash"></i>
                                                     </button>
                                                 </form>
+                                                <button class="btn btn-outline-primary btn-sm" 
+                                                        onclick="editarUnidade(<?php echo $unidade['id']; ?>, '<?php echo addslashes($unidade['nome']); ?>', '<?php echo addslashes($unidade['descricao']); ?>', <?php echo $unidade['topico_id']; ?>, <?php echo $unidade['nota']; ?>, '<?php echo addslashes($unidade['link_livro']); ?>', <?php echo $unidade['ativo'] ? 'true' : 'false'; ?>)">
+                                                    <i class="fas fa-edit"></i>
+                                                </button>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
@@ -313,6 +384,84 @@ $unidades = $database->select("unidades_aprendizagem", [
     </div>
 </div>
 
+<!-- Modal de Edição -->
+<div class="modal fade" id="modalEdicao" tabindex="-1" aria-labelledby="modalEdicaoLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalEdicaoLabel"><i class="fas fa-edit"></i> Editar Unidade</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formEdicao" method="POST">
+                    <input type="hidden" name="action" value="update">
+                    <input type="hidden" name="id" id="edit_id" value="">
+                    
+                    <div class="mb-3">
+                        <label for="edit_nome" class="form-label">Nome *</label>
+                        <input type="text" class="form-control" id="edit_nome" name="nome" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="edit_descricao" class="form-label">Descrição</label>
+                        <textarea class="form-control" id="edit_descricao" name="descricao" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="edit_topico_id" class="form-label">Tópico *</label>
+                        <select class="form-select" id="edit_topico_id" name="topico_id" required>
+                            <option value="">Selecione um tópico</option>
+                            <?php foreach ($topicos as $topico): ?>
+                                <option value="<?php echo $topico['id']; ?>">
+                                    <?php echo htmlspecialchars($topico['disciplina_nome'] . ' > ' . $topico['nome']); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="edit_nota" class="form-label">Nota (0.0 a 10.0) *</label>
+                        <input type="number" class="form-control" id="edit_nota" name="nota" 
+                               value="0.0" min="0.0" max="10.0" step="0.1" required>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="edit_link_livro" class="form-label">Link do Livro</label>
+                        <input type="url" class="form-control" id="edit_link_livro" name="link_livro" 
+                               placeholder="https://exemplo.com/livro-pdf">
+                        <div class="form-text">Link para o livro ou material de estudo (opcional)</div>
+                    </div>
+                    
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="edit_ativo" name="ativo">
+                        <label class="form-check-label" for="edit_ativo">Ativo</label>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="fas fa-save"></i> Atualizar
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function editarUnidade(id, nome, descricao, topico_id, nota, link_livro, ativo) {
+    // Preencher o formulário de edição
+    document.getElementById('edit_id').value = id;
+    document.getElementById('edit_nome').value = nome;
+    document.getElementById('edit_descricao').value = descricao;
+    document.getElementById('edit_topico_id').value = topico_id;
+    document.getElementById('edit_nota').value = nota;
+    document.getElementById('edit_link_livro').value = link_livro;
+    document.getElementById('edit_ativo').checked = ativo;
+    
+    // Mostrar o modal
+    var myModal = new bootstrap.Modal(document.getElementById('modalEdicao'));
+    myModal.show();
+}
+</script>
 </body>
 </html>

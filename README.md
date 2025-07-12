@@ -128,6 +128,10 @@ sudo composer require phpmailer/phpmailer
 
 /opt/lampp/bin/mysql -u root capivaralearn 
 
+/opt/lampp/bin/mysql -u root capivaralearn -e "SHOW TABLES;"
+/opt/lampp/bin/mysql -u root capivaralearn -e "DESCRIBE inscricoes;"
+/opt/lampp/bin/mysql -u root capivaralearn -e "SHOW TABLES LIKE '%usuario%';"
+/opt/lampp/bin/mysql -u root capivaralearn -e "SHOW TABLES LIKE '%usuario_curso%';"
 
 sudo cp -r . /opt/lampp/htdocs/CapivaraLearn
 sudo rm /opt/lampp/htdocs/CapivaraLearn/logs/php_errors.log 

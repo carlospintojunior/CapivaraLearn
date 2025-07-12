@@ -1,6 +1,7 @@
 <?php
 // Configuração simplificada
 require_once __DIR__ . '/../Medoo.php';
+require_once __DIR__ . '/../includes/logger_config.php';
 
 use Medoo\Medoo;
 
@@ -14,6 +15,12 @@ if (!isset($_SESSION['user_id'])) {
     header('Location: /CapivaraLearn/login.php');
     exit;
 }
+
+// Log do acesso ao CRUD
+logInfo('CRUD Universidades acessado', [
+    'user_id' => $_SESSION['user_id'],
+    'user_name' => $_SESSION['user_name'] ?? 'unknown'
+]);
 
 // Configurar Medoo
 $database = new Medoo([
@@ -56,6 +63,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'usuario_id' => $_SESSION['user_id']
                 ]);
                 
+                // Log da criação
+                logInfo('Universidade criada', [
+                    'user_id' => $_SESSION['user_id'],
+                    'nome' => $nome,
+                    'sigla' => $sigla,
+                    'cidade' => $cidade,
+                    'estado' => $estado
+                ]);
+                
+                logActivity($_SESSION['user_id'], 'university_create', "Universidade criada: {$nome} ({$sigla})", $database->pdo ?? null);
+                
                 $message = 'Universidade criada com sucesso!';
                 $messageType = 'success';
                 break;
@@ -85,6 +103,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'usuario_id' => $_SESSION['user_id']
                 ]);
                 
+                // Log da atualização
+                logInfo('Universidade atualizada', [
+                    'user_id' => $_SESSION['user_id'],
+                    'id' => $id,
+                    'nome' => $nome,
+                    'sigla' => $sigla,
+                    'cidade' => $cidade,
+                    'estado' => $estado
+                ]);
+                
+                logActivity($_SESSION['user_id'], 'university_update', "Universidade atualizada: {$nome} ({$sigla})", $database->pdo ?? null);
+                
                 $message = 'Universidade atualizada com sucesso!';
                 $messageType = 'success';
                 break;
@@ -92,10 +122,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'delete':
                 $id = (int)($_POST['id'] ?? 0);
                 
+                // Buscar dados antes de excluir para log
+                $universityData = $database->get('universidades', '*', ['id' => $id, 'usuario_id' => $_SESSION['user_id']]);
+                
                 $result = $database->delete('universidades', [
                     'id' => $id,
                     'usuario_id' => $_SESSION['user_id']
                 ]);
+                
+                // Log da exclusão
+                if ($universityData) {
+                    logInfo('Universidade excluída', [
+                        'user_id' => $_SESSION['user_id'],
+                        'id' => $id,
+                        'nome' => $universityData['nome'],
+                        'sigla' => $universityData['sigla']
+                    ]);
+                    
+                    logActivity($_SESSION['user_id'], 'university_delete', "Universidade excluída: {$universityData['nome']} ({$universityData['sigla']})", $database->pdo ?? null);
+                }
                 
                 $message = 'Universidade excluída com sucesso!';
                 $messageType = 'success';
