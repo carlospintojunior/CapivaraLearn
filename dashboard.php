@@ -174,53 +174,153 @@ $atividades_recentes = $database->select("unidades_aprendizagem", [
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             padding: 0;
+            transition: all 0.3s ease;
         }
 
-        .header {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            padding: 1rem 0;
+        /* Sidebar Styles */
+        .sidebar {
+            position: fixed;
+            left: 0;
+            top: 0;
+            width: 280px;
+            height: 100vh;
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            z-index: 1000;
+            transition: all 0.3s ease;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .sidebar.collapsed {
+            width: 70px;
+        }
+
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem;
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
         }
 
-        .header-content {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 1rem;
-        }
-
-        .logo {
+        .sidebar .logo {
             display: flex;
             align-items: center;
             gap: 10px;
             color: white;
             font-weight: bold;
-            font-size: 1.5em;
+            font-size: 1.2em;
         }
 
-        .logo img {
-            width: 40px;
-            height: 40px;
+        .sidebar .logo img {
+            width: 35px;
+            height: 35px;
             border-radius: 50%;
         }
 
-        .user-menu {
-            display: flex;
-            align-items: center;
-            gap: 15px;
+        .logo-text {
+            transition: opacity 0.3s ease;
         }
 
-        .user-info {
+        .sidebar.collapsed .logo-text {
+            opacity: 0;
+            width: 0;
+            overflow: hidden;
+        }
+
+        .sidebar-toggle {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            padding: 5px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .sidebar-toggle span {
+            width: 18px;
+            height: 2px;
+            background: white;
+            transition: all 0.3s ease;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            padding: 1rem 0;
+        }
+
+        .nav-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .nav-item {
+            margin-bottom: 0.5rem;
+        }
+
+        .nav-link {
             display: flex;
             align-items: center;
-            gap: 10px;
+            padding: 1rem 1.5rem;
+            color: rgba(255, 255, 255, 0.8);
+            text-decoration: none;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .nav-link:hover {
+            background: rgba(255, 255, 255, 0.1);
             color: white;
         }
 
-        .user-avatar {
+        .nav-link.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border-right: 3px solid #667eea;
+        }
+
+        .nav-icon {
+            font-size: 1.3em;
+            margin-right: 1rem;
+            min-width: 25px;
+            text-align: center;
+        }
+
+        .nav-text {
+            transition: opacity 0.3s ease;
+        }
+
+        .sidebar.collapsed .nav-text {
+            opacity: 0;
+            width: 0;
+            overflow: hidden;
+        }
+
+        .sidebar.collapsed .nav-link {
+            padding: 1rem 1.2rem;
+            justify-content: center;
+        }
+
+        .sidebar.collapsed .nav-icon {
+            margin-right: 0;
+        }
+
+        .sidebar-footer {
+            padding: 1rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .sidebar-footer .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 1rem;
+        }
+
+        .sidebar-footer .user-avatar {
             width: 40px;
             height: 40px;
             border-radius: 50%;
@@ -231,72 +331,113 @@ $atividades_recentes = $database->select("unidades_aprendizagem", [
             color: white;
             font-weight: bold;
             font-size: 1.2em;
+            flex-shrink: 0;
         }
 
-        .dropdown {
-            position: relative;
-            z-index: 9999;
+        .user-details {
+            flex: 1;
+            transition: opacity 0.3s ease;
         }
 
-        .dropdown-btn {
-            background: rgba(255, 255, 255, 0.2);
+        .user-name {
+            display: block;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        .user-role {
+            display: block;
+            font-size: 0.8em;
+            color: rgba(255, 255, 255, 0.7);
+        }
+
+        .sidebar.collapsed .user-details {
+            opacity: 0;
+            width: 0;
+            overflow: hidden;
+        }
+
+        .sidebar-actions {
+            display: flex;
+            gap: 0.5rem;
+            justify-content: center;
+        }
+
+        .action-btn {
+            background: rgba(255, 255, 255, 0.1);
             border: none;
             color: white;
-            padding: 10px 15px;
-            border-radius: 8px;
+            padding: 0.5rem;
+            border-radius: 50%;
             cursor: pointer;
-            font-size: 1.2em;
-            transition: all 0.3s ease;
-        }
-
-        .dropdown-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
-        }
-
-        .dropdown-menu {
-            position: absolute;
-            top: 100%;
-            right: 0;
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
-            min-width: 250px;
-            display: none;
-            z-index: 9999;
-            margin-top: 10px;
-        }
-
-        .dropdown-menu.show {
-            display: block;
-        }
-
-        .dropdown-item {
-            display: block;
-            padding: 12px 20px;
-            color: #333;
             text-decoration: none;
-            border-bottom: 1px solid #eee;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 35px;
+            height: 35px;
             transition: all 0.3s ease;
         }
 
-        .dropdown-item:hover {
-            background: #f8f9fa;
-            color: #667eea;
+        .action-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
         }
 
-        .dropdown-item:first-child {
-            border-radius: 12px 12px 0 0;
+        /* Main Content Styles */
+        .main-content {
+            margin-left: 280px;
+            padding: 0;
+            transition: margin-left 0.3s ease;
+            min-height: 100vh;
         }
 
-        .dropdown-item:last-child {
-            border-bottom: none;
-            border-radius: 0 0 12px 12px;
+        .main-content.expanded {
+            margin-left: 70px;
+        }
+
+        .main-header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            padding: 1rem 2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .page-title {
+            color: white;
+            font-size: 1.8em;
+            font-weight: bold;
+            margin: 0;
+        }
+
+        .welcome-text {
+            color: rgba(255, 255, 255, 0.9);
+            font-size: 1em;
+        }
+
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.5em;
+            cursor: pointer;
+            padding: 0.5rem;
         }
 
         .container {
             max-width: 1200px;
             margin: 2rem auto;
-            padding: 0 1rem;
+            padding: 0 2rem;
         }
 
         .dashboard-grid {
@@ -564,6 +705,27 @@ $atividades_recentes = $database->select("unidades_aprendizagem", [
         }
 
         @media (max-width: 768px) {
+            .sidebar {
+                width: 280px;
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.show {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .main-content.expanded {
+                margin-left: 0;
+            }
+            
+            .mobile-menu-btn {
+                display: block;
+            }
+            
             .dashboard-grid {
                 grid-template-columns: 1fr;
                 gap: 1rem;
@@ -573,51 +735,129 @@ $atividades_recentes = $database->select("unidades_aprendizagem", [
                 grid-template-columns: repeat(2, 1fr);
             }
             
-            .header-content {
-                flex-direction: column;
-                gap: 1rem;
-            }
-            
             .quick-actions {
                 flex-direction: column;
             }
+            
+            .container {
+                padding: 0 1rem;
+            }
+        }
+
+        /* Overlay for mobile */
+        .sidebar-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            display: none;
+        }
+
+        .sidebar-overlay.show {
+            display: block;
         }
     </style>
 </head>
 <body>
-    <!-- Header -->
-    <div class="header">
-        <div class="header-content">
+    <!-- Overlay para mobile -->
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+    <!-- Menu Lateral -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
             <div class="logo">
                 <img src="public/assets/images/logo.png" alt="CapivaraLearn" onerror="this.style.display='none';">
-                <span>CapivaraLearn</span>
+                <span class="logo-text">CapivaraLearn</span>
             </div>
-            <div class="user-menu">
-                <div class="user-info">
-                    <div class="user-avatar">
-                        <?= strtoupper(substr($user['nome'], 0, 1)) ?>
-                    </div>
-                    <span>Olá, <?= htmlspecialchars($user['nome']) ?>!</span>
+            <button class="sidebar-toggle" onclick="toggleSidebar()">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <ul class="nav-list">
+                <li class="nav-item">
+                    <a href="dashboard.php" class="nav-link active">
+                        <i class="nav-icon">📊</i>
+                        <span class="nav-text">Dashboard</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="crud/universities_simple.php" class="nav-link">
+                        <i class="nav-icon">🏛️</i>
+                        <span class="nav-text">Universidades</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="crud/courses_simple.php" class="nav-link">
+                        <i class="nav-icon">🎓</i>
+                        <span class="nav-text">Cursos</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="crud/enrollments_simple.php" class="nav-link">
+                        <i class="nav-icon">🎯</i>
+                        <span class="nav-text">Matrículas</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="crud/modules_simple.php" class="nav-link">
+                        <i class="nav-icon">📚</i>
+                        <span class="nav-text">Disciplinas</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="crud/topics_simple.php" class="nav-link">
+                        <i class="nav-icon">📝</i>
+                        <span class="nav-text">Tópicos</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="crud/learning_units_simple.php" class="nav-link">
+                        <i class="nav-icon">🧩</i>
+                        <span class="nav-text">Unidades</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <div class="user-info">
+                <div class="user-avatar">
+                    <?= strtoupper(substr($user['nome'], 0, 1)) ?>
                 </div>
-                <div class="dropdown">
-                    <button class="dropdown-btn" onclick="toggleDropdown()">⚙️</button>
-                    <div class="dropdown-menu" id="userDropdown">
-                        <a href="crud/universities_simple.php" class="dropdown-item">🏛️ Universidades</a>
-                        <a href="crud/courses_simple.php" class="dropdown-item">🎓 Cursos</a>
-                        <a href="crud/enrollments_simple.php" class="dropdown-item">🎯 Matrículas</a>
-                        <a href="crud/modules_simple.php" class="dropdown-item">📚 Disciplinas</a>
-                        <a href="crud/topics_simple.php" class="dropdown-item">📝 Tópicos</a>
-                        <a href="crud/learning_units_simple.php" class="dropdown-item">🧩 Unidades de Aprendizagem</a>
-                        <a href="#" class="dropdown-item">👤 Meu Perfil</a>
-                        <a href="#" class="dropdown-item">⚙️ Configurações</a>
-                        <a href="logout.php" class="dropdown-item">🚪 Sair</a>
-                    </div>
+                <div class="user-details">
+                    <span class="user-name"><?= htmlspecialchars($user['nome']) ?></span>
+                    <span class="user-role">Usuário</span>
                 </div>
+            </div>
+            <div class="sidebar-actions">
+                <a href="#" class="action-btn" title="Perfil">👤</a>
+                <a href="#" class="action-btn" title="Configurações">⚙️</a>
+                <a href="logout.php" class="action-btn" title="Sair">🚪</a>
             </div>
         </div>
     </div>
 
-    <div class="container">
+    <!-- Header Principal -->
+    <div class="main-header">
+        <div class="header-content">
+            <button class="mobile-menu-btn" onclick="toggleSidebar()">☰</button>
+            <h1 class="page-title">Dashboard</h1>
+            <div class="header-actions">
+                <span class="welcome-text">Bem-vindo, <?= htmlspecialchars($user['nome']) ?>!</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Conteúdo Principal -->
+    <div class="main-content" id="mainContent">
+        <div class="container">
         <!-- Estatísticas Gerais -->
         <div class="card mb-4">
             <div class="card-header">
@@ -780,21 +1020,61 @@ $atividades_recentes = $database->select("unidades_aprendizagem", [
                 </div>
             </div>
         </div>
-    </div>
+        </div> <!-- Fim do container -->
+    </div> <!-- Fim do main-content -->
 
     <script>
-        function toggleDropdown() {
-            const dropdown = document.getElementById('userDropdown');
-            dropdown.classList.toggle('show');
-        }
-
-        // Fechar dropdown ao clicar fora
-        document.addEventListener('click', function(event) {
-            const dropdown = document.getElementById('userDropdown');
-            const button = event.target.closest('.dropdown-btn');
+        let sidebarCollapsed = false;
+        
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            const overlay = document.getElementById('sidebarOverlay');
             
-            if (!button && !dropdown.contains(event.target)) {
-                dropdown.classList.remove('show');
+            if (window.innerWidth <= 768) {
+                // Mobile: show/hide sidebar
+                sidebar.classList.toggle('show');
+                overlay.classList.toggle('show');
+            } else {
+                // Desktop: collapse/expand sidebar
+                sidebar.classList.toggle('collapsed');
+                mainContent.classList.toggle('expanded');
+                sidebarCollapsed = !sidebarCollapsed;
+            }
+        }
+        
+        // Fechar sidebar em mobile ao clicar em um link
+        document.addEventListener('DOMContentLoaded', function() {
+            const navLinks = document.querySelectorAll('.nav-link');
+            navLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    if (window.innerWidth <= 768) {
+                        const sidebar = document.getElementById('sidebar');
+                        const overlay = document.getElementById('sidebarOverlay');
+                        sidebar.classList.remove('show');
+                        overlay.classList.remove('show');
+                    }
+                });
+            });
+        });
+
+        // Ajustar layout em redimensionamento
+        window.addEventListener('resize', function() {
+            const sidebar = document.getElementById('sidebar');
+            const mainContent = document.getElementById('mainContent');
+            const overlay = document.getElementById('sidebarOverlay');
+            
+            if (window.innerWidth > 768) {
+                sidebar.classList.remove('show');
+                overlay.classList.remove('show');
+                
+                if (sidebarCollapsed) {
+                    sidebar.classList.add('collapsed');
+                    mainContent.classList.add('expanded');
+                }
+            } else {
+                sidebar.classList.remove('collapsed');
+                mainContent.classList.remove('expanded');
             }
         });
 
