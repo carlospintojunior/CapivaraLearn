@@ -57,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $topico_id = intval($_POST['topico_id'] ?? 0);
             $nota = floatval($_POST['nota'] ?? 0.0);
             $link_livro = trim($_POST['link_livro'] ?? '');
-            $ativo = isset($_POST['ativo']) ? 1 : 0;
+            $concluido = isset($_POST['concluido']) ? 1 : 0;
             
             if (empty($nome) || $topico_id <= 0) {
                 $error = 'Nome e tópico são obrigatórios';
@@ -81,7 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         "ordem" => 0,
                         "nota" => $nota,
                         "link_livro" => $link_livro ?: null,
-                        "ativo" => $ativo
+                        "ativo" => $concluido ? 0 : 1
                     ]);
                     
                     if ($result->rowCount()) {
@@ -129,7 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $topico_id = intval($_POST['topico_id'] ?? 0);
             $nota = floatval($_POST['nota'] ?? 0.0);
             $link_livro = trim($_POST['link_livro'] ?? '');
-            $ativo = isset($_POST['ativo']) ? 1 : 0;
+            $concluido = isset($_POST['concluido']) ? 1 : 0;
             
             if ($id <= 0) {
                 $error = 'ID inválido';
@@ -162,7 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                             "topico_id" => $topico_id,
                             "nota" => $nota,
                             "link_livro" => $link_livro ?: null,
-                            "ativo" => $ativo
+                            "ativo" => $concluido ? 0 : 1
                         ], [
                             "id" => $id,
                             "usuario_id" => $user_id
@@ -287,8 +287,8 @@ $unidades = $database->select("unidades_aprendizagem", [
                         </div>
                         
                         <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="ativo" name="ativo" checked>
-                            <label class="form-check-label" for="ativo">Ativo</label>
+                            <input type="checkbox" class="form-check-input" id="concluido" name="concluido">
+                            <label class="form-check-label" for="concluido">Concluído</label>
                         </div>
                         
                         <button type="submit" class="btn btn-primary w-100">
@@ -353,9 +353,9 @@ $unidades = $database->select("unidades_aprendizagem", [
                                             </td>
                                             <td>
                                                 <?php if ($unidade['ativo']): ?>
-                                                    <span class="badge bg-success">Ativo</span>
+                                                    <span class="badge bg-warning">Pendente</span>
                                                 <?php else: ?>
-                                                    <span class="badge bg-warning">Inativo</span>
+                                                    <span class="badge bg-success">Concluído</span>
                                                 <?php endif; ?>
                                             </td>
                                             <td>
@@ -433,8 +433,8 @@ $unidades = $database->select("unidades_aprendizagem", [
                     </div>
                     
                     <div class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" id="edit_ativo" name="ativo">
-                        <label class="form-check-label" for="edit_ativo">Ativo</label>
+                        <input type="checkbox" class="form-check-input" id="edit_concluido" name="concluido">
+                        <label class="form-check-label" for="edit_concluido">Concluído</label>
                     </div>
                     
                     <button type="submit" class="btn btn-primary w-100">
@@ -456,7 +456,7 @@ function editarUnidade(id, nome, descricao, topico_id, nota, link_livro, ativo) 
     document.getElementById('edit_topico_id').value = topico_id;
     document.getElementById('edit_nota').value = nota;
     document.getElementById('edit_link_livro').value = link_livro;
-    document.getElementById('edit_ativo').checked = ativo;
+    document.getElementById('edit_concluido').checked = !ativo; // Invertido: se ativo=false, então concluído=true
     
     // Mostrar o modal
     var myModal = new bootstrap.Modal(document.getElementById('modalEdicao'));

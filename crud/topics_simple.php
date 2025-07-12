@@ -50,8 +50,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $descricao = trim($_POST['descricao'] ?? '');
             $disciplina_id = intval($_POST['disciplina_id'] ?? 0);
             $ordem = intval($_POST['ordem'] ?? 0);
-            $data_prazo = trim($_POST['data_prazo'] ?? '') ?: null;
-            $ativo = isset($_POST['ativo']) ? 1 : 0;
+            $data_prazo_input = trim($_POST['data_prazo'] ?? '');
+            $concluido = isset($_POST['concluido']) ? 1 : 0;
+            
+            // Converter data do formato brasileiro (dd/mm/yyyy) para formato do banco (yyyy-mm-dd)
+            $data_prazo = null;
+            if ($data_prazo_input) {
+                if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $data_prazo_input, $matches)) {
+                    $data_prazo = $matches[3] . '-' . $matches[2] . '-' . $matches[1];
+                }
+            }
             
             if (empty($nome) || $disciplina_id <= 0) {
                 $error = 'Nome e disciplina são obrigatórios';
@@ -72,7 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         "usuario_id" => $user_id,
                         "ordem" => $ordem,
                         "data_prazo" => $data_prazo,
-                        "ativo" => $ativo
+                        "ativo" => $concluido ? 0 : 1
                     ]);
                     
                     if ($result->rowCount()) {
@@ -90,8 +98,16 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $descricao = trim($_POST['descricao'] ?? '');
             $disciplina_id = intval($_POST['disciplina_id'] ?? 0);
             $ordem = intval($_POST['ordem'] ?? 0);
-            $data_prazo = trim($_POST['data_prazo'] ?? '') ?: null;
-            $ativo = isset($_POST['ativo']) ? 1 : 0;
+            $data_prazo_input = trim($_POST['data_prazo'] ?? '');
+            $concluido = isset($_POST['concluido']) ? 1 : 0;
+            
+            // Converter data do formato brasileiro (dd/mm/yyyy) para formato do banco (yyyy-mm-dd)
+            $data_prazo = null;
+            if ($data_prazo_input) {
+                if (preg_match('/^(\d{2})\/(\d{2})\/(\d{4})$/', $data_prazo_input, $matches)) {
+                    $data_prazo = $matches[3] . '-' . $matches[2] . '-' . $matches[1];
+                }
+            }
             
             if (empty($nome) || $disciplina_id <= 0 || $id <= 0) {
                 $error = 'Nome, disciplina e ID são obrigatórios';
@@ -119,7 +135,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         "disciplina_id" => $disciplina_id,
                         "ordem" => $ordem,
                         "data_prazo" => $data_prazo,
-                        "ativo" => $ativo
+                        "ativo" => $concluido ? 0 : 1
                     ], [
                         "id" => $id,
                         "usuario_id" => $user_id
@@ -307,15 +323,22 @@ if (isset($_GET['edit'])) {
                         
                         <div class="mb-3">
                             <label for="data_prazo" class="form-label">Data Limite</label>
-                            <input type="date" class="form-control" id="data_prazo" name="data_prazo" 
-                                   value="<?php echo $editando['data_prazo'] ?? ''; ?>">
-                            <div class="form-text">Data limite para conclusão do tópico (opcional)</div>
+                            <input type="text" class="form-control" id="data_prazo" name="data_prazo" 
+                                   value="<?php 
+                                   if ($editando && $editando['data_prazo']) {
+                                       echo date('d/m/Y', strtotime($editando['data_prazo']));
+                                   }
+                                   ?>" 
+                                   placeholder="dd/mm/aaaa"
+                                   pattern="[0-9]{2}/[0-9]{2}/[0-9]{4}"
+                                   maxlength="10">
+                            <div class="form-text">Data limite para conclusão do tópico no formato dd/mm/aaaa (opcional)</div>
                         </div>
                         
                         <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="ativo" name="ativo" 
-                                   <?php echo (!$editando || $editando['ativo']) ? 'checked' : ''; ?>>
-                            <label class="form-check-label" for="ativo">Ativo</label>
+                            <input type="checkbox" class="form-check-input" id="concluido" name="concluido" 
+                                   <?php echo ($editando && !$editando['ativo']) ? 'checked' : ''; ?>>
+                            <label class="form-check-label" for="concluido">Concluído</label>
                         </div>
                         
                         <div class="d-grid gap-2">
@@ -408,9 +431,9 @@ if (isset($_GET['edit'])) {
                                             </td>
                                             <td>
                                                 <?php if ($topico['ativo']): ?>
-                                                    <span class="badge bg-success">Ativo</span>
+                                                    <span class="badge bg-warning">Pendente</span>
                                                 <?php else: ?>
-                                                    <span class="badge bg-warning">Inativo</span>
+                                                    <span class="badge bg-success">Concluído</span>
                                                 <?php endif; ?>
                                             </td>
                                             <td>
@@ -470,6 +493,49 @@ function confirmarExclusao(id, nome) {
     document.getElementById('nomeTopico').textContent = nome;
     new bootstrap.Modal(document.getElementById('modalExclusao')).show();
 }
+
+// Formatar campo de data automaticamente
+document.getElementById('data_prazo').addEventListener('input', function(e) {
+    let valor = e.target.value.replace(/\D/g, ''); // Remove tudo que não é dígito
+    
+    if (valor.length >= 2) {
+        valor = valor.substring(0, 2) + '/' + valor.substring(2);
+    }
+    if (valor.length >= 5) {
+        valor = valor.substring(0, 5) + '/' + valor.substring(5, 9);
+    }
+    
+    e.target.value = valor;
+});
+
+// Validar data ao enviar o formulário
+document.querySelector('form').addEventListener('submit', function(e) {
+    const dataPrazo = document.getElementById('data_prazo').value;
+    
+    if (dataPrazo && !/^\d{2}\/\d{2}\/\d{4}$/.test(dataPrazo)) {
+        e.preventDefault();
+        alert('Por favor, digite a data no formato dd/mm/aaaa');
+        document.getElementById('data_prazo').focus();
+        return false;
+    }
+    
+    // Validar se a data é válida
+    if (dataPrazo) {
+        const partes = dataPrazo.split('/');
+        const dia = parseInt(partes[0]);
+        const mes = parseInt(partes[1]);
+        const ano = parseInt(partes[2]);
+        
+        const data = new Date(ano, mes - 1, dia);
+        
+        if (data.getDate() !== dia || data.getMonth() !== mes - 1 || data.getFullYear() !== ano) {
+            e.preventDefault();
+            alert('Data inválida. Por favor, digite uma data válida.');
+            document.getElementById('data_prazo').focus();
+            return false;
+        }
+    }
+});
 </script>
 
 <!-- Bootstrap JS -->
