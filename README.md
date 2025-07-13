@@ -150,3 +150,6 @@ sudo /opt/lampp/xampp restart
 * O arquivo includes/config.php é gerado automaticamente durante o processo de install.php
 * Os códigos não devem ser modificados diretamente no servidor apache e sim no diretório de trabalho. O sincronismo é feito através do script ./sync_to_xampp.sh
 * O log deve ser registrado em arquivo durante a execução da aplicação no próprio diretório do servidor. Neste caso, /opt/lampp/htdocs/CapivaraLearn/logs/
+
+O banco de dados está em:
+DatabaseSchema.md

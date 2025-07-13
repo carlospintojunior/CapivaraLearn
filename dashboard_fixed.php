@@ -150,7 +150,7 @@ try {
         "topicos.usuario_id" => $user_id,
         "topicos.concluido" => 0,
         "topicos.data_prazo[!]" => null,
-        "ORDER" => ["topicos.data_prazo" => "ASC"],
+        "ORDER" => "topicos.data_prazo ASC",
         "LIMIT" => 10
     ]);
     
@@ -176,7 +176,7 @@ try {
     ], [
         "unidades_aprendizagem.usuario_id" => $user_id,
         "unidades_aprendizagem.data_prazo[>=]" => date('Y-m-d'),
-        "ORDER" => ["unidades_aprendizagem.data_prazo" => "ASC"],
+        "ORDER" => "unidades_aprendizagem.data_prazo ASC",
         "LIMIT" => 5
     ]);
     
@@ -195,12 +195,11 @@ try {
     ], [
         "disciplinas.id",
         "disciplinas.nome",
-        "disciplinas.concluido (concluido)",
+        "disciplinas.status",
         "cursos.nome (curso_nome)"
     ], [
         "disciplinas.usuario_id" => $user_id,
-        "disciplinas.concluido" => 0,
-        "ORDER" => ["disciplinas.nome" => "ASC"]
+        "ORDER" => "disciplinas.nome ASC"
     ]);
     
     error_log("DASHBOARD: Encontradas " . count($disciplinas_ativas) . " disciplinas");
@@ -246,29 +245,9 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
             border: none;
             border-radius: 15px;
             transition: transform 0.3s ease;
-            cursor: pointer;
-            text-decoration: none;
         }
         .card-stats:hover {
             transform: translateY(-5px);
-            text-decoration: none;
-            color: white;
-        }
-        .card-stats a {
-            color: white;
-            text-decoration: none;
-        }
-        .card-stats a:hover {
-            color: white;
-            text-decoration: none;
-        }
-        .card-stats-link {
-            text-decoration: none;
-            color: inherit;
-        }
-        .card-stats-link:hover {
-            text-decoration: none;
-            color: inherit;
         }
         .card-custom {
             border: none;
@@ -343,19 +322,19 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                     <a class="nav-link active" href="dashboard.php">
                         <i class="fas fa-tachometer-alt me-2"></i>Dashboard
                     </a>
-                    <a class="nav-link" href="crud/universities_simple.php">
+                    <a class="nav-link" href="manage_universities.php">
                         <i class="fas fa-university me-2"></i>Universidades
                     </a>
-                    <a class="nav-link" href="crud/courses_simple.php">
+                    <a class="nav-link" href="manage_courses.php">
                         <i class="fas fa-graduation-cap me-2"></i>Cursos
                     </a>
-                    <a class="nav-link" href="crud/modules_simple.php">
+                    <a class="nav-link" href="manage_modules.php">
                         <i class="fas fa-book me-2"></i>Disciplinas
                     </a>
-                    <a class="nav-link" href="crud/topics_simple.php">
+                    <a class="nav-link" href="manage_topics.php">
                         <i class="fas fa-list me-2"></i>Tópicos
                     </a>
-                    <a class="nav-link" href="crud/enrollments_simple.php">
+                    <a class="nav-link" href="manage_enrollments.php">
                         <i class="fas fa-users me-2"></i>Matrículas
                     </a>
                     <a class="nav-link" href="logout.php">
@@ -374,55 +353,46 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                 <!-- Cards de Estatísticas -->
                 <div class="row mb-4">
                     <div class="col-md-4 mb-3">
-                        <a href="crud/universities_simple.php" class="card-stats-link">
-                            <div class="card card-stats">
-                                <div class="card-body text-center">
-                                    <i class="fas fa-university fa-3x mb-3"></i>
-                                    <h3><?php echo $stats['universidades']; ?></h3>
-                                    <p class="mb-0">Universidades</p>
-                                </div>
+                        <div class="card card-stats">
+                            <div class="card-body text-center">
+                                <i class="fas fa-university fa-3x mb-3"></i>
+                                <h3><?php echo $stats['universidades']; ?></h3>
+                                <p class="mb-0">Universidades</p>
                             </div>
-                        </a>
+                        </div>
                     </div>
                     <div class="col-md-4 mb-3">
-                        <a href="crud/courses_simple.php" class="card-stats-link">
-                            <div class="card card-stats">
-                                <div class="card-body text-center">
-                                    <i class="fas fa-graduation-cap fa-3x mb-3"></i>
-                                    <h3><?php echo $stats['cursos']; ?></h3>
-                                    <p class="mb-0">Cursos</p>
-                                </div>
+                        <div class="card card-stats">
+                            <div class="card-body text-center">
+                                <i class="fas fa-graduation-cap fa-3x mb-3"></i>
+                                <h3><?php echo $stats['cursos']; ?></h3>
+                                <p class="mb-0">Cursos</p>
                             </div>
-                        </a>
+                        </div>
                     </div>
                     <div class="col-md-4 mb-3">
-                        <a href="crud/modules_simple.php" class="card-stats-link">
-                            <div class="card card-stats">
-                                <div class="card-body text-center">
-                                    <i class="fas fa-book fa-3x mb-3"></i>
-                                    <h3><?php echo $stats['disciplinas']; ?></h3>
-                                    <p class="mb-0">Disciplinas</p>
-                                </div>
+                        <div class="card card-stats">
+                            <div class="card-body text-center">
+                                <i class="fas fa-book fa-3x mb-3"></i>
+                                <h3><?php echo $stats['disciplinas']; ?></h3>
+                                <p class="mb-0">Disciplinas</p>
                             </div>
-                        </a>
+                        </div>
                     </div>
                 </div>
 
                 <div class="row mb-4">
                     <div class="col-md-4 mb-3">
-                        <a href="crud/topics_simple.php" class="card-stats-link">
-                            <div class="card card-stats">
-                                <div class="card-body text-center">
-                                    <i class="fas fa-list fa-3x mb-3"></i>
-                                    <h3><?php echo $stats['topicos']; ?></h3>
-                                    <p class="mb-0">Tópicos</p>
-                                </div>
+                        <div class="card card-stats">
+                            <div class="card-body text-center">
+                                <i class="fas fa-list fa-3x mb-3"></i>
+                                <h3><?php echo $stats['topicos']; ?></h3>
+                                <p class="mb-0">Tópicos</p>
                             </div>
-                        </a>
+                        </div>
                     </div>
                     <div class="col-md-4 mb-3">
-                        <a href="crud/learning_units_simple.php" class="card-stats-link">
-                            <div class="card card-stats">
+                        <div class="card card-stats">
                             <div class="card-body text-center">
                                 <i class="fas fa-play-circle fa-3x mb-3"></i>
                                 <h3><?php echo $stats['unidades']; ?></h3>
@@ -431,15 +401,13 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                         </div>
                     </div>
                     <div class="col-md-4 mb-3">
-                        <a href="crud/enrollments_simple.php" class="card-stats-link">
-                            <div class="card card-stats">
-                                <div class="card-body text-center">
-                                    <i class="fas fa-users fa-3x mb-3"></i>
-                                    <h3><?php echo $stats['matriculas']; ?></h3>
-                                    <p class="mb-0">Matrículas</p>
-                                </div>
+                        <div class="card card-stats">
+                            <div class="card-body text-center">
+                                <i class="fas fa-users fa-3x mb-3"></i>
+                                <h3><?php echo $stats['matriculas']; ?></h3>
+                                <p class="mb-0">Matrículas</p>
                             </div>
-                        </a>
+                        </div>
                     </div>
                 </div>
 
@@ -543,7 +511,7 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                                                 <div class="disciplina-item">
                                                     <h6 class="mb-1"><?php echo htmlspecialchars($disciplina['nome']); ?></h6>
                                                     <p class="text-muted mb-0"><?php echo htmlspecialchars($disciplina['curso_nome']); ?></p>
-                                                    <span class="badge bg-info"><?php echo $disciplina['concluido'] ? 'Concluída' : 'Ativa'; ?></span>
+                                                    <span class="badge bg-info"><?php echo ucfirst($disciplina['status'] ?? 'ativa'); ?></span>
                                                 </div>
                                             </div>
                                         <?php endforeach; ?>

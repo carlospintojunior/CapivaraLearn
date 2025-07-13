@@ -1,6 +1,6 @@
 <?php
 /**
- * CRUD Simplificado de Unidades de Aprendizagem - Versão Simples
+ * CRUD Simplificado de Unidades de Aprendizagem - CapivaraLearn
  * Sistema CapivaraLearn
  */
 
@@ -32,436 +32,233 @@ $database = new Medoo([
 
 $user_id = $_SESSION['user_id'];
 $message = '';
-$error = '';
+$messageType = '';
 
-// Buscar tópicos do usuário para os selects
-$topicos = $database->select("topicos", [
-    "[>]disciplinas" => ["disciplina_id" => "id"]
+// Buscar tópicos com disciplinas para selects
+$topicos = $database->select('topicos', [
+    '[>]disciplinas' => ['disciplina_id' => 'id']
 ], [
-    "topicos.id",
-    "topicos.nome",
-    "disciplinas.nome(disciplina_nome)"
+    'topicos.id',
+    'topicos.nome',
+    'disciplinas.nome(disciplina_nome)'
 ], [
-    "topicos.usuario_id" => $user_id,
-    "ORDER" => ["disciplinas.nome", "topicos.nome"]
+    'topicos.usuario_id' => $user_id,
+    'ORDER' => ['disciplinas.nome' => 'ASC', 'topicos.nome' => 'ASC']
 ]);
 
-// Processar ações
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+// Processar ações POST
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
-    
-    switch ($action) {
-        case 'create':
-            $nome = trim($_POST['nome'] ?? '');
-            $descricao = trim($_POST['descricao'] ?? '');
-            $topico_id = intval($_POST['topico_id'] ?? 0);
-            $nota = floatval($_POST['nota'] ?? 0.0);
-            $link_livro = trim($_POST['link_livro'] ?? '');
-            $concluido = isset($_POST['concluido']) ? 1 : 0;
-            
-            if (empty($nome) || $topico_id <= 0) {
-                $error = 'Nome e tópico são obrigatórios';
-            } elseif ($nota < 0.0 || $nota > 10.0) {
-                $error = 'A nota deve estar entre 0.0 e 10.0';
-            } else {
-                // Verificar se o tópico pertence ao usuário
-                $topico_check = $database->get("topicos", "id", [
-                    "id" => $topico_id,
-                    "usuario_id" => $user_id
-                ]);
-                
-                if (!$topico_check) {
-                    $error = 'Tópico não encontrado ou não pertence ao usuário';
-                } else {
-                    $result = $database->insert("unidades_aprendizagem", [
-                        "nome" => $nome,
-                        "descricao" => $descricao,
-                        "topico_id" => $topico_id,
-                        "usuario_id" => $user_id,
-                        "ordem" => 0,
-                        "nota" => $nota,
-                        "link_livro" => $link_livro ?: null,
-                        "ativo" => $concluido ? 0 : 1
-                    ]);
-                    
-                    if ($result->rowCount()) {
-                        $message = 'Unidade de aprendizagem criada com sucesso!';
-                    } else {
-                        $error = 'Erro ao criar unidade de aprendizagem: ' . implode(', ', $database->error());
-                    }
+    try {
+        switch ($action) {
+            case 'create':
+                $nome = trim($_POST['nome'] ?? '');
+                $descricao = trim($_POST['descricao'] ?? '');
+                $tipo = $_POST['tipo'] ?? 'leitura';
+                $nota = isset($_POST['nota']) ? floatval($_POST['nota']) : null;
+                $data_prazo = $_POST['data_prazo'] ?: null;
+                $concluido = isset($_POST['concluido']) ? 1 : 0;
+                $topico_id = intval($_POST['topico_id'] ?? 0);
+                if (empty($nome) || $topico_id <= 0) {
+                    throw new Exception('Nome e tópico são obrigatórios.');
                 }
-            }
-            break;
-            
-        case 'delete':
-            $id = intval($_POST['id'] ?? 0);
-            
-            if ($id <= 0) {
-                $error = 'ID inválido';
-            } else {
-                // Verificar se a unidade pertence ao usuário
-                $unidade_check = $database->get("unidades_aprendizagem", "id", [
-                    "id" => $id,
-                    "usuario_id" => $user_id
+                // Verificar propriedade do tópico
+                $check = $database->get('topicos', 'id', [
+                    'id' => $topico_id,
+                    'usuario_id' => $user_id
                 ]);
-                
-                if (!$unidade_check) {
-                    $error = 'Unidade de aprendizagem não encontrada ou não pertence ao usuário';
-                } else {
-                    $result = $database->delete("unidades_aprendizagem", [
-                        "id" => $id,
-                        "usuario_id" => $user_id
-                    ]);
-                    
-                    if ($result->rowCount()) {
-                        $message = 'Unidade de aprendizagem excluída com sucesso!';
-                    } else {
-                        $error = 'Erro ao excluir unidade de aprendizagem: ' . implode(', ', $database->error());
-                    }
+                if (!$check) {
+                    throw new Exception('Tópico inválido ou não pertence ao usuário.');
                 }
-            }
-            break;
-            
-        case 'update':
-            $id = intval($_POST['id'] ?? 0);
-            $nome = trim($_POST['nome'] ?? '');
-            $descricao = trim($_POST['descricao'] ?? '');
-            $topico_id = intval($_POST['topico_id'] ?? 0);
-            $nota = floatval($_POST['nota'] ?? 0.0);
-            $link_livro = trim($_POST['link_livro'] ?? '');
-            $concluido = isset($_POST['concluido']) ? 1 : 0;
-            
-            if ($id <= 0) {
-                $error = 'ID inválido';
-            } elseif (empty($nome) || $topico_id <= 0) {
-                $error = 'Nome e tópico são obrigatórios';
-            } elseif ($nota < 0.0 || $nota > 10.0) {
-                $error = 'A nota deve estar entre 0.0 e 10.0';
-            } else {
-                // Verificar se a unidade pertence ao usuário
-                $unidade_check = $database->get("unidades_aprendizagem", "id", [
-                    "id" => $id,
-                    "usuario_id" => $user_id
+                $database->insert('unidades_aprendizagem', [
+                    'nome' => $nome,
+                    'descricao' => $descricao,
+                    'tipo' => $tipo,
+                    'nota' => $nota,
+                    'data_prazo' => $data_prazo,
+                    'concluido' => $concluido,
+                    'topico_id' => $topico_id,
+                    'usuario_id' => $user_id
                 ]);
-                
-                if (!$unidade_check) {
-                    $error = 'Unidade de aprendizagem não encontrada ou não pertence ao usuário';
-                } else {
-                    // Verificar se o novo tópico pertence ao usuário
-                    $topico_check = $database->get("topicos", "id", [
-                        "id" => $topico_id,
-                        "usuario_id" => $user_id
-                    ]);
-                    
-                    if (!$topico_check) {
-                        $error = 'Tópico não encontrado ou não pertence ao usuário';
-                    } else {
-                        $result = $database->update("unidades_aprendizagem", [
-                            "nome" => $nome,
-                            "descricao" => $descricao,
-                            "topico_id" => $topico_id,
-                            "nota" => $nota,
-                            "link_livro" => $link_livro ?: null,
-                            "ativo" => $concluido ? 0 : 1
-                        ], [
-                            "id" => $id,
-                            "usuario_id" => $user_id
-                        ]);
-                        
-                        if ($result->rowCount() || $database->id()) {
-                            $message = 'Unidade de aprendizagem atualizada com sucesso!';
-                        } else {
-                            $error = 'Erro ao atualizar unidade de aprendizagem: ' . implode(', ', $database->error());
-                        }
-                    }
+                $message = 'Unidade criada com sucesso!';
+                $messageType = 'success';
+                break;
+            case 'update':
+                $id = intval($_POST['id'] ?? 0);
+                $nome = trim($_POST['nome'] ?? '');
+                $descricao = trim($_POST['descricao'] ?? '');
+                $tipo = $_POST['tipo'] ?? 'leitura';
+                $nota = isset($_POST['nota']) ? floatval($_POST['nota']) : null;
+                $data_prazo = $_POST['data_prazo'] ?: null;
+                $concluido = isset($_POST['concluido']) ? 1 : 0;
+                $topico_id = intval($_POST['topico_id'] ?? 0);
+                if ($id <= 0 || empty($nome) || $topico_id <= 0) {
+                    throw new Exception('ID, nome e tópico são obrigatórios.');
                 }
-            }
-            break;
+                $checkUnit = $database->get('unidades_aprendizagem', 'id', [
+                    'id' => $id,
+                    'usuario_id' => $user_id
+                ]);
+                $checkTopico = $database->get('topicos', 'id', [
+                    'id' => $topico_id,
+                    'usuario_id' => $user_id
+                ]);
+                if (!$checkUnit) {
+                    throw new Exception('Unidade inválida.');
+                } elseif (!$checkTopico) {
+                    throw new Exception('Tópico inválido.');
+                }
+                $database->update('unidades_aprendizagem', [
+                    'nome' => $nome,
+                    'descricao' => $descricao,
+                    'tipo' => $tipo,
+                    'nota' => $nota,
+                    'data_prazo' => $data_prazo,
+                    'concluido' => $concluido,
+                    'topico_id' => $topico_id
+                ], [
+                    'id' => $id,
+                    'usuario_id' => $user_id
+                ]);
+                $message = 'Unidade atualizada com sucesso!';
+                $messageType = 'success';
+                break;
+            case 'delete':
+                $id = intval($_POST['id'] ?? 0);
+                if ($id <= 0) {
+                    throw new Exception('ID inválido.');
+                }
+                $checkUnit = $database->get('unidades_aprendizagem', 'id', [
+                    'id' => $id,
+                    'usuario_id' => $user_id
+                ]);
+                if (!$checkUnit) {
+                    throw new Exception('Unidade inválida ou não pertence ao usuário.');
+                }
+                $database->delete('unidades_aprendizagem', [
+                    'id' => $id,
+                    'usuario_id' => $user_id
+                ]);
+                $message = 'Unidade excluída com sucesso!';
+                $messageType = 'success';
+                break;
+        }
+    } catch (Exception $e) {
+        $message = $e->getMessage();
+        $messageType = 'error';
     }
 }
 
-// Buscar unidades de aprendizagem do usuário
-$unidades = $database->select("unidades_aprendizagem", [
-    "[>]topicos" => ["topico_id" => "id"],
-    "[>]disciplinas" => ["topicos.disciplina_id" => "id"]
+// Buscar unidades para exibição
+$unidades = $database->select('unidades_aprendizagem', [
+    '[>]topicos' => ['topico_id' => 'id'],
+    '[>]disciplinas' => ['topicos.disciplina_id' => 'id']
 ], [
-    "unidades_aprendizagem.id",
-    "unidades_aprendizagem.nome",
-    "unidades_aprendizagem.descricao",
-    "unidades_aprendizagem.topico_id",
-    "topicos.nome(topico_nome)",
-    "disciplinas.nome(disciplina_nome)",
-    "unidades_aprendizagem.nota",
-    "unidades_aprendizagem.link_livro",
-    "unidades_aprendizagem.ativo",
-    "unidades_aprendizagem.data_criacao"
+    'unidades_aprendizagem.id',
+    'unidades_aprendizagem.nome',
+    'unidades_aprendizagem.tipo',
+    'unidades_aprendizagem.nota',
+    'unidades_aprendizagem.data_prazo',
+    'unidades_aprendizagem.concluido',
+    'disciplinas.nome(disciplina_nome)',
+    'topicos.nome(topico_nome)'
 ], [
-    "unidades_aprendizagem.usuario_id" => $user_id,
-    "ORDER" => ["disciplinas.nome", "topicos.nome", "unidades_aprendizagem.nome"]
+    'unidades_aprendizagem.usuario_id' => $user_id,
+    'ORDER' => ['disciplinas.nome' => 'ASC', 'topicos.nome' => 'ASC', 'unidades_aprendizagem.nome' => 'ASC']
 ]);
+
+// Preparar edição
+$editUnit = null;
+if (isset($_GET['edit'])) {
+    $editId = intval($_GET['edit']);
+    $editUnit = $database->get('unidades_aprendizagem', '*', [
+        'id' => $editId,
+        'usuario_id' => $user_id
+    ]);
+}
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Unidades de Aprendizagem - CapivaraLearn</title>
+    <title>Gerenciar Unidades - CapivaraLearn</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <style>
-        body { background-color: #f8f9fa; }
-        .card { box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); }
-        .nota-badge { font-size: 0.9em; padding: 0.25em 0.6em; }
-        .nota-excelente { background-color: #28a745; }
-        .nota-bom { background-color: #17a2b8; }
-        .nota-regular { background-color: #ffc107; color: #212529; }
-        .nota-ruim { background-color: #dc3545; }
-    </style>
 </head>
 <body>
-
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-12 mb-4">
-            <div class="d-flex justify-content-between align-items-center">
-                <h2><i class="fas fa-puzzle-piece"></i> Unidades de Aprendizagem</h2>
-                <a href="../dashboard.php" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left"></i> Voltar
-                </a>
-            </div>
+<div class="container-fluid mt-4">
+    <!-- Cabeçalho -->
+    <div class="row mb-4">
+        <div class="col-12 d-flex justify-content-between align-items-center">
+            <h2><i class="fas fa-puzzle-piece"></i> Gerenciar Unidades</h2>
+            <a href="../dashboard.php" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Voltar ao Dashboard</a>
         </div>
     </div>
-
-    <?php if ($error): ?>
-        <div class="alert alert-danger"><?php echo htmlspecialchars($error); ?></div>
-    <?php endif; ?>
-
+    <!-- Mensagens -->
     <?php if ($message): ?>
-        <div class="alert alert-success"><?php echo htmlspecialchars($message); ?></div>
-    <?php endif; ?>
-
-    <div class="row">
-        <!-- Formulário -->
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-header">
-                    <h5><i class="fas fa-plus"></i> Nova Unidade</h5>
-                </div>
-                <div class="card-body">
-                    <form method="POST">
-                        <input type="hidden" name="action" value="create">
-                        
-                        <div class="mb-3">
-                            <label for="nome" class="form-label">Nome *</label>
-                            <input type="text" class="form-control" id="nome" name="nome" required>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="descricao" class="form-label">Descrição</label>
-                            <textarea class="form-control" id="descricao" name="descricao" rows="3"></textarea>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="topico_id" class="form-label">Tópico *</label>
-                            <select class="form-select" id="topico_id" name="topico_id" required>
-                                <option value="">Selecione um tópico</option>
-                                <?php foreach ($topicos as $topico): ?>
-                                    <option value="<?php echo $topico['id']; ?>">
-                                        <?php echo htmlspecialchars($topico['disciplina_nome'] . ' > ' . $topico['nome']); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="nota" class="form-label">Nota (0.0 a 10.0) *</label>
-                            <input type="number" class="form-control" id="nota" name="nota" 
-                                   value="0.0" min="0.0" max="10.0" step="0.1" required>
-                        </div>
-                        
-                        <div class="mb-3">
-                            <label for="link_livro" class="form-label">Link do Livro</label>
-                            <input type="url" class="form-control" id="link_livro" name="link_livro" 
-                                   placeholder="https://exemplo.com/livro-pdf">
-                            <div class="form-text">Link para o livro ou material de estudo (opcional)</div>
-                        </div>
-                        
-                        <div class="mb-3 form-check">
-                            <input type="checkbox" class="form-check-input" id="concluido" name="concluido">
-                            <label class="form-check-label" for="concluido">Concluído</label>
-                        </div>
-                        
-                        <button type="submit" class="btn btn-primary w-100">
-                            <i class="fas fa-save"></i> Criar
-                        </button>
-                    </form>
-                </div>
-            </div>
+        <div class="alert alert-<?= $messageType === 'success' ? 'success' : 'danger' ?> alert-dismissible fade show" role="alert">
+            <?= htmlspecialchars($message) ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
-
+    <?php endif; ?>
+    <div class="row">
         <!-- Lista -->
-        <div class="col-md-8">
+        <div class="col-md-8 mb-4">
             <div class="card">
                 <div class="card-header">
-                    <h5><i class="fas fa-list"></i> Unidades Cadastradas (<?php echo count($unidades); ?>)</h5>
+                    Unidades Cadastradas (<?= count($unidades) ?>)
                 </div>
                 <div class="card-body">
                     <?php if (empty($unidades)): ?>
-                        <div class="alert alert-info text-center">
-                            <i class="fas fa-info-circle"></i>
-                            Nenhuma unidade cadastrada. 
-                            <?php if (empty($topicos)): ?>
-                                <br><small>Crie primeiro alguns <a href="topics_simple.php">tópicos</a>.</small>
-                            <?php endif; ?>
-                        </div>
+                        <p class="text-center text-muted">Nenhuma unidade cadastrada.</p>
                     <?php else: ?>
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
+                        <table class="table table-striped">
+                            <thead><tr>
+                                <th>Nome</th><th>Disciplina/Tópico</th><th>Tipo</th><th>Nota</th><th>Status</th><th>Ações</th>
+                            </tr></thead>
+                            <tbody>
+                                <?php foreach ($unidades as $u): ?>
                                     <tr>
-                                        <th>Nome</th>
-                                        <th>Disciplina/Tópico</th>
-                                        <th>Nota</th>
-                                        <th>Status</th>
-                                        <th>Ações</th>
+                                        <td><?= htmlspecialchars($u['nome']) ?></td>
+                                        <td><?= htmlspecialchars($u['disciplina_nome'] . ' > ' . $u['topico_nome']) ?></td>
+                                        <td><?= htmlspecialchars($u['tipo']) ?></td>
+                                        <td><?= $u['nota'] ?? '-' ?></td>
+                                        <td><?= $u['concluido'] ? 'Concluída' : 'Pendente' ?></td>
+                                        <td>
+                                            <a href="?edit=<?= $u['id'] ?>" class="btn btn-sm btn-primary"><i class="fas fa-edit"></i></a>
+                                            <form method="post" class="d-inline"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $u['id'] ?>"><button class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button></form>
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    <?php foreach ($unidades as $unidade): ?>
-                                        <tr>
-                                            <td>
-                                                <strong><?php echo htmlspecialchars($unidade['nome']); ?></strong>
-                                                <?php if ($unidade['descricao']): ?>
-                                                    <br><small class="text-muted"><?php echo htmlspecialchars(substr($unidade['descricao'], 0, 50)); ?></small>
-                                                <?php endif; ?>
-                                            </td>
-                                            <td>
-                                                <span class="badge bg-info"><?php echo htmlspecialchars($unidade['disciplina_nome']); ?></span>
-                                                <br><small><?php echo htmlspecialchars($unidade['topico_nome']); ?></small>
-                                            </td>
-                                            <td>
-                                                <?php 
-                                                $nota = floatval($unidade['nota']);
-                                                $class = 'nota-ruim';
-                                                if ($nota >= 9.0) $class = 'nota-excelente';
-                                                elseif ($nota >= 7.0) $class = 'nota-bom';
-                                                elseif ($nota >= 5.0) $class = 'nota-regular';
-                                                ?>
-                                                <span class="badge nota-badge <?php echo $class; ?>">
-                                                    <?php echo number_format($nota, 1); ?>
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <?php if ($unidade['ativo']): ?>
-                                                    <span class="badge bg-warning">Pendente</span>
-                                                <?php else: ?>
-                                                    <span class="badge bg-success">Concluído</span>
-                                                <?php endif; ?>
-                                            </td>
-                                            <td>
-                                                <form method="POST" style="display: inline;" 
-                                                      onsubmit="return confirm('Excluir unidade <?php echo htmlspecialchars($unidade['nome']); ?>?')">
-                                                    <input type="hidden" name="action" value="delete">
-                                                    <input type="hidden" name="id" value="<?php echo $unidade['id']; ?>">
-                                                    <button type="submit" class="btn btn-outline-danger btn-sm">
-                                                        <i class="fas fa-trash"></i>
-                                                    </button>
-                                                </form>
-                                                <button class="btn btn-outline-primary btn-sm" 
-                                                        onclick="editarUnidade(<?php echo $unidade['id']; ?>, '<?php echo addslashes($unidade['nome']); ?>', '<?php echo addslashes($unidade['descricao']); ?>', <?php echo $unidade['topico_id']; ?>, <?php echo $unidade['nota']; ?>, '<?php echo addslashes($unidade['link_livro']); ?>', <?php echo $unidade['ativo'] ? 'true' : 'false'; ?>)">
-                                                    <i class="fas fa-edit"></i>
-                                                </button>
-                                            </td>
-                                        </tr>
-                                    <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
                     <?php endif; ?>
                 </div>
             </div>
         </div>
-    </div>
-</div>
-
-<!-- Modal de Edição -->
-<div class="modal fade" id="modalEdicao" tabindex="-1" aria-labelledby="modalEdicaoLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="modalEdicaoLabel"><i class="fas fa-edit"></i> Editar Unidade</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="formEdicao" method="POST">
-                    <input type="hidden" name="action" value="update">
-                    <input type="hidden" name="id" id="edit_id" value="">
-                    
-                    <div class="mb-3">
-                        <label for="edit_nome" class="form-label">Nome *</label>
-                        <input type="text" class="form-control" id="edit_nome" name="nome" required>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="edit_descricao" class="form-label">Descrição</label>
-                        <textarea class="form-control" id="edit_descricao" name="descricao" rows="3"></textarea>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="edit_topico_id" class="form-label">Tópico *</label>
-                        <select class="form-select" id="edit_topico_id" name="topico_id" required>
-                            <option value="">Selecione um tópico</option>
-                            <?php foreach ($topicos as $topico): ?>
-                                <option value="<?php echo $topico['id']; ?>">
-                                    <?php echo htmlspecialchars($topico['disciplina_nome'] . ' > ' . $topico['nome']); ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="edit_nota" class="form-label">Nota (0.0 a 10.0) *</label>
-                        <input type="number" class="form-control" id="edit_nota" name="nota" 
-                               value="0.0" min="0.0" max="10.0" step="0.1" required>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="edit_link_livro" class="form-label">Link do Livro</label>
-                        <input type="url" class="form-control" id="edit_link_livro" name="link_livro" 
-                               placeholder="https://exemplo.com/livro-pdf">
-                        <div class="form-text">Link para o livro ou material de estudo (opcional)</div>
-                    </div>
-                    
-                    <div class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" id="edit_concluido" name="concluido">
-                        <label class="form-check-label" for="edit_concluido">Concluído</label>
-                    </div>
-                    
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="fas fa-save"></i> Atualizar
-                    </button>
-                </form>
+        <!-- Formulário -->
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header"><i class="fas fa-plus"></i> <?= $editUnit ? 'Editar' : 'Nova' ?> Unidade</div>
+                <div class="card-body">
+                    <form method="post">
+                        <input type="hidden" name="action" value="<?= $editUnit ? 'update' : 'create' ?>">
+                        <?php if ($editUnit): ?><input type="hidden" name="id" value="<?= $editUnit['id'] ?>"><?php endif;?>
+                        <div class="mb-3"><label>Nome *</label><input type="text" name="nome" class="form-control" value="<?= htmlspecialchars($editUnit['nome'] ?? '') ?>" required></div>
+                        <div class="mb-3"><label>Descrição</label><textarea name="descricao" class="form-control"><?= htmlspecialchars($editUnit['descricao'] ?? '') ?></textarea></div>
+                        <div class="mb-3"><label>Tipo</label><select name="tipo" class="form-select"><option value="leitura" <?= (isset($editUnit['tipo']) && $editUnit['tipo']=='leitura')?'selected':'' ?>>Leitura</option><option value="exercicio" <?= (isset($editUnit['tipo']) && $editUnit['tipo']=='exercicio')?'selected':'' ?>>Exercício</option><option value="projeto" <?= (isset($editUnit['tipo']) && $editUnit['tipo']=='projeto')?'selected':'' ?>>Projeto</option><option value="prova" <?= (isset($editUnit['tipo']) && $editUnit['tipo']=='prova')?'selected':'' ?>>Prova</option><option value="outros" <?= (isset($editUnit['tipo']) && $editUnit['tipo']=='outros')?'selected':'' ?>>Outros</option></select></div>
+                        <div class="mb-3"><label>Nota</label><input type="number" step="0.01" min="0" max="10" name="nota" class="form-control" value="<?= $editUnit['nota'] ?? '' ?>"></div>
+                        <div class="mb-3"><label>Prazo</label><input type="date" name="data_prazo" class="form-control" value="<?= $editUnit['data_prazo'] ?? '' ?>"></div>
+                        <div class="mb-3 form-check"><input type="checkbox" name="concluido" class="form-check-input" id="concluido" <?= !empty($editUnit['concluido'])?'checked':'' ?>><label for="concluido" class="form-check-label">Concluído</label></div>
+                        <div class="mb-3"><label>Tópico</label><select name="topico_id" class="form-select" required><option value="">Selecione</option><?php foreach($topicos as $t): ?><option value="<?= $t['id'] ?>" <?= (isset($editUnit['topico_id']) && $editUnit['topico_id']==$t['id'])?'selected':'' ?>><?= htmlspecialchars($t['disciplina_nome'].' > '.$t['nome']) ?></option><?php endforeach; ?></select></div>
+                        <button type="submit" class="btn btn-<?= $editUnit?'primary':'success' ?> w-100"><?= $editUnit?'Atualizar':'Criar' ?></button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
 </div>
-
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-<script>
-function editarUnidade(id, nome, descricao, topico_id, nota, link_livro, ativo) {
-    // Preencher o formulário de edição
-    document.getElementById('edit_id').value = id;
-    document.getElementById('edit_nome').value = nome;
-    document.getElementById('edit_descricao').value = descricao;
-    document.getElementById('edit_topico_id').value = topico_id;
-    document.getElementById('edit_nota').value = nota;
-    document.getElementById('edit_link_livro').value = link_livro;
-    document.getElementById('edit_concluido').checked = !ativo; // Invertido: se ativo=false, então concluído=true
-    
-    // Mostrar o modal
-    var myModal = new bootstrap.Modal(document.getElementById('modalEdicao'));
-    myModal.show();
-}
-</script>
 </body>
 </html>
