@@ -328,6 +328,10 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
             background: white;
             border-radius: 0 10px 10px 0;
         }
+        .sidebar-divider {
+            border-top: 1px solid rgba(255,255,255,0.2);
+            margin: 0.5rem 0;
+        }
     </style>
 </head>
 <body>
@@ -349,14 +353,24 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                     <a class="nav-link" href="crud/courses_simple.php">
                         <i class="fas fa-graduation-cap me-2"></i>Cursos
                     </a>
+                    <a class="nav-link" href="crud/enrollments_simple.php">
+                        <i class="fas fa-users me-2"></i>Matrículas
+                    </a>
                     <a class="nav-link" href="crud/modules_simple.php">
                         <i class="fas fa-book me-2"></i>Disciplinas
                     </a>
                     <a class="nav-link" href="crud/topics_simple.php">
                         <i class="fas fa-list me-2"></i>Tópicos
                     </a>
-                    <a class="nav-link" href="crud/enrollments_simple.php">
-                        <i class="fas fa-users me-2"></i>Matrículas
+                    <a class="nav-link" href="crud/learning_units_simple.php">
+                        <i class="fas fa-play-circle me-2"></i>Unidades
+                    </a>
+                    <div class="sidebar-divider"></div>
+                    <a class="nav-link" href="#">
+                        <i class="fas fa-cog me-2"></i>Configurações
+                    </a>
+                    <a class="nav-link" href="#">
+                        <i class="fas fa-user me-2"></i>Minha Conta
                     </a>
                     <a class="nav-link" href="logout.php">
                         <i class="fas fa-sign-out-alt me-2"></i>Sair
@@ -396,6 +410,19 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                         </a>
                     </div>
                     <div class="col-md-4 mb-3">
+                        <a href="crud/enrollments_simple.php" class="card-stats-link">
+                            <div class="card card-stats">
+                                <div class="card-body text-center">
+                                    <i class="fas fa-users fa-3x mb-3"></i>
+                                    <h3><?php echo $stats['matriculas']; ?></h3>
+                                    <p class="mb-0">Matrículas</p>
+                                </div>
+                            </div>
+                        </a>
+                    </div>
+                </div>
+                <div class="row mb-4">
+                    <div class="col-md-4 mb-3">
                         <a href="crud/modules_simple.php" class="card-stats-link">
                             <div class="card card-stats">
                                 <div class="card-body text-center">
@@ -406,9 +433,6 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                             </div>
                         </a>
                     </div>
-                </div>
-
-                <div class="row mb-4">
                     <div class="col-md-4 mb-3">
                         <a href="crud/topics_simple.php" class="card-stats-link">
                             <div class="card card-stats">
@@ -423,20 +447,10 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                     <div class="col-md-4 mb-3">
                         <a href="crud/learning_units_simple.php" class="card-stats-link">
                             <div class="card card-stats">
-                            <div class="card-body text-center">
-                                <i class="fas fa-play-circle fa-3x mb-3"></i>
-                                <h3><?php echo $stats['unidades']; ?></h3>
-                                <p class="mb-0">Unidades</p>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-4 mb-3">
-                        <a href="crud/enrollments_simple.php" class="card-stats-link">
-                            <div class="card card-stats">
                                 <div class="card-body text-center">
-                                    <i class="fas fa-users fa-3x mb-3"></i>
-                                    <h3><?php echo $stats['matriculas']; ?></h3>
-                                    <p class="mb-0">Matrículas</p>
+                                    <i class="fas fa-play-circle fa-3x mb-3"></i>
+                                    <h3><?php echo $stats['unidades']; ?></h3>
+                                    <p class="mb-0">Unidades</p>
                                 </div>
                             </div>
                         </a>

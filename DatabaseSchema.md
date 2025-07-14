@@ -44,6 +44,7 @@ CREATE TABLE universidades (
     sigla VARCHAR(10),                            -- University abbreviation
     pais VARCHAR(100) DEFAULT 'Brasil',          -- Country
     cidade VARCHAR(100),                          -- City
+    estado VARCHAR(2) NOT NULL,                  -- State (UF)
     site VARCHAR(255),                            -- Website URL
     usuario_id INT NOT NULL,                      -- Owner user ID
     data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -66,7 +67,7 @@ CREATE TABLE cursos (
     nome VARCHAR(200) NOT NULL,                   -- Course name
     descricao TEXT,                               -- Course description
     nivel VARCHAR(50),                            -- Level (graduacao, pos-graduacao, etc.)
-    duracao_semestres INT,                        -- Duration in semesters
+    carga_horaria INT DEFAULT 0,                  -- Workload hours
     universidade_id INT NOT NULL,                 -- University reference
     usuario_id INT NOT NULL,                      -- Owner user ID
     data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -122,6 +123,7 @@ CREATE TABLE topicos (
     prioridade ENUM('baixa', 'media', 'alta') DEFAULT 'media', -- Priority level
     concluido TINYINT(1) DEFAULT 0,              -- Completion status
     disciplina_id INT NOT NULL,                   -- Subject reference
+    ordem INT DEFAULT 0,                          -- Order/index of the topic
     usuario_id INT NOT NULL,                      -- Owner user ID
     data_criacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -174,15 +176,18 @@ Tracks user enrollments in courses.
 CREATE TABLE matriculas (
     id INT AUTO_INCREMENT PRIMARY KEY,
     usuario_id INT NOT NULL,                      -- User reference
+    universidade_id INT NOT NULL,                 -- University reference
     curso_id INT NOT NULL,                        -- Course reference
     data_matricula TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Enrollment date
-    status ENUM('ativa', 'concluida', 'cancelada') DEFAULT 'ativa',
+    status ENUM('ativa', 'concluida', 'cancelada', 'trancada') DEFAULT 'ativa',
     data_conclusao TIMESTAMP NULL,                -- Completion date
     
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (universidade_id) REFERENCES universidades(id) ON DELETE CASCADE,
     FOREIGN KEY (curso_id) REFERENCES cursos(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_enrollment (usuario_id, curso_id),
+    UNIQUE KEY unique_enrollment (usuario_id, universidade_id, curso_id),
     INDEX idx_usuario_id (usuario_id),
+    INDEX idx_universidade_id (universidade_id),
     INDEX idx_curso_id (curso_id),
     INDEX idx_status (status)
 );

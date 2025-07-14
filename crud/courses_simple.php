@@ -1,6 +1,24 @@
 <?php
-// Configuração simplificada
+// Configuração simplificada - CRUD de Cursos
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/../logs/sistema.log');
+
+// Manipuladores globais de erro e exceção
+set_exception_handler(function($e) {
+    error_log("COURSES_UNCAUGHT_EXCEPTION: " . $e->getMessage() . " em " . $e->getFile() . ":" . $e->getLine());
+    http_response_code(500);
+    exit('Erro interno do sistema. Verifique os logs.');
+});
+
+set_error_handler(function($severity, $message, $file, $line) {
+    error_log("COURSES_ERROR[$severity]: $message em $file:$line");
+    return false;
+});
+
 require_once __DIR__ . '/../Medoo.php';
+require_once __DIR__ . '/../includes/logger_config.php';
 
 use Medoo\Medoo;
 
@@ -25,89 +43,119 @@ $database = new Medoo([
     'charset' => 'utf8mb4'
 ]);
 
+$user_id = $_SESSION['user_id'];
 $message = '';
 $messageType = '';
+
+// Log do acesso ao CRUD de Cursos
+logInfo('CRUD Cursos acessado', [
+    'user_id' => $user_id,
+    'user_name' => $_SESSION['user_name'] ?? 'unknown'
+]);
+
+// Carregar universidades para o select
+$universities = $database->select('universidades', ['id', 'nome'], [
+    'usuario_id' => $user_id,
+    'ORDER' => ['nome' => 'ASC']
+]);
 
 // Processar ações
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
-    
     try {
         switch ($action) {
             case 'create':
                 $nome = trim($_POST['nome'] ?? '');
                 $descricao = trim($_POST['descricao'] ?? '');
                 $carga_horaria = (int)($_POST['carga_horaria'] ?? 0);
-                
+                $universidade_id = (int)($_POST['universidade_id'] ?? 0);
                 if (empty($nome)) {
                     throw new Exception('Nome do curso é obrigatório.');
                 }
-                
+                if ($universidade_id <= 0) {
+                    throw new Exception('Universidade é obrigatória.');
+                }
                 if ($carga_horaria < 0) {
                     throw new Exception('Carga horária deve ser um número positivo.');
                 }
-                
+
                 $result = $database->insert('cursos', [
                     'nome' => $nome,
                     'descricao' => $descricao,
                     'carga_horaria' => $carga_horaria,
-                    'usuario_id' => $_SESSION['user_id']
+                    'universidade_id' => $universidade_id,
+                    'usuario_id' => $user_id
                 ]);
-                
                 $message = 'Curso criado com sucesso!';
                 $messageType = 'success';
                 break;
-                
+
             case 'update':
                 $id = (int)($_POST['id'] ?? 0);
                 $nome = trim($_POST['nome'] ?? '');
                 $descricao = trim($_POST['descricao'] ?? '');
                 $carga_horaria = (int)($_POST['carga_horaria'] ?? 0);
-                
+                $universidade_id = (int)($_POST['universidade_id'] ?? 0);
                 if (empty($nome)) {
                     throw new Exception('Nome do curso é obrigatório.');
                 }
-                
+                if ($universidade_id <= 0) {
+                    throw new Exception('Universidade é obrigatória.');
+                }
                 if ($carga_horaria < 0) {
                     throw new Exception('Carga horária deve ser um número positivo.');
                 }
-                
+
                 $result = $database->update('cursos', [
                     'nome' => $nome,
                     'descricao' => $descricao,
-                    'carga_horaria' => $carga_horaria
+                    'carga_horaria' => $carga_horaria,
+                    'universidade_id' => $universidade_id
                 ], [
                     'id' => $id,
-                    'usuario_id' => $_SESSION['user_id']
+                    'usuario_id' => $user_id
                 ]);
-                
                 $message = 'Curso atualizado com sucesso!';
                 $messageType = 'success';
                 break;
-                
+
             case 'delete':
                 $id = (int)($_POST['id'] ?? 0);
-                
+
                 $result = $database->delete('cursos', [
                     'id' => $id,
-                    'usuario_id' => $_SESSION['user_id']
+                    'usuario_id' => $user_id
                 ]);
-                
                 $message = 'Curso excluído com sucesso!';
                 $messageType = 'success';
                 break;
         }
-        
     } catch (Exception $e) {
         $message = $e->getMessage();
         $messageType = 'error';
+        
+        // Log detalhado do erro
+        logError('CRUD Cursos erro: ' . $e->getMessage(), [
+            'user_id' => $user_id,
+            'action' => $action ?? 'unknown',
+            'file' => __FILE__,
+            'line' => __LINE__
+        ]);
     }
 }
 
-// Buscar cursos
-$courses = $database->select('cursos', '*', [
-    'usuario_id' => $_SESSION['user_id'],
-    'ORDER' => ['nome' => 'ASC']
+// Buscar cursos com nome de universidade
+$courses = $database->select('cursos', [
+    '[>]universidades' => ['universidade_id' => 'id']
+], [
+    'cursos.id',
+    'cursos.nome',
+    'cursos.descricao',
+    'cursos.carga_horaria',
+    'universidades.nome(universidade_nome)'
+], [
+    'cursos.usuario_id' => $user_id,
+    'ORDER' => ['cursos.nome' => 'ASC']
 ]);
 
 // Buscar curso para edição
@@ -116,7 +164,7 @@ if (isset($_GET['edit'])) {
     $editId = (int)$_GET['edit'];
     $editCourse = $database->get('cursos', '*', [
         'id' => $editId,
-        'usuario_id' => $_SESSION['user_id']
+        'usuario_id' => $user_id
     ]);
 }
 ?>
@@ -189,15 +237,17 @@ if (isset($_GET['edit'])) {
                             <table class="table table-striped table-hover">
                                 <thead>
                                     <tr>
++                                        <th>Universidade</th>
                                         <th>Nome</th>
                                         <th>Descrição</th>
-                                        <th>Carga Horária</th>
++                                        <th>Carga Horária</th>
                                         <th width="120">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php foreach ($courses as $course): ?>
                                         <tr>
++                                            <td><?= htmlspecialchars($course['universidade_nome']) ?></td>
                                             <td><strong><?= htmlspecialchars($course['nome']) ?></strong></td>
                                             <td>
                                                 <?php if ($course['descricao']): ?>
@@ -263,6 +313,20 @@ if (isset($_GET['edit'])) {
                             <textarea class="form-control" id="descricao" name="descricao" rows="3" 
                                       placeholder="Descreva o curso..."><?= $editCourse ? htmlspecialchars($editCourse['descricao']) : '' ?></textarea>
                             <div class="form-text">Descrição opcional do curso</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="universidade_id" class="form-label">Universidade *</label>
+                            <select id="universidade_id" name="universidade_id" class="form-select" required>
+                                <option value="">Selecione...</option>
+                                <?php foreach (
+                                    $universities as $uni
+                                ): ?>
+                                    <option value="<?= $uni['id'] ?>" <?= $editCourse && $editCourse['universidade_id']==$uni['id']? 'selected':'' ?>>
+                                        <?= htmlspecialchars($uni['nome']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
                         </div>
                         
                         <div class="mb-3">

@@ -153,3 +153,6 @@ sudo /opt/lampp/xampp restart
 
 O banco de dados está em:
 DatabaseSchema.md
+
+O framework de logs é o monolog
+O framework de db é o medoo
