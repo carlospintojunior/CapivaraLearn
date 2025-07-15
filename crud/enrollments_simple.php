@@ -6,6 +6,8 @@
 
 // Configuração simplificada
 require_once __DIR__ . '/../Medoo.php';
+// Configuração de logging Monolog
+require_once __DIR__ . '/../includes/logger_config.php';
 
 use Medoo\Medoo;
 
@@ -31,137 +33,166 @@ $database = new Medoo([
 ]);
 
 $user_id = $_SESSION['user_id'];
+// Log de acesso ao CRUD de Matrículas
+try {
+    logInfo('CRUD Matrículas acessado', ['user_id' => $user_id]);
+} catch (Exception $e) {
+    // falha no log não impede execução
+}
 $message = '';
 $error = '';
 
 // Buscar universidades e cursos do usuário para os selects
-$universidades = $database->select("universidades", 
-    ["id", "nome"],
-    ["usuario_id" => $user_id, "ORDER" => "nome"]
-);
+try {
+    $universidades = $database->select("universidades", 
+        ["id", "nome"],
+        ["usuario_id" => $user_id, "ORDER" => "nome"]
+    );
+    logInfo('Universidades carregadas', ['user_id' => $user_id, 'count' => count($universidades)]);
+} catch (Exception $e) {
+    logError('Erro ao carregar universidades', ['user_id' => $user_id, 'error' => $e->getMessage()]);
+    $universidades = [];
+}
 
-$cursos = $database->select("cursos", 
-    ["id", "nome"],
-    ["usuario_id" => $user_id, "ORDER" => "nome"]
-);
+try {
+    $cursos = $database->select("cursos", 
+        ["id", "nome"],
+        ["usuario_id" => $user_id, "ORDER" => "nome"]
+    );
+    logInfo('Cursos carregados', ['user_id' => $user_id, 'count' => count($cursos)]);
+} catch (Exception $e) {
+    logError('Erro ao carregar cursos', ['user_id' => $user_id, 'error' => $e->getMessage()]);
+    $cursos = [];
+}
 
 // Processar ações
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $action = $_POST['action'] ?? '';
+    logInfo('Ação POST recebida', ['user_id' => $user_id, 'action' => $action]);
     
     switch ($action) {
         case 'create':
-            $numero_matricula = trim($_POST['numero_matricula'] ?? '');
-            $universidade_id = intval($_POST['universidade_id'] ?? 0);
-            $curso_id = intval($_POST['curso_id'] ?? 0);
-            $status = $_POST['status'] ?? 'ativo';
-            $progresso = floatval($_POST['progresso'] ?? 0.00);
-            $nota_final = !empty($_POST['nota_final']) ? floatval($_POST['nota_final']) : null;
-            
-            if ($universidade_id <= 0 || $curso_id <= 0) {
-                $error = 'Universidade e curso são obrigatórios';
-            } else {
-                // Verificar se a universidade pertence ao usuário
-                $universidade_check = $database->get("universidades", "id", [
-                    "id" => $universidade_id,
-                    "usuario_id" => $user_id
+            try {
+                $numero_matricula = trim($_POST['numero_matricula'] ?? '');
+                $curso_id = intval($_POST['curso_id'] ?? 0);
+                $status = $_POST['status'] ?? 'ativo';
+                $progresso = floatval($_POST['progresso'] ?? 0.00);
+                $nota_final = !empty($_POST['nota_final']) ? floatval($_POST['nota_final']) : null;
+                
+                logInfo('Tentativa de criar matrícula', [
+                    'user_id' => $user_id,
+                    'curso_id' => $curso_id,
+                    'status' => $status
                 ]);
                 
-                // Verificar se o curso pertence ao usuário
-                $curso_check = $database->get("cursos", "id", [
-                    "id" => $curso_id,
-                    "usuario_id" => $user_id
-                ]);
-                
-                if (!$universidade_check) {
-                    $error = 'Universidade não encontrada ou não pertence ao usuário';
-                } elseif (!$curso_check) {
-                    $error = 'Curso não encontrado ou não pertence ao usuário';
+                if ($curso_id <= 0) {
+                    $error = 'Curso é obrigatório';
+                    logWarning('Curso obrigatório faltando', ['user_id' => $user_id, 'error' => $error]);
                 } else {
-                    // Verificar se já existe uma matrícula para esta combinação
-                    $matricula_existente = $database->get("inscricoes", "id", [
-                        "usuario_id" => $user_id,
-                        "universidade_id" => $universidade_id,
-                        "curso_id" => $curso_id
+                    // Buscar o curso e sua universidade
+                    $curso_info = $database->get("cursos", [
+                        "id",
+                        "nome", 
+                        "universidade_id"
+                    ], [
+                        "id" => $curso_id,
+                        "usuario_id" => $user_id
                     ]);
                     
-                    if ($matricula_existente) {
-                        $error = 'Já existe uma matrícula para esta combinação de universidade e curso';
+                    if (!$curso_info) {
+                        $error = 'Curso não encontrado ou não pertence ao usuário';
+                        logWarning('Curso inválido', ['user_id' => $user_id, 'curso_id' => $curso_id]);
                     } else {
-                        $data_conclusao = ($status === 'concluido') ? date('Y-m-d H:i:s') : null;
+                        $universidade_id = $curso_info['universidade_id'];
                         
-                        $result = $database->insert("inscricoes", [
-                            "numero_matricula" => $numero_matricula ?: null,
+                        // Verificar se já existe uma matrícula para esta combinação
+                        $matricula_existente = $database->get("matriculas", "id", [
                             "usuario_id" => $user_id,
                             "universidade_id" => $universidade_id,
-                            "curso_id" => $curso_id,
-                            "status" => $status,
-                            "progresso" => $progresso,
-                            "data_conclusao" => $data_conclusao,
-                            "nota_final" => $nota_final
+                            "curso_id" => $curso_id
                         ]);
                         
-                        if ($result->rowCount()) {
-                            $message = 'Matrícula criada com sucesso!';
+                        if ($matricula_existente) {
+                            $error = 'Já existe uma matrícula para este curso';
+                            logWarning('Matrícula duplicada', ['user_id' => $user_id, 'universidade_id' => $universidade_id, 'curso_id' => $curso_id]);
                         } else {
-                            $error = 'Erro ao criar matrícula: ' . implode(', ', $database->error());
+                            $data_conclusao = ($status === 'concluida') ? date('Y-m-d H:i:s') : null;
+                            
+                            $result = $database->insert("matriculas", [
+                                "numero_matricula" => $numero_matricula ?: null,
+                                "usuario_id" => $user_id,
+                                "universidade_id" => $universidade_id,
+                                "curso_id" => $curso_id,
+                                "status" => $status,
+                                "progresso" => $progresso,
+                                "data_conclusao" => $data_conclusao,
+                                "nota_final" => $nota_final
+                            ]);
+                            
+                            if ($result->rowCount()) {
+                                $message = 'Matrícula criada com sucesso!';
+                                logInfo('Matrícula criada', [
+                                    'user_id' => $user_id,
+                                    'universidade_id' => $universidade_id,
+                                    'curso_id' => $curso_id,
+                                    'numero_matricula' => $numero_matricula,
+                                    'status' => $status,
+                                    'progresso' => $progresso,
+                                    'matricula_id' => $database->id()
+                                ]);
+                            } else {
+                                $error = 'Erro ao criar matrícula: ' . implode(', ', $database->error());
+                                logError('Erro ao inserir matrícula', [
+                                    'user_id' => $user_id,
+                                    'universidade_id' => $universidade_id,
+                                    'curso_id' => $curso_id,
+                                    'error' => $error
+                                ]);
+                            }
                         }
                     }
                 }
+            } catch (Exception $e) {
+                $error = 'Erro inesperado: ' . $e->getMessage();
+                logError('Exceção na criação de matrícula', ['user_id' => $user_id, 'error' => $e->getMessage()]);
             }
             break;
             
         case 'update':
-            $id = intval($_POST['id'] ?? 0);
-            $numero_matricula = trim($_POST['numero_matricula'] ?? '');
-            $universidade_id = intval($_POST['universidade_id'] ?? 0);
-            $curso_id = intval($_POST['curso_id'] ?? 0);
-            $status = $_POST['status'] ?? 'ativo';
-            $progresso = floatval($_POST['progresso'] ?? 0.00);
-            $nota_final = !empty($_POST['nota_final']) ? floatval($_POST['nota_final']) : null;
-            
-            if ($universidade_id <= 0 || $curso_id <= 0 || $id <= 0) {
-                $error = 'Universidade, curso e ID são obrigatórios';
-            } else {
-                // Verificar se a matrícula pertence ao usuário
-                $matricula_check = $database->get("inscricoes", "id", [
-                    "id" => $id,
-                    "usuario_id" => $user_id
+            try {
+                $id = intval($_POST['id'] ?? 0);
+                $numero_matricula = trim($_POST['numero_matricula'] ?? '');
+                $universidade_id = intval($_POST['universidade_id'] ?? 0);
+                $curso_id = intval($_POST['curso_id'] ?? 0);
+                $status = $_POST['status'] ?? 'ativo';
+                $progresso = floatval($_POST['progresso'] ?? 0.00);
+                $nota_final = !empty($_POST['nota_final']) ? floatval($_POST['nota_final']) : null;
+                
+                logInfo('Tentativa de atualizar matrícula', [
+                    'user_id' => $user_id,
+                    'matricula_id' => $id,
+                    'universidade_id' => $universidade_id,
+                    'curso_id' => $curso_id,
+                    'status' => $status
                 ]);
                 
-                // Verificar se a universidade pertence ao usuário
-                $universidade_check = $database->get("universidades", "id", [
-                    "id" => $universidade_id,
-                    "usuario_id" => $user_id
-                ]);
-                
-                // Verificar se o curso pertence ao usuário
-                $curso_check = $database->get("cursos", "id", [
-                    "id" => $curso_id,
-                    "usuario_id" => $user_id
-                ]);
-                
-                if (!$matricula_check) {
-                    $error = 'Matrícula não encontrada ou não pertence ao usuário';
-                } elseif (!$universidade_check) {
-                    $error = 'Universidade não encontrada ou não pertence ao usuário';
-                } elseif (!$curso_check) {
-                    $error = 'Curso não encontrado ou não pertence ao usuário';
+                if ($universidade_id <= 0 || $curso_id <= 0 || $id <= 0) {
+                    $error = 'Universidade, curso e ID são obrigatórios';
+                    logWarning('Dados obrigatórios faltando na atualização', ['user_id' => $user_id, 'error' => $error]);
                 } else {
-                    // Verificar se já existe outra matrícula para esta combinação (exceto a atual)
-                    $matricula_existente = $database->get("inscricoes", "id", [
-                        "usuario_id" => $user_id,
-                        "universidade_id" => $universidade_id,
-                        "curso_id" => $curso_id,
-                        "id[!]" => $id
+                    // Verificar se a matrícula pertence ao usuário
+                    $matricula_check = $database->get("matriculas", "id", [
+                        "id" => $id,
+                        "usuario_id" => $user_id
                     ]);
                     
-                    if ($matricula_existente) {
-                        $error = 'Já existe outra matrícula para esta combinação de universidade e curso';
+                    if (!$matricula_check) {
+                        $error = 'Matrícula não encontrada ou não pertence ao usuário';
+                        logWarning('Matrícula não encontrada para atualização', ['user_id' => $user_id, 'matricula_id' => $id]);
                     } else {
                         $data_conclusao = ($status === 'concluido') ? date('Y-m-d H:i:s') : null;
                         
-                        $result = $database->update("inscricoes", [
+                        $result = $database->update("matriculas", [
                             "numero_matricula" => $numero_matricula ?: null,
                             "universidade_id" => $universidade_id,
                             "curso_id" => $curso_id,
@@ -176,74 +207,109 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         
                         if ($result->rowCount() >= 0) {
                             $message = 'Matrícula atualizada com sucesso!';
+                            logInfo('Matrícula atualizada', ['user_id' => $user_id, 'matricula_id' => $id]);
                         } else {
                             $error = 'Erro ao atualizar matrícula: ' . implode(', ', $database->error());
+                            logError('Erro ao atualizar matrícula', ['user_id' => $user_id, 'matricula_id' => $id, 'error' => $error]);
                         }
                     }
                 }
+            } catch (Exception $e) {
+                $error = 'Erro inesperado: ' . $e->getMessage();
+                logError('Exceção na atualização de matrícula', ['user_id' => $user_id, 'error' => $e->getMessage()]);
             }
             break;
             
         case 'delete':
-            $id = intval($_POST['id'] ?? 0);
-            
-            if ($id <= 0) {
-                $error = 'ID inválido';
-            } else {
-                // Verificar se a matrícula pertence ao usuário
-                $matricula_check = $database->get("inscricoes", "id", [
-                    "id" => $id,
-                    "usuario_id" => $user_id
-                ]);
+            try {
+                $id = intval($_POST['id'] ?? 0);
                 
-                if (!$matricula_check) {
-                    $error = 'Matrícula não encontrada ou não pertence ao usuário';
+                logInfo('Tentativa de excluir matrícula', ['user_id' => $user_id, 'matricula_id' => $id]);
+                
+                if ($id <= 0) {
+                    $error = 'ID inválido';
+                    logWarning('ID inválido para exclusão', ['user_id' => $user_id, 'id' => $id]);
                 } else {
-                    $result = $database->delete("inscricoes", [
+                    // Verificar se a matrícula pertence ao usuário
+                    $matricula_check = $database->get("matriculas", "id", [
                         "id" => $id,
                         "usuario_id" => $user_id
                     ]);
                     
-                    if ($result->rowCount()) {
-                        $message = 'Matrícula excluída com sucesso!';
+                    if (!$matricula_check) {
+                        $error = 'Matrícula não encontrada ou não pertence ao usuário';
+                        logWarning('Matrícula não encontrada para exclusão', ['user_id' => $user_id, 'matricula_id' => $id]);
                     } else {
-                        $error = 'Erro ao excluir matrícula: ' . implode(', ', $database->error());
+                        $result = $database->delete("matriculas", [
+                            "id" => $id,
+                            "usuario_id" => $user_id
+                        ]);
+                        
+                        if ($result->rowCount()) {
+                            $message = 'Matrícula excluída com sucesso!';
+                            logInfo('Matrícula excluída', ['user_id' => $user_id, 'matricula_id' => $id]);
+                        } else {
+                            $error = 'Erro ao excluir matrícula: ' . implode(', ', $database->error());
+                            logError('Erro ao excluir matrícula', ['user_id' => $user_id, 'matricula_id' => $id, 'error' => $error]);
+                        }
                     }
                 }
+            } catch (Exception $e) {
+                $error = 'Erro inesperado: ' . $e->getMessage();
+                logError('Exceção na exclusão de matrícula', ['user_id' => $user_id, 'error' => $e->getMessage()]);
             }
             break;
     }
 }
 
 // Buscar matrículas do usuário com nomes da universidade e curso
-$matriculas = $database->select("inscricoes", [
-    "[>]universidades" => ["universidade_id" => "id"],
-    "[>]cursos" => ["curso_id" => "id"]
-], [
-    "inscricoes.id",
-    "inscricoes.numero_matricula",
-    "inscricoes.universidade_id",
-    "inscricoes.curso_id",
-    "universidades.nome(universidade_nome)",
-    "cursos.nome(curso_nome)",
-    "inscricoes.status",
-    "inscricoes.progresso",
-    "inscricoes.data_matricula",
-    "inscricoes.data_conclusao",
-    "inscricoes.nota_final"
-], [
-    "inscricoes.usuario_id" => $user_id,
-    "ORDER" => ["universidades.nome", "cursos.nome"]
-]);
+try {
+    $matriculas = $database->select("matriculas", [
+        "[>]universidades" => ["universidade_id" => "id"],
+        "[>]cursos" => ["curso_id" => "id"]
+    ], [
+        "matriculas.id",
+        "matriculas.numero_matricula",
+        "matriculas.universidade_id",
+        "matriculas.curso_id",
+        "universidades.nome(universidade_nome)",
+        "cursos.nome(curso_nome)",
+        "matriculas.status",
+        "matriculas.progresso",
+        "matriculas.data_matricula",
+        "matriculas.data_conclusao",
+        "matriculas.nota_final"
+    ], [
+        "matriculas.usuario_id" => $user_id,
+        "ORDER" => ["universidades.nome", "cursos.nome"]
+    ]);
+    
+    logInfo('Matrículas carregadas', ['user_id' => $user_id, 'count' => count($matriculas)]);
+} catch (Exception $e) {
+    logError('Erro ao carregar matrículas', ['user_id' => $user_id, 'error' => $e->getMessage()]);
+    $matriculas = [];
+}
 
 // Buscar matrícula para edição
 $editando = null;
 if (isset($_GET['edit'])) {
     $edit_id = intval($_GET['edit']);
-    $editando = $database->get("inscricoes", "*", [
-        "id" => $edit_id,
-        "usuario_id" => $user_id
-    ]);
+    logInfo('Editando matrícula', ['user_id' => $user_id, 'edit_id' => $edit_id]);
+    
+    try {
+        $editando = $database->get("matriculas", "*", [
+            "id" => $edit_id,
+            "usuario_id" => $user_id
+        ]);
+        
+        if ($editando) {
+            logInfo('Matrícula encontrada para edição', ['user_id' => $user_id, 'matricula_id' => $edit_id]);
+        } else {
+            logWarning('Matrícula não encontrada para edição', ['user_id' => $user_id, 'edit_id' => $edit_id]);
+        }
+    } catch (Exception $e) {
+        logError('Erro ao buscar matrícula para edição', ['user_id' => $user_id, 'edit_id' => $edit_id, 'error' => $e->getMessage()]);
+    }
 }
 
 // Opções de status

@@ -155,6 +155,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $email = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
         $confirmPassword = $_POST['confirm_password'] ?? '';
+        $termsAgreement = isset($_POST['terms_agreement']) ? $_POST['terms_agreement'] : '';
         
         // Validações
         if (empty($nome) || empty($email) || empty($password)) {
@@ -165,6 +166,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $error = 'A senha deve ter pelo menos 6 caracteres';
         } elseif ($password !== $confirmPassword) {
             $error = 'As senhas não coincidem';
+        } elseif (empty($termsAgreement)) {
+            $error = 'Você deve concordar com os Termos de Uso para criar uma conta';
         } else {
             log_sistema("Tentativa de registro de nova conta para email: $email", 'INFO');
             // Verificar se e-mail já existe
@@ -185,12 +188,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 
                 try {
                     $stmt = $db->getConnection()->prepare(
-                        "INSERT INTO usuarios (nome, email, senha, email_verificado) VALUES (?, ?, ?, FALSE)"
+                        "INSERT INTO usuarios (nome, email, senha, email_verificado, termos_aceitos, data_aceitacao_termos) VALUES (?, ?, ?, FALSE, 1, NOW())"
                     );
                     
                     if ($stmt->execute([$nome, $email, $hashedPassword])) {
                         $userId = $db->getConnection()->lastInsertId();
-                        log_sistema("Nova conta criada com sucesso - ID: $userId, Email: $email, Nome: $nome", 'SUCCESS');
+                        log_sistema("Nova conta criada com sucesso - ID: $userId, Email: $email, Nome: $nome, Termos aceitos: SIM", 'SUCCESS');
                         
                         // Criar configurações padrão
                         $db->execute("INSERT INTO configuracoes_usuario (usuario_id) VALUES (?)", [$userId]);
@@ -524,6 +527,45 @@ if (isset($_GET['resend_email'])) {
             transform: translateY(-2px);
         }
 
+        /* Estilo para concordância com termos */
+        .terms-agreement {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 15px;
+            background: rgba(52, 152, 219, 0.05);
+            border-radius: 10px;
+            border: 1px solid rgba(52, 152, 219, 0.2);
+            margin-bottom: 10px;
+        }
+
+        .terms-agreement input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            margin-top: 2px;
+            cursor: pointer;
+            accent-color: #3498db;
+            flex-shrink: 0;
+        }
+
+        .terms-agreement label {
+            font-size: 14px;
+            line-height: 1.4;
+            color: #2c3e50;
+            cursor: pointer;
+            margin: 0;
+        }
+
+        .terms-agreement a {
+            color: #3498db;
+            text-decoration: underline;
+            font-weight: 500;
+        }
+
+        .terms-agreement a:hover {
+            color: #2980b9;
+        }
+
         .btn {
             width: 100%;
             padding: 18px;
@@ -826,6 +868,19 @@ if (isset($_GET['resend_email'])) {
                                placeholder="Digite a senha novamente">
                     </div>
 
+                    <div class="form-group">
+                        <div class="terms-agreement">
+                            <input type="checkbox" id="terms_agreement" name="terms_agreement" required>
+                            <label for="terms_agreement">
+                                📋 Concordo com os 
+                                <a href="termos_uso.html" target="_blank" style="color: #3498db; text-decoration: underline;">
+                                    Termos de Uso
+                                </a>
+                                e autorizo o tratamento dos meus dados conforme descrito
+                            </label>
+                        </div>
+                    </div>
+
                     <button type="submit" class="btn btn-register" onclick="showRegistrationLoader(event)">
                         ✨ Criar Conta Gratuita
                     </button>
@@ -862,6 +917,32 @@ if (isset($_GET['resend_email'])) {
                 const email = form.querySelector('input[name="email"]').value.trim();
                 const password = form.querySelector('input[name="password"]').value;
                 const confirmPassword = form.querySelector('input[name="confirm_password"]').value;
+                const termsAgreement = form.querySelector('input[name="terms_agreement"]').checked;
+                
+                // Validações
+                if (!nome || !email || !password) {
+                    alert('Por favor, preencha todos os campos obrigatórios.');
+                    event.preventDefault();
+                    return false;
+                }
+                
+                if (password.length < 6) {
+                    alert('A senha deve ter pelo menos 6 caracteres.');
+                    event.preventDefault();
+                    return false;
+                }
+                
+                if (password !== confirmPassword) {
+                    alert('As senhas não coincidem.');
+                    event.preventDefault();
+                    return false;
+                }
+                
+                if (!termsAgreement) {
+                    alert('Você deve concordar com os Termos de Uso para criar uma conta.');
+                    event.preventDefault();
+                    return false;
+                }
                 
                 if (!nome || !email || !password || password !== confirmPassword) {
                     return true; // Permite o submit normal para mostrar erros de validação
