@@ -178,8 +178,11 @@ CREATE TABLE matriculas (
     usuario_id INT NOT NULL,                      -- User reference
     universidade_id INT NOT NULL,                 -- University reference
     curso_id INT NOT NULL,                        -- Course reference
+    numero_matricula VARCHAR(50),                 -- Enrollment number
     data_matricula TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- Enrollment date
     status ENUM('ativa', 'concluida', 'cancelada', 'trancada') DEFAULT 'ativa',
+    progresso DECIMAL(5,2) DEFAULT 0.00,          -- Progress percentage (0-100)
+    nota_final DECIMAL(4,2) NULL,                 -- Final grade (0-10)
     data_conclusao TIMESTAMP NULL,                -- Completion date
     
     FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
