@@ -45,6 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $carga_horaria = intval($_POST['carga_horaria'] ?? 0);
                 $semestre = intval($_POST['semestre'] ?? 0);
                 $curso_id = intval($_POST['curso_id'] ?? 0);
+                $concluido = intval($_POST['concluido'] ?? 0);
                 if (empty($nome) || $curso_id <= 0) {
                     throw new Exception('Nome e curso são obrigatórios.');
                 }
@@ -62,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'descricao' => $descricao,
                     'carga_horaria' => $carga_horaria,
                     'semestre' => $semestre,
-                    'concluido' => 0,
+                    'concluido' => $concluido,
                     'curso_id' => $curso_id,
                     'usuario_id' => $user_id
                 ]);
@@ -77,6 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $carga_horaria = intval($_POST['carga_horaria'] ?? 0);
                 $semestre = intval($_POST['semestre'] ?? 0);
                 $curso_id = intval($_POST['curso_id'] ?? 0);
+                $concluido = intval($_POST['concluido'] ?? 0);
                 if ($id <= 0 || empty($nome) || $curso_id <= 0) {
                     throw new Exception('ID, nome e curso são obrigatórios.');
                 }
@@ -99,7 +101,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'descricao' => $descricao,
                     'carga_horaria' => $carga_horaria,
                     'semestre' => $semestre,
-                    'curso_id' => $curso_id
+                    'curso_id' => $curso_id,
+                    'concluido' => $concluido
                 ], [
                     'id' => $id,
                     'usuario_id' => $user_id
@@ -229,6 +232,13 @@ if (isset($_GET['edit'])) {
                         <div class="mb-3"><label>Carga Horária</label><input type="number" name="carga_horaria" class="form-control" value="<?= $editDisc['carga_horaria'] ?? 0 ?>"></div>
                         <div class="mb-3"><label>Semestre</label><input type="number" name="semestre" class="form-control" value="<?= $editDisc['semestre'] ?? 0 ?>"></div>
                         <div class="mb-3"><label>Curso</label><select name="curso_id" class="form-select" required><option value="">Selecione</option><?php foreach($cursos as $c): ?><option value="<?= $c['id'] ?>" <?= isset($editDisc['curso_id']) && $editDisc['curso_id']==$c['id']?'selected':'' ?>><?= htmlspecialchars($c['nome']) ?></option><?php endforeach; ?></select></div>
+                        <div class="mb-3">
+                            <label>Status</label>
+                            <select name="concluido" class="form-select">
+                                <option value="0" <?= isset($editDisc['concluido']) && $editDisc['concluido']==0?'selected':'' ?>>Ativa</option>
+                                <option value="1" <?= isset($editDisc['concluido']) && $editDisc['concluido']==1?'selected':'' ?>>Concluída</option>
+                            </select>
+                        </div>
                         <button type="submit" class="btn btn-<?= $editDisc ? 'primary' : 'success' ?> w-100"><?= $editDisc ? 'Atualizar' : 'Criar' ?></button>
                     </form>
                 </div>
