@@ -36,6 +36,9 @@ if (!function_exists('generateToken')) {
 // Configurar envio de email
 require_once __DIR__ . '/includes/MailService.php';
 
+// Load Financial Service for user registration
+require_once __DIR__ . '/includes/services/FinancialService.php';
+
 // Registrar acesso à página de login
 log_sistema('Tela de login carregada', 'INFO');
 // Debug de sessão e cookies para entender persistência
@@ -197,6 +200,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         
                         // Criar configurações padrão
                         $db->execute("INSERT INTO configuracoes_usuario (usuario_id) VALUES (?)", [$userId]);
+                        
+                        // Initialize financial subscription for new user
+                        try {
+                            $financialService = new FinancialService($db);
+                            $subscriptionResult = $financialService->initializeUserSubscription($userId);
+                            
+                            if ($subscriptionResult['success']) {
+                                log_sistema("Financial subscription initialized for user ID: $userId", 'SUCCESS');
+                            } else {
+                                log_sistema("Failed to initialize financial subscription for user ID: $userId - " . $subscriptionResult['error'], 'WARNING');
+                            }
+                        } catch (Exception $e) {
+                            log_sistema("Exception initializing financial subscription for user ID: $userId - " . $e->getMessage(), 'ERROR');
+                        }
                         
                         // Gerar token de confirmação
                         $token = generateToken();
@@ -866,6 +883,25 @@ if (isset($_GET['resend_email'])) {
                         <label for="reg_confirm_password">🔒 Confirmar Senha</label>
                         <input type="password" id="reg_confirm_password" name="confirm_password" required 
                                placeholder="Digite a senha novamente">
+                    </div>
+
+                    <!-- Financial Contribution Notice -->
+                    <div class="form-group">
+                        <div class="contribution-notice">
+                            <div style="background: linear-gradient(135deg, #84fab0 0%, #8fd3f4 100%); padding: 1rem; border-radius: 10px; color: #2c3e50; margin-bottom: 1rem;">
+                                <h6 style="margin: 0 0 0.5rem 0; font-weight: bold;">
+                                    💝 Modelo "Use Primeiro, Pague Depois"
+                                </h6>
+                                <p style="margin: 0 0 0.5rem 0; font-size: 0.9rem;">
+                                    • <strong>365 dias gratuitos</strong> para usar todas as funcionalidades<br>
+                                    • Após o período gratuito: <strong>USD 1,00 por ano</strong><br>
+                                    • O sistema poderá solicitar o reembolso de despesas operacionais
+                                </p>
+                                <p style="margin: 0; font-size: 0.85rem; opacity: 0.8;">
+                                    Comece a usar agora, decida pagar depois! 🚀
+                                </p>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="form-group">

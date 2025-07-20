@@ -10,6 +10,7 @@ if (!isset($_SESSION['user_id'])) {
 // Carregar dependências
 require_once 'Medoo.php';
 require_once __DIR__ . '/includes/version.php';
+require_once __DIR__ . '/includes/services/FinancialService.php';
 
 // Configuração do banco
 $database = new Medoo\Medoo([
@@ -250,6 +251,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['backup_file'])) {
         // Commit da transação
         $database->pdo->commit();
 
+        // Initialize financial subscription for restored user
+        try {
+            $financialService = new FinancialService($database);
+            
+            // Check if user already has a subscription
+            $existingSubscription = $financialService->getUserSubscription($user_id);
+            
+            if (!$existingSubscription) {
+                $result = $financialService->initializeUserSubscription($user_id);
+                if ($result['success']) {
+                    $counters['financial_subscription'] = 1;
+                    error_log("Financial subscription initialized for restored user ID: $user_id");
+                } else {
+                    error_log("Failed to initialize financial subscription for user ID: $user_id - " . $result['error']);
+                }
+            } else {
+                $counters['financial_subscription'] = 0; // Already exists
+                error_log("User ID: $user_id already has financial subscription");
+            }
+        } catch (Exception $e) {
+            error_log("Error initializing financial subscription during restore: " . $e->getMessage());
+            // Don't fail the restore process for financial subscription errors
+        }
+
         $import_stats = $counters;
         $success_message = "Backup restaurado com sucesso!";
 
@@ -399,6 +424,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['backup_file'])) {
                                 </div>
                             </div>
                         </div>
+                        
+                        <!-- Financial System Status -->
+                        <?php if (isset($import_stats['financial_subscription'])): ?>
+                        <div class="row mt-3">
+                            <div class="col-12">
+                                <div class="alert alert-<?php echo $import_stats['financial_subscription'] ? 'success' : 'info'; ?>">
+                                    <i class="fas fa-dollar-sign me-2"></i>
+                                    <strong>Sistema Financeiro:</strong>
+                                    <?php if ($import_stats['financial_subscription']): ?>
+                                        Subscription criada com período de graça de 365 dias
+                                    <?php else: ?>
+                                        Subscription já existia (mantida)
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        </div>
+                        <?php endif; ?>
+                        
                         <?php if ($import_stats['skipped'] > 0): ?>
                         <div class="mt-3">
                             <div class="alert alert-info">

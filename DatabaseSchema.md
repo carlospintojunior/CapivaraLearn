@@ -313,7 +313,179 @@ CREATE TABLE configuracoes_usuario (
 
 ---
 
-## 📝 Notes
+## � Table: `subscription_plans` (Subscription Plans)
+
+Stores available subscription plans and pricing information.
+
+```sql
+CREATE TABLE subscription_plans (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    plan_name VARCHAR(100) NOT NULL,              -- Plan name (e.g., 'Annual Contribution')
+    plan_code VARCHAR(50) NOT NULL UNIQUE,        -- Unique plan identifier
+    description TEXT,                             -- Plan description
+    price_usd DECIMAL(10,2) NOT NULL,            -- Price in USD
+    billing_cycle ENUM('monthly', 'yearly', 'one_time') DEFAULT 'yearly',
+    grace_period_days INT DEFAULT 365,           -- Grace period before payment required
+    is_active TINYINT(1) DEFAULT 1,              -- Plan active status
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    INDEX idx_plan_code (plan_code),
+    INDEX idx_is_active (is_active)
+);
+```
+
+---
+
+## 💳 Table: `user_subscriptions` (User Subscriptions)
+
+Tracks user subscription status and payment obligations.
+
+```sql
+CREATE TABLE user_subscriptions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,                         -- User reference
+    plan_id INT NOT NULL,                         -- Subscription plan reference
+    status ENUM('active', 'grace_period', 'payment_due', 'overdue', 'suspended') DEFAULT 'grace_period',
+    registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP, -- User registration date
+    grace_period_end DATE,                        -- When grace period ends
+    next_payment_due DATE,                        -- Next payment due date
+    last_payment_date TIMESTAMP NULL,             -- Last successful payment
+    amount_due_usd DECIMAL(10,2) DEFAULT 0.00,   -- Outstanding amount
+    payment_attempts INT DEFAULT 0,               -- Number of payment attempts
+    notes TEXT,                                   -- Administrative notes
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (user_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (plan_id) REFERENCES subscription_plans(id),
+    UNIQUE KEY unique_user_plan (user_id, plan_id),
+    INDEX idx_user_id (user_id),
+    INDEX idx_status (status),
+    INDEX idx_grace_period_end (grace_period_end),
+    INDEX idx_next_payment_due (next_payment_due)
+);
+```
+
+---
+
+## 💸 Table: `payment_transactions` (Payment Transactions)
+
+Records all payment transactions and attempts.
+
+```sql
+CREATE TABLE payment_transactions (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,                         -- User reference
+    subscription_id INT NOT NULL,                 -- Subscription reference
+    transaction_type ENUM('payment', 'refund', 'adjustment') DEFAULT 'payment',
+    amount_usd DECIMAL(10,2) NOT NULL,            -- Transaction amount
+    currency VARCHAR(3) DEFAULT 'USD',            -- Currency code
+    payment_method ENUM('credit_card', 'paypal', 'bank_transfer', 'crypto', 'other') NULL,
+    payment_gateway VARCHAR(100),                 -- Payment processor used
+    gateway_transaction_id VARCHAR(255),          -- External transaction ID
+    status ENUM('pending', 'completed', 'failed', 'cancelled', 'refunded') DEFAULT 'pending',
+    payment_date TIMESTAMP NULL,                  -- When payment was completed
+    failure_reason TEXT,                          -- Reason for failed payments
+    gateway_response JSON,                        -- Full gateway response
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (user_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (subscription_id) REFERENCES user_subscriptions(id) ON DELETE CASCADE,
+    INDEX idx_user_id (user_id),
+    INDEX idx_subscription_id (subscription_id),
+    INDEX idx_status (status),
+    INDEX idx_payment_date (payment_date),
+    INDEX idx_gateway_transaction_id (gateway_transaction_id)
+);
+```
+
+---
+
+## 📊 Table: `billing_events` (Billing Events)
+
+Logs all billing-related events for audit and tracking.
+
+```sql
+CREATE TABLE billing_events (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,                         -- User reference
+    subscription_id INT,                          -- Subscription reference (nullable)
+    event_type ENUM('registration', 'grace_period_start', 'payment_due', 'payment_completed', 'payment_failed', 'account_suspended', 'account_reactivated') NOT NULL,
+    event_description TEXT,                       -- Detailed event description
+    amount_usd DECIMAL(10,2) NULL,                -- Associated amount if applicable
+    metadata JSON,                                -- Additional event data
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (user_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (subscription_id) REFERENCES user_subscriptions(id) ON DELETE SET NULL,
+    INDEX idx_user_id (user_id),
+    INDEX idx_subscription_id (subscription_id),
+    INDEX idx_event_type (event_type),
+    INDEX idx_created_at (created_at)
+);
+```
+
+---
+
+## 🔔 Table: `payment_notifications` (Payment Notifications)
+
+Manages payment reminders and notifications to users.
+
+```sql
+CREATE TABLE payment_notifications (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,                         -- User reference
+    subscription_id INT NOT NULL,                 -- Subscription reference
+    notification_type ENUM('grace_period_ending', 'payment_due', 'payment_overdue', 'final_notice') NOT NULL,
+    scheduled_date DATE NOT NULL,                 -- When notification should be sent
+    sent_at TIMESTAMP NULL,                       -- When notification was actually sent
+    status ENUM('pending', 'sent', 'failed', 'cancelled') DEFAULT 'pending',
+    notification_channel ENUM('email', 'sms', 'in_app') DEFAULT 'email',
+    message_content TEXT,                         -- Notification message
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (user_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+    FOREIGN KEY (subscription_id) REFERENCES user_subscriptions(id) ON DELETE CASCADE,
+    INDEX idx_user_id (user_id),
+    INDEX idx_subscription_id (subscription_id),
+    INDEX idx_scheduled_date (scheduled_date),
+    INDEX idx_status (status)
+);
+```
+
+---
+
+## 🗂️ New Financial Tables Structure Summary
+
+The financial system includes:
+
+### Core Tables:
+1. **subscription_plans** - Available subscription plans and pricing
+2. **user_subscriptions** - User subscription status and payment tracking
+3. **payment_transactions** - All payment attempts and completions
+4. **billing_events** - Audit log of all billing events
+5. **payment_notifications** - Payment reminder system
+
+### Key Features:
+- **Grace Period Management**: 365-day free trial period
+- **Flexible Pricing**: Support for multiple plans and currencies
+- **Payment Gateway Integration**: Ready for multiple payment processors
+- **Audit Trail**: Complete logging of all financial events
+- **Notification System**: Automated payment reminders
+- **Compliance Ready**: Structured for financial reporting and compliance
+
+### Security Considerations:
+- Foreign key constraints maintain data integrity
+- JSON fields for flexible gateway integration
+- Proper indexing for performance
+- Audit trail for all financial operations
+
+---
+
+## �📝 Notes
 
 1. **Character Encoding**: All tables use UTF8MB4 for full Unicode support
 2. **Timestamps**: All tables include creation and update timestamps
@@ -323,5 +495,5 @@ CREATE TABLE configuracoes_usuario (
 
 ---
 
-*Last updated: January 2025*
-*Version: 1.0*
+*Last updated: July 2025*
+*Version: 1.1*
