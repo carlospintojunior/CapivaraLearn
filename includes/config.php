@@ -99,8 +99,12 @@ define('PASSWORD_MIN_LENGTH', 6);
 // =============================================
 // CONFIGURAÇÕES DA APLICAÇÃO
 // =============================================
-define('APP_NAME', 'CapivaraLearn');
-define('APP_VERSION', '1.0.0');
+if (!defined('APP_NAME')) {
+    define('APP_NAME', 'CapivaraLearn');
+}
+if (!defined('APP_VERSION')) {
+    define('APP_VERSION', '1.0.0');
+}
 
 // Configurar timezone
 date_default_timezone_set(TIMEZONE);

@@ -5,6 +5,43 @@ Todas as alterações notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [0.7.0] - 2025-07-20 (Em Desenvolvimento)
+
+### ✅ Adicionado
+- **Sistema de Contribuição Voluntária**
+  - Filosofia: 100% gratuito para sempre, sem anúncios
+  - Contribuições voluntárias após 1 ano de uso
+  - Sistema de sustentabilidade comunitária
+  - Notificações não intrusivas (pode ignorar)
+  - Comparação com "café, coca-cola, ônibus" para contexto
+  - Tracking de contribuições e agradecimentos
+- **Melhorias no Sistema de Backup/Restore**
+  - Correção da ordem de importação respeitando dependências FK
+  - Mudança de 'modules' para 'subjects' na estrutura de backup
+  - Sistema de progresso em tempo real (SSE)
+  - Tratamento robusto de erros com rollback automático
+  - Configuração automática do sistema de contribuição após restore
+  - Logs detalhados para debugging
+
+### 🔧 Corrigido
+- Problemas de serialização PDOStatement no sistema de backup
+- Ordem incorreta de importação (tópicos antes de disciplinas)
+- Conflitos de transação entre FinancialService e restore principal
+- Validação de foreign keys durante importação
+- Compatibilidade total com framework Medoo
+
+### 🔄 Alterado
+- **Nova Filosofia**: Sistema sempre gratuito, contribuições voluntárias
+- **FinancialService renomeado**: Agora gerencia contribuições, não pagamentos
+- Versão atualizada para 0.7.0 (sistema de contribuição comunitária)
+- Branch atualizada para #26---Incluir-monetização
+- Build number incrementado para 003
+
+### 🗑️ Removido
+- Conceito de assinaturas obrigatórias
+- Sistema de anúncios
+- Cobrança de acesso ao sistema
+
 ## [1.1.0] - 2025-07-19
 
 ### ✅ Adicionado

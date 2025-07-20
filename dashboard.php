@@ -463,6 +463,9 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                     <a class="nav-link" href="#">
                         <i class="fas fa-user me-2"></i>Minha Conta
                     </a>
+                    <a class="nav-link" href="financial_dashboard.php">
+                        <i class="fas fa-dollar-sign me-2"></i>Contribuições
+                    </a>
                     <a class="nav-link" href="logout.php">
                         <i class="fas fa-sign-out-alt me-2"></i>Sair
                     </a>

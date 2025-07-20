@@ -409,6 +409,124 @@ $deps = checkDependencies();
                         data_atualizacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
                         FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE CASCADE,
                         UNIQUE KEY unique_user_config (usuario_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+                    
+                    // Financial System Tables (Monetization)
+                    "subscription_plans" => "CREATE TABLE IF NOT EXISTS subscription_plans (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        plan_name VARCHAR(100) NOT NULL,
+                        plan_code VARCHAR(50) NOT NULL UNIQUE,
+                        description TEXT,
+                        price_usd DECIMAL(10,2) NOT NULL,
+                        billing_cycle ENUM('monthly', 'yearly', 'one_time') DEFAULT 'yearly',
+                        grace_period_days INT DEFAULT 365,
+                        is_active TINYINT(1) DEFAULT 1,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        INDEX idx_plan_code (plan_code),
+                        INDEX idx_is_active (is_active)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+                    
+                    "user_subscriptions" => "CREATE TABLE IF NOT EXISTS user_subscriptions (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NOT NULL,
+                        plan_id INT NOT NULL,
+                        status ENUM('active', 'grace_period', 'payment_due', 'overdue', 'suspended') DEFAULT 'grace_period',
+                        registration_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        grace_period_end DATE,
+                        next_payment_due DATE,
+                        last_payment_date TIMESTAMP NULL,
+                        amount_due_usd DECIMAL(10,2) DEFAULT 0.00,
+                        payment_attempts INT DEFAULT 0,
+                        notes TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+                        FOREIGN KEY (plan_id) REFERENCES subscription_plans(id),
+                        UNIQUE KEY unique_user_plan (user_id, plan_id),
+                        INDEX idx_user_id (user_id),
+                        INDEX idx_status (status),
+                        INDEX idx_grace_period_end (grace_period_end),
+                        INDEX idx_next_payment_due (next_payment_due)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+                    
+                    "payment_transactions" => "CREATE TABLE IF NOT EXISTS payment_transactions (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NOT NULL,
+                        subscription_id INT NOT NULL,
+                        transaction_type ENUM('payment', 'refund', 'adjustment') DEFAULT 'payment',
+                        amount_usd DECIMAL(10,2) NOT NULL,
+                        currency VARCHAR(3) DEFAULT 'USD',
+                        payment_method ENUM('credit_card', 'paypal', 'bank_transfer', 'crypto', 'other') NULL,
+                        payment_gateway VARCHAR(100),
+                        gateway_transaction_id VARCHAR(255),
+                        status ENUM('pending', 'completed', 'failed', 'cancelled', 'refunded') DEFAULT 'pending',
+                        payment_date TIMESTAMP NULL,
+                        failure_reason TEXT,
+                        gateway_response JSON,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+                        FOREIGN KEY (subscription_id) REFERENCES user_subscriptions(id) ON DELETE CASCADE,
+                        INDEX idx_user_id (user_id),
+                        INDEX idx_subscription_id (subscription_id),
+                        INDEX idx_status (status),
+                        INDEX idx_payment_date (payment_date),
+                        INDEX idx_gateway_transaction_id (gateway_transaction_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+                    
+                    "billing_events" => "CREATE TABLE IF NOT EXISTS billing_events (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NOT NULL,
+                        subscription_id INT,
+                        event_type ENUM('registration', 'grace_period_start', 'payment_due', 'payment_completed', 'payment_failed', 'account_suspended', 'account_reactivated') NOT NULL,
+                        event_description TEXT,
+                        amount_usd DECIMAL(10,2) NULL,
+                        metadata JSON,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+                        FOREIGN KEY (subscription_id) REFERENCES user_subscriptions(id) ON DELETE SET NULL,
+                        INDEX idx_user_id (user_id),
+                        INDEX idx_subscription_id (subscription_id),
+                        INDEX idx_event_type (event_type),
+                        INDEX idx_created_at (created_at)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+                    
+                    "payment_notifications" => "CREATE TABLE IF NOT EXISTS payment_notifications (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        user_id INT NOT NULL,
+                        subscription_id INT NOT NULL,
+                        notification_type ENUM('grace_period_ending', 'payment_due', 'payment_overdue', 'final_notice') NOT NULL,
+                        scheduled_date DATE NOT NULL,
+                        sent_at TIMESTAMP NULL,
+                        status ENUM('pending', 'sent', 'failed', 'cancelled') DEFAULT 'pending',
+                        notification_channel ENUM('email', 'sms', 'in_app') DEFAULT 'email',
+                        message_content TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        FOREIGN KEY (user_id) REFERENCES usuarios(id) ON DELETE CASCADE,
+                        FOREIGN KEY (subscription_id) REFERENCES user_subscriptions(id) ON DELETE CASCADE,
+                        INDEX idx_user_id (user_id),
+                        INDEX idx_subscription_id (subscription_id),
+                        INDEX idx_scheduled_date (scheduled_date),
+                        INDEX idx_status (status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+                    
+                    "logs_atividade" => "CREATE TABLE IF NOT EXISTS logs_atividade (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        usuario_id INT NULL,
+                        acao VARCHAR(255) NOT NULL,
+                        descricao TEXT,
+                        detalhes TEXT,
+                        data_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        ip_address VARCHAR(45),
+                        user_agent TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+                        INDEX idx_usuario_id (usuario_id),
+                        INDEX idx_acao (acao),
+                        INDEX idx_data_hora (data_hora)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
                 ];
                 
@@ -423,8 +541,97 @@ $deps = checkDependencies();
                     }
                 }
                 
-                echo '<div class="success">✅ Estrutura completa do banco criada (8 tabelas com isolamento por usuário)</div>';
-                log_sistema("Estrutura completa do banco de dados criada com sucesso - 8 tabelas com isolamento por usuário", 'SUCCESS');
+                // Insert default subscription plan for financial system
+                try {
+                    $checkPlan = $pdo->prepare("SELECT COUNT(*) FROM subscription_plans WHERE plan_code = 'basic_annual'");
+                    $checkPlan->execute();
+                    
+                    if ($checkPlan->fetchColumn() == 0) {
+                        $insertPlan = $pdo->prepare("
+                            INSERT INTO subscription_plans 
+                            (plan_name, plan_code, description, price_usd, billing_cycle, grace_period_days, is_active) 
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                        ");
+                        
+                        $insertPlan->execute([
+                            'Basic Annual',
+                            'basic_annual',
+                            'Annual contribution to support CapivaraLearn operational expenses. Includes 365-day grace period for new users.',
+                            1.00,
+                            'yearly',
+                            365,
+                            1
+                        ]);
+                        
+                        $log .= "✅ Plano de assinatura padrão criado (USD 1.00/ano)\n";
+                        log_sistema("Plano de assinatura padrão criado: Basic Annual - USD 1.00", 'SUCCESS');
+                    }
+                } catch (Exception $e) {
+                    $log .= "❌ Erro ao criar plano padrão: " . $e->getMessage() . "\n";
+                    log_sistema("ERRO ao criar plano de assinatura padrão: " . $e->getMessage(), 'ERROR');
+                }
+                
+                // Create stored procedure for user subscription initialization
+                try {
+                    // First, try to run mysql_upgrade equivalent by recreating proc table structure
+                    $pdo->exec("SET SQL_MODE = ''");
+                    
+                    // Try a simpler approach without DELIMITER (which can cause issues in PHP PDO)
+                    $createProcedure = "
+                    CREATE OR REPLACE PROCEDURE CreateUserSubscription(IN p_user_id INT)
+                    BEGIN
+                        DECLARE v_plan_id INT DEFAULT NULL;
+                        DECLARE v_grace_end DATE;
+                        DECLARE EXIT HANDLER FOR SQLEXCEPTION 
+                        BEGIN
+                            ROLLBACK;
+                            RESIGNAL;
+                        END;
+                        
+                        START TRANSACTION;
+                        
+                        -- Get the default plan ID
+                        SELECT id INTO v_plan_id 
+                        FROM subscription_plans 
+                        WHERE plan_code = 'basic_annual' AND is_active = 1 
+                        LIMIT 1;
+                        
+                        -- Only proceed if plan was found
+                        IF v_plan_id IS NOT NULL THEN
+                            -- Calculate grace period end date (365 days from now)
+                            SET v_grace_end = DATE_ADD(CURDATE(), INTERVAL 365 DAY);
+                            
+                            -- Insert user subscription
+                            INSERT INTO user_subscriptions 
+                            (user_id, plan_id, status, registration_date, grace_period_end, next_payment_due, amount_due_usd)
+                            VALUES 
+                            (p_user_id, v_plan_id, 'grace_period', NOW(), v_grace_end, v_grace_end, 1.00);
+                            
+                            -- Log billing event
+                            INSERT INTO billing_events 
+                            (user_id, subscription_id, event_type, event_description, amount_usd)
+                            VALUES 
+                            (p_user_id, LAST_INSERT_ID(), 'registration', 'User registered with 365-day grace period', 1.00);
+                        END IF;
+                        
+                        COMMIT;
+                    END
+                    ";
+                    
+                    $pdo->exec($createProcedure);
+                    $log .= "✅ Stored procedure CreateUserSubscription criada (versão compatível)\n";
+                    log_sistema("Stored procedure CreateUserSubscription criada com sucesso (versão compatível)", 'SUCCESS');
+                    
+                } catch (Exception $e) {
+                    $log .= "⚠️ Aviso: Stored procedure não pôde ser criada: " . $e->getMessage() . "\n";
+                    $log .= "ℹ️ O sistema funcionará normalmente usando métodos alternativos\n";
+                    log_sistema("Aviso: Stored procedure não criada, usando métodos alternativos: " . $e->getMessage(), 'WARNING');
+                    
+                    // This is not critical - the FinancialService can work without the stored procedure
+                }
+                
+                echo '<div class="success">✅ Estrutura completa do banco criada (13 tabelas + sistema financeiro)</div>';
+                log_sistema("Estrutura completa do banco de dados criada com sucesso - 13 tabelas incluindo sistema financeiro", 'SUCCESS');
                 
                 // Criar arquivo de configuração básico
                 $configContent = "<?php

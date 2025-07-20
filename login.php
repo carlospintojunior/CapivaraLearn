@@ -36,6 +36,9 @@ if (!function_exists('generateToken')) {
 // Configurar envio de email
 require_once __DIR__ . '/includes/MailService.php';
 
+// Load Financial Service for user registration
+require_once __DIR__ . '/includes/services/FinancialService.php';
+
 // Registrar acesso à página de login
 log_sistema('Tela de login carregada', 'INFO');
 // Debug de sessão e cookies para entender persistência
@@ -197,6 +200,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         
                         // Criar configurações padrão
                         $db->execute("INSERT INTO configuracoes_usuario (usuario_id) VALUES (?)", [$userId]);
+                        
+                        // Initialize community tracking for new user
+                        try {
+                            $financialService = new FinancialService($db);
+                            $trackingResult = $financialService->initializeUserContribution($userId);
+                            
+                            if ($trackingResult['success']) {
+                                log_sistema("Community tracking initialized for user ID: $userId", 'SUCCESS');
+                            } else {
+                                log_sistema("Failed to initialize community tracking for user ID: $userId - " . ($trackingResult['message'] ?? 'Unknown error'), 'WARNING');
+                            }
+                        } catch (Exception $e) {
+                            log_sistema("Exception initializing community tracking for user ID: $userId - " . $e->getMessage(), 'ERROR');
+                        }
                         
                         // Gerar token de confirmação
                         $token = generateToken();
@@ -792,6 +809,9 @@ if (isset($_GET['resend_email'])) {
                 <div>
                     <h1>CapivaraLearn</h1>
                     <p>Sistema de Organização de Estudos</p>
+                    <small style="color: #27ae60; font-weight: 600; margin-top: 0.2rem; display: block;">
+                        🌱 100% Gratuito • Sustentável • Sem Anúncios
+                    </small>
                 </div>
             </div>
         </div>
@@ -868,6 +888,37 @@ if (isset($_GET['resend_email'])) {
                                placeholder="Digite a senha novamente">
                     </div>
 
+                    <!-- Community Support Notice -->
+                    <div class="form-group">
+                        <div class="contribution-notice">
+                            <div style="background: linear-gradient(135deg, #a8e6cf 0%, #dcedc1 100%); padding: 1rem; border-radius: 10px; color: #2c3e50; margin-bottom: 1rem; border-left: 4px solid #27ae60;">
+                                <h6 style="margin: 0 0 0.5rem 0; font-weight: bold; color: #27ae60;">
+                                    🌱 Sistema 100% Gratuito e Sustentável
+                                </h6>
+                                <p style="margin: 0 0 0.5rem 0; font-size: 0.9rem; line-height: 1.4;">
+                                    • <strong>Sempre gratuito</strong> - Sem anúncios, sem mensalidades<br>
+                                    • <strong>Sem limitações</strong> - Acesso completo a todas as funcionalidades<br>
+                                    • <strong>Sustentabilidade comunitária</strong> - Após 1 ano, você pode contribuir voluntariamente
+                                </p>
+                                
+                                <!-- Filosofia da contribuição -->
+                                <div style="background: rgba(255, 255, 255, 0.4); padding: 0.8rem; border-radius: 8px; margin: 0.8rem 0;">
+                                    <p style="margin: 0 0 0.3rem 0; font-size: 0.9rem; font-weight: 600; color: #27ae60;">
+                                        � Contribuição voluntária equivale a:
+                                    </p>
+                                    <p style="margin: 0; font-size: 0.85rem; line-height: 1.4;">
+                                        ☕ Um café • 🥤 Uma coca-cola • 🚌 Uma passagem de ônibus<br>
+                                        <span style="font-weight: 600; color: #27ae60;">Ajude a manter o sistema funcionando para todos!</span>
+                                    </p>
+                                </div>
+                                
+                                <p style="margin: 0; font-size: 0.85rem; opacity: 0.8; font-style: italic;">
+                                    💫 Use sem pressa, contribua se quiser - juntos construímos educação gratuita! 🦫
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
                     <div class="form-group">
                         <div class="terms-agreement">
                             <input type="checkbox" id="terms_agreement" name="terms_agreement" required>
@@ -882,7 +933,7 @@ if (isset($_GET['resend_email'])) {
                     </div>
 
                     <button type="submit" class="btn btn-register" onclick="showRegistrationLoader(event)">
-                        ✨ Criar Conta Gratuita
+                        🌱 Criar Conta Gratuita
                     </button>
                 </form>
             </div>
