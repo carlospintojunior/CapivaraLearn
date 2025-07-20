@@ -1,11 +1,9 @@
-
 <?php
 session_start();
 
 // Verificar login
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
-    exit;
 }
 
 // Carregar dependências
@@ -385,7 +383,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['backup_file'])) {
 
         // Importar cursos
         if (isset($backup_data['courses']) && is_array($backup_data['courses'])) {
-            foreach ($backup_data['courses'] as $curso) {
+            $total_courses = count($backup_data['courses']);
+            send_progress('🏫 Importando ' . $total_courses . ' curso(s)...', 0, $total_courses);
+            foreach ($backup_data['courses'] as $index => $curso) {
+                // Progresso de cursos
+                send_progress('📝 Processando curso: ' . ($curso['nome'] ?? 'unknown'), $index + 1, $total_courses);
                 // Limpar dados
                 $curso = clean_data_for_insert($curso);
                 
@@ -403,6 +405,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['backup_file'])) {
                 ]);
 
                 if (!$existing) {
+                    send_progress('💾 Inserindo curso no banco...', $index + 1, $total_courses);
                     $old_id = $curso['id'];
                     $old_uni_id = $curso['universidade_id'];
                     
@@ -416,8 +419,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['backup_file'])) {
                     $curso = sanitize_for_database($curso);
                     $curso = force_mysql_safe($curso);
 
-                    $new_id = $database->insert("cursos", $curso);
-                    $id_mapping['cursos'][$old_id] = $new_id;
+                    // Executar insert de curso e obter ID correto
+                    $insert_result = $database->insert("cursos", $curso);
+                    // Se retorno for PDOStatement, usar database->id()
+                    $course_id = ($insert_result instanceof PDOStatement) ? $database->id() : $insert_result;
+                    send_progress('✅ Curso inserido com ID: ' . $course_id, $index + 1, $total_courses);
+                    $id_mapping['cursos'][$old_id] = $course_id;
                     $counters['cursos']++;
                 } else {
                     $id_mapping['cursos'][$curso['id']] = $existing;
@@ -426,150 +433,295 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['backup_file'])) {
             }
         }
 
-        // Importar disciplinas
-        if (isset($backup_data['subjects']) && is_array($backup_data['subjects'])) {
-            foreach ($backup_data['subjects'] as $disc) {
-                // Limpar dados
-                $disc = clean_data_for_insert($disc);
-                
-                // Verificar se já existe
-                $existing = $database->get("disciplinas", "id", [
-                    "nome" => $disc['nome'],
-                    "curso_id" => $id_mapping['cursos'][$disc['curso_id']] ?? $disc['curso_id'],
-                    "usuario_id" => $user_id
-                ]);
+        // Importar matrículas (MOVIDO PARA AQUI - DEPOIS DOS CURSOS)
+        if (isset($backup_data['enrollments']) && is_array($backup_data['enrollments'])) {
+            $total_enrollments = count($backup_data['enrollments']);
+            send_progress('🎓 Importando ' . $total_enrollments . ' matrícula(s)...', 0, $total_enrollments);
+            log_sistema('DEBUG: Iniciando importação de matrículas', 'INFO');
 
-                if (!$existing) {
-                    $old_id = $disc['id'];
-                    $old_curso_id = $disc['curso_id'];
+            foreach ($backup_data['enrollments'] as $index => $matricula) {
+                try {
+                    // Limpar dados
+                    $matricula = clean_data_for_insert($matricula);
                     
-                    unset($disc['id']);
-                    $disc['usuario_id'] = $user_id;
-                    $disc['curso_id'] = $id_mapping['cursos'][$old_curso_id] ?? $old_curso_id;
-                    $disc['data_criacao'] = date('Y-m-d H:i:s');
-                    $disc['data_atualizacao'] = date('Y-m-d H:i:s');
+                    send_progress('📝 Processando matrícula para curso ID: ' . ($matricula['curso_id'] ?? 'unknown'), $index + 1, $total_enrollments);
+                    log_sistema('DEBUG: Processando matrícula para curso ID: ' . ($matricula['curso_id'] ?? 'unknown'), 'INFO');
 
-                    // Sanitização final antes da inserção
-                    $disc = sanitize_for_database($disc);
-                    $disc = force_mysql_safe($disc);
+                    // VALIDAÇÃO CRÍTICA: Verificar se o curso existe antes de tentar inserir a matrícula
+                    $old_curso_id = $matricula['curso_id'];
+                    if (!isset($id_mapping['cursos'][$old_curso_id])) {
+                        send_progress('⚠️ Pulando matrícula: curso original não encontrado.');
+                        log_sistema('WARN: Pulando matrícula porque o curso_id ' . $old_curso_id . ' não foi mapeado.', 'WARNING');
+                        $counters['skipped']++;
+                        continue; // Pula esta matrícula e continua com a próxima
+                    }
+                    
+                    // VALIDAÇÃO CRÍTICA: Verificar se a universidade existe antes de tentar inserir a matrícula
+                    $old_universidade_id = $matricula['universidade_id'];
+                    if (!isset($id_mapping['universidades'][$old_universidade_id])) {
+                        send_progress('⚠️ Pulando matrícula: universidade original não encontrada.');
+                        log_sistema('WARN: Pulando matrícula porque a universidade_id ' . $old_universidade_id . ' não foi mapeada.', 'WARNING');
+                        $counters['skipped']++;
+                        continue; // Pula esta matrícula e continua com a próxima
+                    }
+                    
+                    $new_curso_id = $id_mapping['cursos'][$old_curso_id];
+                    $new_universidade_id = $id_mapping['universidades'][$old_universidade_id];
+                    
+                    // Verificar se já existe
+                    $existing = $database->get("matriculas", "id", [
+                        "curso_id" => $new_curso_id,
+                        "universidade_id" => $new_universidade_id,
+                        "usuario_id" => $user_id
+                    ]);
 
-                    $new_id = $database->insert("disciplinas", $disc);
-                    $id_mapping['disciplinas'][$old_id] = $new_id;
+                    if (!$existing) {
+                        unset($matricula['id']);
+                        $matricula['usuario_id'] = $user_id;
+                        $matricula['curso_id'] = $new_curso_id; // Usar o ID validado
+                        $matricula['universidade_id'] = $new_universidade_id; // Usar o ID validado da universidade
+                        
+                        // Remover campos que não existem na tabela matriculas
+                        unset($matricula['data_criacao']);
+                        unset($matricula['data_atualizacao']);
+                        
+                        // Garantir que data_matricula existe, senão usar o timestamp atual
+                        if (!isset($matricula['data_matricula']) || empty($matricula['data_matricula'])) {
+                            $matricula['data_matricula'] = date('Y-m-d H:i:s');
+                        }
+
+                        // Sanitização final antes da inserção
+                        $matricula = sanitize_for_database($matricula);
+                        $matricula = force_mysql_safe($matricula);
+
+                        send_progress('💾 Inserindo matrícula no banco...');
+                        log_sistema('DEBUG: Inserindo matrícula: ' . json_encode($matricula), 'INFO');
+                        
+                        $database->insert("matriculas", $matricula);
+                        $new_id = $database->id();
+                        
+                        if (!$new_id) {
+                            $error_info = $database->error();
+                            throw new Exception('Falha ao inserir matrícula: ' . ($error_info[2] ?? 'Erro desconhecido'));
+                        }
+                        
+                        $counters['matriculas']++;
+                        log_sistema('DEBUG: Matrícula inserida com ID: ' . $new_id, 'INFO');
+                        send_progress('✅ Matrícula inserida com ID: ' . $new_id);
+                    } else {
+                        $counters['skipped']++;
+                        send_progress('⚠️ Matrícula já existe, pulando...');
+                    }
+                } catch (Exception $e) {
+                    send_progress('❌ Erro ao importar matrícula: ' . $e->getMessage());
+                    log_sistema('ERROR: Erro ao importar matrícula: ' . $e->getMessage() . ' - Dados: ' . json_encode($matricula), 'ERROR');
+                    throw $e; // Relança para parar a transação
+                }
+            }
+        }
+
+        // Importar disciplinas (módulos)
+        if (isset($backup_data['subjects']) && is_array($backup_data['subjects'])) {
+            $total_modules = count($backup_data['subjects']);
+            send_progress('📚 Importando ' . $total_modules . ' disciplina(s)...', 0, $total_modules);
+            log_sistema('DEBUG: Iniciando importação de disciplinas', 'INFO');
+
+            foreach ($backup_data['subjects'] as $index => $module) {
+                try {
+                    // Limpar os dados ANTES de qualquer outra coisa
+                    $module_data = clean_data_for_insert($module);
+
+                    send_progress('📝 Processando disciplina: ' . ($module_data['nome'] ?? 'unknown'), $index + 1, $total_modules);
+                    log_sistema('DEBUG: Processando disciplina: ' . ($module_data['nome'] ?? 'unknown'), 'INFO');
+
+                    if (!isset($id_mapping['cursos'][$module_data['curso_id']])) {
+                        send_progress('⚠️ Pulando disciplina: curso original não encontrado.');
+                        log_sistema('WARN: Pulando disciplina "' . ($module_data['nome'] ?? '') . '" porque o curso_id ' . $module_data['curso_id'] . ' não foi mapeado.', 'WARNING');
+                        $counters['skipped']++;
+                        continue;
+                    }
+                    $curso_id = $id_mapping['cursos'][$module_data['curso_id']];
+
+                    // Remover dados que não pertencem à tabela
+                    $original_module_id = $module_data['id'];
+                    unset($module_data['id']);
+                    unset($module_data['topicos']);
+
+                    $module_data['curso_id'] = $curso_id;
+                    
+                    // Sanitizar para o banco
+                    $safe_module_data = sanitize_for_database($module_data);
+
+                    send_progress('💾 Inserindo disciplina no banco: ' . ($safe_module_data['nome'] ?? 'unknown'));
+                    log_sistema('DEBUG: Inserindo disciplina: ' . json_encode($safe_module_data), 'INFO');
+                    
+                    $database->insert('disciplinas', $safe_module_data);
+                    $new_module_id = $database->id();
+
+                    if (!$new_module_id) {
+                        $error_info = $database->error();
+                        throw new Exception('Falha ao inserir disciplina: ' . ($error_info[2] ?? 'Erro desconhecido'));
+                    }
+
+                    $id_mapping['disciplinas'][$original_module_id] = $new_module_id;
                     $counters['disciplinas']++;
-                } else {
-                    $id_mapping['disciplinas'][$disc['id']] = $existing;
-                    $counters['skipped']++;
+                    log_sistema('DEBUG: Disciplina inserida com ID: ' . $new_module_id, 'INFO');
+                    send_progress('✅ Disciplina inserida com ID: ' . $new_module_id);
+
+                } catch (Exception $e) {
+                    send_progress('❌ Erro ao importar disciplina: ' . $e->getMessage());
+                    log_sistema('ERROR: Erro ao importar disciplina: ' . $e->getMessage() . ' - Dados: ' . json_encode($module), 'ERROR');
+                    throw $e; // Relança para parar a transação
                 }
             }
         }
 
         // Importar tópicos
         if (isset($backup_data['topics']) && is_array($backup_data['topics'])) {
-            foreach ($backup_data['topics'] as $topico) {
-                // Limpar dados
-                $topico = clean_data_for_insert($topico);
-                
-                // Verificar se já existe
-                $existing = $database->get("topicos", "id", [
-                    "nome" => $topico['nome'],
-                    "disciplina_id" => $id_mapping['disciplinas'][$topico['disciplina_id']] ?? $topico['disciplina_id'],
-                    "usuario_id" => $user_id
-                ]);
+            $total_topics = count($backup_data['topics']);
+            send_progress('📖 Importando ' . $total_topics . ' tópico(s)...', 0, $total_topics);
+            log_sistema('DEBUG: Iniciando importação de tópicos', 'INFO');
 
-                if (!$existing) {
-                    $old_id = $topico['id'];
-                    $old_disc_id = $topico['disciplina_id'];
+            foreach ($backup_data['topics'] as $index => $topico) {
+                try {
+                    // Limpar dados
+                    $topico = clean_data_for_insert($topico);
                     
-                    unset($topico['id']);
-                    $topico['usuario_id'] = $user_id;
-                    $topico['disciplina_id'] = $id_mapping['disciplinas'][$old_disc_id] ?? $old_disc_id;
-                    $topico['data_criacao'] = date('Y-m-d H:i:s');
-                    $topico['data_atualizacao'] = date('Y-m-d H:i:s');
+                    send_progress('📝 Processando tópico: ' . ($topico['nome'] ?? 'unknown'), $index + 1, $total_topics);
+                    log_sistema('DEBUG: Processando tópico: ' . ($topico['nome'] ?? 'unknown'), 'INFO');
 
-                    // Sanitização final antes da inserção
-                    $topico = sanitize_for_database($topico);
-                    $topico = force_mysql_safe($topico);
+                    // VALIDAÇÃO CRÍTICA: Verificar se a disciplina existe antes de tentar inserir o tópico
+                    $old_disc_id = $topico['disciplina_id'];
+                    if (!isset($id_mapping['disciplinas'][$old_disc_id])) {
+                        send_progress('⚠️ Pulando tópico: disciplina original não encontrada.');
+                        log_sistema('WARN: Pulando tópico "' . ($topico['nome'] ?? '') . '" porque a disciplina_id ' . $old_disc_id . ' não foi mapeada.', 'WARNING');
+                        $counters['skipped']++;
+                        continue; // Pula este tópico e continua com o próximo
+                    }
+                    
+                    $new_disciplina_id = $id_mapping['disciplinas'][$old_disc_id];
+                    
+                    // Verificar se já existe
+                    $existing = $database->get("topicos", "id", [
+                        "nome" => $topico['nome'],
+                        "disciplina_id" => $new_disciplina_id,
+                        "usuario_id" => $user_id
+                    ]);
 
-                    $new_id = $database->insert("topicos", $topico);
-                    $id_mapping['topicos'][$old_id] = $new_id;
-                    $counters['topicos']++;
-                } else {
-                    $id_mapping['topicos'][$topico['id']] = $existing;
-                    $counters['skipped']++;
+                    if (!$existing) {
+                        $old_id = $topico['id'];
+                        
+                        unset($topico['id']);
+                        $topico['usuario_id'] = $user_id;
+                        $topico['disciplina_id'] = $new_disciplina_id; // Usar o ID validado
+                        $topico['data_criacao'] = date('Y-m-d H:i:s');
+                        $topico['data_atualizacao'] = date('Y-m-d H:i:s');
+
+                        // Sanitização final antes da inserção
+                        $topico = sanitize_for_database($topico);
+                        $topico = force_mysql_safe($topico);
+
+                        send_progress('💾 Inserindo tópico no banco: ' . ($topico['nome'] ?? 'unknown'));
+                        log_sistema('DEBUG: Inserindo tópico: ' . json_encode($topico), 'INFO');
+                        
+                        $database->insert("topicos", $topico);
+                        $new_id = $database->id();
+                        
+                        if (!$new_id) {
+                            $error_info = $database->error();
+                            throw new Exception('Falha ao inserir tópico: ' . ($error_info[2] ?? 'Erro desconhecido'));
+                        }
+                        
+                        $id_mapping['topicos'][$old_id] = $new_id;
+                        $counters['topicos']++;
+                        log_sistema('DEBUG: Tópico inserido com ID: ' . $new_id, 'INFO');
+                        send_progress('✅ Tópico inserido com ID: ' . $new_id);
+                    } else {
+                        $id_mapping['topicos'][$topico['id']] = $existing;
+                        $counters['skipped']++;
+                        send_progress('⚠️ Tópico já existe, pulando...');
+                    }
+                } catch (Exception $e) {
+                    send_progress('❌ Erro ao importar tópico: ' . $e->getMessage());
+                    log_sistema('ERROR: Erro ao importar tópico: ' . $e->getMessage() . ' - Dados: ' . json_encode($topico), 'ERROR');
+                    throw $e; // Relança para parar a transação
                 }
             }
         }
 
         // Importar unidades de aprendizagem
         if (isset($backup_data['learning_units']) && is_array($backup_data['learning_units'])) {
-            foreach ($backup_data['learning_units'] as $unidade) {
-                // Limpar dados
-                $unidade = clean_data_for_insert($unidade);
-                
-                // Verificar se já existe
-                $existing = $database->get("unidades_aprendizagem", "id", [
-                    "nome" => $unidade['nome'],
-                    "topico_id" => $id_mapping['topicos'][$unidade['topico_id']] ?? $unidade['topico_id'],
-                    "usuario_id" => $user_id
-                ]);
+            $total_units = count($backup_data['learning_units']);
+            send_progress('📚 Importando ' . $total_units . ' unidade(s) de aprendizagem...', 0, $total_units);
+            log_sistema('DEBUG: Iniciando importação de unidades de aprendizagem', 'INFO');
 
-                if (!$existing) {
+            foreach ($backup_data['learning_units'] as $index => $unidade) {
+                try {
+                    // Limpar dados
+                    $unidade = clean_data_for_insert($unidade);
+                    
+                    send_progress('📝 Processando unidade: ' . ($unidade['nome'] ?? 'unknown'), $index + 1, $total_units);
+                    log_sistema('DEBUG: Processando unidade: ' . ($unidade['nome'] ?? 'unknown'), 'INFO');
+
+                    // VALIDAÇÃO CRÍTICA: Verificar se o tópico existe antes de tentar inserir a unidade
                     $old_topico_id = $unidade['topico_id'];
+                    if (!isset($id_mapping['topicos'][$old_topico_id])) {
+                        send_progress('⚠️ Pulando unidade: tópico original não encontrado.');
+                        log_sistema('WARN: Pulando unidade "' . ($unidade['nome'] ?? '') . '" porque o topico_id ' . $old_topico_id . ' não foi mapeado.', 'WARNING');
+                        $counters['skipped']++;
+                        continue; // Pula esta unidade e continua com a próxima
+                    }
                     
-                    unset($unidade['id']);
-                    $unidade['usuario_id'] = $user_id;
-                    $unidade['topico_id'] = $id_mapping['topicos'][$old_topico_id] ?? $old_topico_id;
-                    $unidade['data_criacao'] = date('Y-m-d H:i:s');
-                    $unidade['data_atualizacao'] = date('Y-m-d H:i:s');
-
-                    // Sanitização final antes da inserção
-                    $unidade = sanitize_for_database($unidade);
-                    $unidade = force_mysql_safe($unidade);
-
-                    $database->insert("unidades_aprendizagem", $unidade);
-                    $counters['unidades']++;
-                } else {
-                    $counters['skipped']++;
-                }
-            }
-        }
-
-        // Importar matrículas
-        if (isset($backup_data['enrollments']) && is_array($backup_data['enrollments'])) {
-            foreach ($backup_data['enrollments'] as $matricula) {
-                // Limpar dados
-                $matricula = clean_data_for_insert($matricula);
-                
-                // Verificar se já existe
-                $existing = $database->get("matriculas", "id", [
-                    "curso_id" => $id_mapping['cursos'][$matricula['curso_id']] ?? $matricula['curso_id'],
-                    "usuario_id" => $user_id
-                ]);
-
-                if (!$existing) {
-                    $old_curso_id = $matricula['curso_id'];
+                    $new_topico_id = $id_mapping['topicos'][$old_topico_id];
                     
-                    unset($matricula['id']);
-                    $matricula['usuario_id'] = $user_id;
-                    $matricula['curso_id'] = $id_mapping['cursos'][$old_curso_id] ?? $old_curso_id;
-                    $matricula['data_criacao'] = date('Y-m-d H:i:s');
-                    $matricula['data_atualizacao'] = date('Y-m-d H:i:s');
+                    // Verificar se já existe
+                    $existing = $database->get("unidades_aprendizagem", "id", [
+                        "nome" => $unidade['nome'],
+                        "topico_id" => $new_topico_id,
+                        "usuario_id" => $user_id
+                    ]);
 
-                    // Sanitização final antes da inserção
-                    $matricula = sanitize_for_database($matricula);
-                    $matricula = force_mysql_safe($matricula);
+                    if (!$existing) {
+                        unset($unidade['id']);
+                        $unidade['usuario_id'] = $user_id;
+                        $unidade['topico_id'] = $new_topico_id; // Usar o ID validado
+                        $unidade['data_criacao'] = date('Y-m-d H:i:s');
+                        $unidade['data_atualizacao'] = date('Y-m-d H:i:s');
 
-                    $database->insert("matriculas", $matricula);
-                    $counters['matriculas']++;
-                } else {
-                    $counters['skipped']++;
+                        // Sanitização final antes da inserção
+                        $unidade = sanitize_for_database($unidade);
+                        $unidade = force_mysql_safe($unidade);
+
+                        send_progress('💾 Inserindo unidade no banco: ' . ($unidade['nome'] ?? 'unknown'));
+                        log_sistema('DEBUG: Inserindo unidade: ' . json_encode($unidade), 'INFO');
+                        
+                        $database->insert("unidades_aprendizagem", $unidade);
+                        $new_id = $database->id();
+                        
+                        if (!$new_id) {
+                            $error_info = $database->error();
+                            throw new Exception('Falha ao inserir unidade: ' . ($error_info[2] ?? 'Erro desconhecido'));
+                        }
+                        
+                        $counters['unidades']++;
+                        log_sistema('DEBUG: Unidade inserida com ID: ' . $new_id, 'INFO');
+                        send_progress('✅ Unidade inserida com ID: ' . $new_id);
+                    } else {
+                        $counters['skipped']++;
+                        send_progress('⚠️ Unidade já existe, pulando...');
+                    }
+                } catch (Exception $e) {
+                    send_progress('❌ Erro ao importar unidade: ' . $e->getMessage());
+                    log_sistema('ERROR: Erro ao importar unidade: ' . $e->getMessage() . ' - Dados: ' . json_encode($unidade), 'ERROR');
+                    throw $e; // Relança para parar a transação
                 }
             }
         }
 
         log_sistema('DEBUG: Finalizando importação de dados - Counters: ' . json_encode($counters), 'INFO');
 
-        // Initialize financial subscription for restored user ANTES do commit
+        // Configurando sistema financeiro para usuário restaurado
+        send_progress('💰 Iniciando configuração do sistema financeiro...', null, null);
         log_sistema('DEBUG: Iniciando configuração do sistema financeiro...', 'INFO');
         try {
             $financialService = new FinancialService($database);
@@ -604,12 +756,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['backup_file'])) {
         }
 
         // Commit da transação APÓS configurar sistema financeiro
+        send_progress('🔒 Finalizando transação e salvando dados...', null, null);
         log_sistema('DEBUG: Fazendo commit da transação', 'INFO');
         $pdo->commit();
         log_sistema('DEBUG: Commit realizado com sucesso', 'INFO');
 
         $import_stats = $counters;
         
+        // Concluir processo de restauração
+        send_progress('🎉 Restauração concluída com sucesso!', null, null);
+        // Continuar para efetuar commit da transação e concluir inserções
         log_sistema('Backup restaurado com sucesso - User ID: ' . $user_id . ' - Import stats: ' . json_encode($import_stats), 'SUCCESS');
         
         $success_message = "Backup restaurado com sucesso!";
@@ -623,6 +779,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['backup_file'])) {
         log_sistema('Erro ao restaurar backup - User ID: ' . $user_id . ' - Error: ' . $e->getMessage() . ' - File: ' . $e->getFile() . ' - Line: ' . $e->getLine(), 'ERROR');
         
         $error_message = "Erro ao restaurar backup: " . $e->getMessage();
+    } catch (Throwable $e) {
+        // Se algo deu errado, reverter a transação
+        if (isset($pdo) && $pdo->inTransaction()) {
+            send_progress('❌ Ocorreu um erro. Revertendo todas as alterações...');
+            log_sistema('DEBUG: Erro detectado. Revertendo transação.', 'ERROR');
+            $pdo->rollBack();
+            log_sistema('DEBUG: Transação revertida.', 'ERROR');
+            send_progress('🔄 Alterações revertidas.');
+        }
+        
+        $error_message = 'Erro durante a restauração: ' . $e->getMessage();
+        log_sistema('Erro na restauração de backup - User ID: ' . $user_id . ' - Erro: ' . $e->getMessage() . ' - Trace: ' . $e->getTraceAsString(), 'ERROR');
+        send_progress('❌ Erro fatal: ' . $e->getMessage());
+    
+    } finally {
+        // Garantir que a conexão seja fechada ou que o script termine de forma limpa
+        if (isset($_POST['interactive']) && $_POST['interactive'] === '1') {
+            send_progress('🏁 Processo finalizado.');
+            exit; // Termina a execução para o cliente SSE
+        }
     }
 }
 ?>
@@ -958,8 +1134,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['backup_file'])) {
                         if (done) {
                             addProgressMessage('✅ Processo finalizado!', new Date().toLocaleTimeString());
                             submitBtn.innerHTML = '<i class="fas fa-check me-2"></i>Concluído';
+                            submitBtn.disabled = false;
+                            // Redirecionar para o dashboard após finalizar
                             setTimeout(() => {
-                                window.location.reload();
+                                window.location.href = 'dashboard.php';
                             }, 2000);
                             return;
                         }

@@ -10,7 +10,7 @@ if (!isset($_SESSION['user_id'])) {
 // Load dependencies
 require_once 'Medoo.php';
 require_once __DIR__ . '/includes/version.php';
-require_once __DIR__ . '/includes/services/FinancialServiceSimple.php';
+require_once __DIR__ . '/includes/services/FinancialService.php';
 
 // Database configuration
 $database = new Medoo\Medoo([

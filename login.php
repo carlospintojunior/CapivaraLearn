@@ -37,7 +37,7 @@ if (!function_exists('generateToken')) {
 require_once __DIR__ . '/includes/MailService.php';
 
 // Load Financial Service for user registration
-require_once __DIR__ . '/includes/services/FinancialServiceSimple.php';
+require_once __DIR__ . '/includes/services/FinancialService.php';
 
 // Registrar acesso à página de login
 log_sistema('Tela de login carregada', 'INFO');
