@@ -332,6 +332,14 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
             border-top: 1px solid rgba(255,255,255,0.2);
             margin: 0.5rem 0;
         }
+        .sidebar nav {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .sidebar .nav-link:last-child {
+            margin-bottom: auto;
+        }
     </style>
 </head>
 <body>
@@ -375,6 +383,21 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                     <a class="nav-link" href="logout.php">
                         <i class="fas fa-sign-out-alt me-2"></i>Sair
                     </a>
+                    
+                    <!-- Footer da Sidebar com Versão -->
+                    <div class="mt-auto pt-3 border-top">
+                        <div class="text-center">
+                            <small class="text-muted">
+                                <?php 
+                                if (class_exists('AppVersion')) {
+                                    echo AppVersion::getSidebarText(); 
+                                } else {
+                                    echo 'v1.0.0';
+                                }
+                                ?>
+                            </small>
+                        </div>
+                    </div>
                 </nav>
             </div>
 

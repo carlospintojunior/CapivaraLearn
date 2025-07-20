@@ -45,6 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $carga_horaria = intval($_POST['carga_horaria'] ?? 0);
                 $semestre = intval($_POST['semestre'] ?? 0);
                 $curso_id = intval($_POST['curso_id'] ?? 0);
+                $concluido = intval($_POST['concluido'] ?? 0);
                 if (empty($nome) || $curso_id <= 0) {
                     throw new Exception('Nome e curso são obrigatórios.');
                 }
@@ -62,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'descricao' => $descricao,
                     'carga_horaria' => $carga_horaria,
                     'semestre' => $semestre,
-                    'concluido' => 0,
+                    'concluido' => $concluido,
                     'curso_id' => $curso_id,
                     'usuario_id' => $user_id
                 ]);
@@ -77,6 +78,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $carga_horaria = intval($_POST['carga_horaria'] ?? 0);
                 $semestre = intval($_POST['semestre'] ?? 0);
                 $curso_id = intval($_POST['curso_id'] ?? 0);
+                $concluido = intval($_POST['concluido'] ?? 0);
                 if ($id <= 0 || empty($nome) || $curso_id <= 0) {
                     throw new Exception('ID, nome e curso são obrigatórios.');
                 }
@@ -99,7 +101,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'descricao' => $descricao,
                     'carga_horaria' => $carga_horaria,
                     'semestre' => $semestre,
-                    'curso_id' => $curso_id
+                    'curso_id' => $curso_id,
+                    'concluido' => $concluido
                 ], [
                     'id' => $id,
                     'usuario_id' => $user_id
@@ -193,7 +196,7 @@ if (isset($_GET['edit'])) {
                     <?php else: ?>
                         <table class="table table-striped table-hover">
                             <thead><tr>
-                                <th>Nome</th><th>Código</th><th>Curso</th><th>C.H.</th><th>Sem.</th><th>Status</th><th>Ações</th>
+                                <th>Nome</th><th>Código</th><th>Curso</th><th>C.H.</th><th style="display: none;">Sem.</th><th>Status</th><th>Ações</th>
                             </tr></thead>
                             <tbody>
                             <?php foreach ($disciplinas as $d): ?>
@@ -202,7 +205,7 @@ if (isset($_GET['edit'])) {
                                     <td><?= htmlspecialchars($d['codigo']) ?></td>
                                     <td><?= htmlspecialchars($d['curso_nome']) ?></td>
                                     <td><?= $d['carga_horaria'] ?></td>
-                                    <td><?= $d['semestre'] ?></td>
+                                    <td style="display: none;"><?= $d['semestre'] ?></td>
                                     <td><?= $d['concluido'] ? 'Concluído' : 'Ativa' ?></td>
                                     <td>
                                         <a href="?edit=<?= $d['id'] ?>" class="btn btn-sm btn-primary"><i class="fas fa-edit"></i></a>
@@ -227,9 +230,22 @@ if (isset($_GET['edit'])) {
                         <div class="mb-3"><label>Código</label><input type="text" name="codigo" class="form-control" value="<?= htmlspecialchars($editDisc['codigo'] ?? '') ?>"></div>
                         <div class="mb-3"><label>Descrição</label><textarea name="descricao" class="form-control"><?= htmlspecialchars($editDisc['descricao'] ?? '') ?></textarea></div>
                         <div class="mb-3"><label>Carga Horária</label><input type="number" name="carga_horaria" class="form-control" value="<?= $editDisc['carga_horaria'] ?? 0 ?>"></div>
-                        <div class="mb-3"><label>Semestre</label><input type="number" name="semestre" class="form-control" value="<?= $editDisc['semestre'] ?? 0 ?>"></div>
+                        <!-- Campo semestre oculto -->
+                        <div class="mb-3" style="display: none;"><label>Semestre</label><input type="number" name="semestre" class="form-control" value="<?= $editDisc['semestre'] ?? 0 ?>"></div>
                         <div class="mb-3"><label>Curso</label><select name="curso_id" class="form-select" required><option value="">Selecione</option><?php foreach($cursos as $c): ?><option value="<?= $c['id'] ?>" <?= isset($editDisc['curso_id']) && $editDisc['curso_id']==$c['id']?'selected':'' ?>><?= htmlspecialchars($c['nome']) ?></option><?php endforeach; ?></select></div>
-                        <button type="submit" class="btn btn-<?= $editDisc ? 'primary' : 'success' ?> w-100"><?= $editDisc ? 'Atualizar' : 'Criar' ?></button>
+                        <div class="mb-3">
+                            <label>Status</label>
+                            <select name="concluido" class="form-select">
+                                <option value="0" <?= isset($editDisc['concluido']) && $editDisc['concluido']==0?'selected':'' ?>>Ativa</option>
+                                <option value="1" <?= isset($editDisc['concluido']) && $editDisc['concluido']==1?'selected':'' ?>>Concluída</option>
+                            </select>
+                        </div>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-<?= $editDisc ? 'primary' : 'success' ?>"><?= $editDisc ? 'Atualizar' : 'Criar' ?></button>
+                            <?php if ($editDisc): ?>
+                                <a href="?" class="btn btn-secondary">Cancelar</a>
+                            <?php endif; ?>
+                        </div>
                     </form>
                 </div>
             </div>

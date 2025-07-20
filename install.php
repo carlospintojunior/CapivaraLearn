@@ -429,6 +429,13 @@ $deps = checkDependencies();
                 // Criar arquivo de configuração básico
                 $configContent = "<?php
 // Configuração básica do CapivaraLearn
+
+// Configuração de fuso horário para o Brasil (São Paulo)
+date_default_timezone_set('America/Sao_Paulo');
+
+// Incluir sistema de versionamento
+require_once __DIR__ . '/version.php';
+
 define('DB_HOST', '$host');
 define('DB_NAME', '$dbname');
 define('DB_USER', '$user');
