@@ -243,25 +243,53 @@ try {
                     </h3>
                     
                     <div class="row mb-4">
-                        <div class="col-md-8 mx-auto">
+                        <div class="col-md-10 mx-auto">
                             <div class="card border-0 shadow">
                                 <div class="card-body">
-                                    <h6 class="text-muted mb-3">O que será incluído no backup:</h6>
+                                    <h6 class="text-muted mb-3">O que será incluído no backup completo:</h6>
                                     <div class="row">
                                         <div class="col-md-6">
                                             <ul class="list-unstyled text-start">
                                                 <li><i class="fas fa-check text-success me-2"></i>Perfil do usuário</li>
                                                 <li><i class="fas fa-check text-success me-2"></i>Universidades cadastradas</li>
-                                                <li><i class="fas fa-check text-success me-2"></i>Cursos e estruturas</li>
+                                                <li><i class="fas fa-check text-success me-2"></i>Cursos e estruturas completas</li>
+                                                <li><i class="fas fa-check text-success me-2"></i>Disciplinas com status de conclusão</li>
                                             </ul>
                                         </div>
                                         <div class="col-md-6">
                                             <ul class="list-unstyled text-start">
-                                                <li><i class="fas fa-check text-success me-2"></i>Disciplinas e progresso</li>
-                                                <li><i class="fas fa-check text-success me-2"></i>Tópicos e unidades</li>
-                                                <li><i class="fas fa-check text-success me-2"></i>Matrículas e estatísticas</li>
+                                                <li><i class="fas fa-check text-success me-2"></i>Tópicos com prazos e progresso</li>
+                                                <li><i class="fas fa-check text-success me-2"></i>Unidades com notas e avaliações</li>
+                                                <li><i class="fas fa-check text-success me-2"></i>Matrículas com notas finais</li>
+                                                <li><i class="fas fa-check text-success me-2"></i>Estatísticas de progresso</li>
                                             </ul>
                                         </div>
+                                    </div>
+                                    
+                                    <div class="alert alert-success mt-3 mb-0">
+                                        <h6 class="alert-heading">
+                                            <i class="fas fa-star me-2"></i>Backup Completo
+                                        </h6>
+                                        <p class="mb-2"><strong>Este backup inclui:</strong></p>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <ul class="mb-0">
+                                                    <li>✅ Todas as notas</li>
+                                                    <li>✅ Status de conclusão</li>
+                                                </ul>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <ul class="mb-0">
+                                                    <li>✅ Prazos pessoais</li>
+                                                    <li>✅ Progresso completo</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                        <hr class="my-2">
+                                        <small class="mb-0">
+                                            <i class="fas fa-info-circle me-1"></i>
+                                            Para exportar apenas estrutura (sem notas), use o <a href="backup_grade.php" class="alert-link">Backup de Grade Curricular</a>.
+                                        </small>
                                     </div>
                                 </div>
                             </div>

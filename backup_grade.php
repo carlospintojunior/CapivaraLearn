@@ -81,19 +81,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                         'ORDER' => ['nome' => 'ASC']
                     ]);
                     
-                    // Remover campos específicos do usuário das unidades
+                    // Remover campos específicos do usuário e dados de progresso das unidades
                     foreach ($unidades as &$unidade) {
-                        unset($unidade['id'], $unidade['topico_id'], $unidade['usuario_id']);
+                        unset(
+                            $unidade['id'], 
+                            $unidade['topico_id'], 
+                            $unidade['usuario_id'],
+                            $unidade['nota'],           // Remover nota
+                            $unidade['concluido'],      // Remover status de conclusão
+                            $unidade['data_prazo'],     // Remover prazo específico do usuário
+                            $unidade['data_criacao'],
+                            $unidade['data_atualizacao']
+                        );
                     }
                     
                     $topico['unidades_aprendizagem'] = $unidades;
-                    // Remover campos específicos do usuário do tópico
-                    unset($topico['id'], $topico['disciplina_id'], $topico['usuario_id']);
+                    // Remover campos específicos do usuário e dados de progresso do tópico
+                    unset(
+                        $topico['id'], 
+                        $topico['disciplina_id'], 
+                        $topico['usuario_id'],
+                        $topico['concluido'],       // Remover status de conclusão
+                        $topico['data_prazo'],      // Remover prazo específico do usuário
+                        $topico['data_criacao'],
+                        $topico['data_atualizacao']
+                    );
                 }
                 
                 $disciplina['topicos'] = $topicos;
-                // Remover campos específicos do usuário da disciplina
-                unset($disciplina['id'], $disciplina['curso_id'], $disciplina['usuario_id']);
+                // Remover campos específicos do usuário e dados de progresso da disciplina
+                unset(
+                    $disciplina['id'], 
+                    $disciplina['curso_id'], 
+                    $disciplina['usuario_id'],
+                    $disciplina['concluido'],       // Remover status de conclusão
+                    $disciplina['data_criacao'],
+                    $disciplina['data_atualizacao']
+                );
             }
             
             // Estrutura completa da grade
@@ -189,12 +213,45 @@ $cursos = $database->select('cursos', [
                         <div class="mb-4">
                             <h5><i class="fas fa-info-circle me-2"></i>O que será exportado?</h5>
                             <ul class="list-group list-group-flush">
-                                <li class="list-group-item"><i class="fas fa-university me-2 text-primary"></i>Dados da universidade</li>
-                                <li class="list-group-item"><i class="fas fa-graduation-cap me-2 text-success"></i>Informações do curso</li>
-                                <li class="list-group-item"><i class="fas fa-book me-2 text-info"></i>Todas as disciplinas</li>
-                                <li class="list-group-item"><i class="fas fa-list me-2 text-warning"></i>Todos os tópicos</li>
-                                <li class="list-group-item"><i class="fas fa-play-circle me-2 text-danger"></i>Todas as unidades de aprendizagem</li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span><i class="fas fa-university me-2 text-primary"></i>Dados da universidade</span>
+                                    <span class="badge bg-primary rounded-pill">Estrutural</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span><i class="fas fa-graduation-cap me-2 text-success"></i>Informações do curso</span>
+                                    <span class="badge bg-success rounded-pill">Estrutural</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span><i class="fas fa-book me-2 text-info"></i>Todas as disciplinas</span>
+                                    <span class="badge bg-info rounded-pill">Estrutural</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span><i class="fas fa-list me-2 text-warning"></i>Todos os tópicos</span>
+                                    <span class="badge bg-warning rounded-pill">Estrutural</span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    <span><i class="fas fa-play-circle me-2 text-danger"></i>Todas as unidades de aprendizagem</span>
+                                    <span class="badge bg-danger rounded-pill">Estrutural</span>
+                                </li>
                             </ul>
+                            
+                            <div class="alert alert-warning mt-3">
+                                <h6 class="alert-heading">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>Importante
+                                </h6>
+                                <p class="mb-2"><strong>Não serão exportados:</strong></p>
+                                <ul class="mb-0">
+                                    <li>Notas e avaliações</li>
+                                    <li>Status de conclusão</li>
+                                    <li>Prazos específicos</li>
+                                    <li>Progresso pessoal</li>
+                                </ul>
+                                <hr>
+                                <small class="mb-0">
+                                    <i class="fas fa-info-circle me-1"></i>
+                                    Para incluir notas e progresso, use o <a href="backup_user_data.php" class="alert-link">Backup Completo de Dados</a>.
+                                </small>
+                            </div>
                         </div>
                         
                         <form method="POST">
