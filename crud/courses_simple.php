@@ -237,17 +237,17 @@ if (isset($_GET['edit'])) {
                             <table class="table table-striped table-hover">
                                 <thead>
                                     <tr>
-+                                        <th>Universidade</th>
+                                        <th>Universidade</th>
                                         <th>Nome</th>
                                         <th>Descrição</th>
-+                                        <th>Carga Horária</th>
+                                        <th>Carga Horária</th>
                                         <th width="120">Ações</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <?php foreach ($courses as $course): ?>
                                         <tr>
-+                                            <td><?= htmlspecialchars($course['universidade_nome']) ?></td>
+                                            <td><?= htmlspecialchars($course['universidade_nome']) ?></td>
                                             <td><strong><?= htmlspecialchars($course['nome']) ?></strong></td>
                                             <td>
                                                 <?php if ($course['descricao']): ?>

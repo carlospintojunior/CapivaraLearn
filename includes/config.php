@@ -25,6 +25,12 @@
  * ===============================================
  */
 
+// Configuração de fuso horário para o Brasil (São Paulo)
+date_default_timezone_set('America/Sao_Paulo');
+
+// Incluir sistema de versionamento
+require_once __DIR__ . '/version.php';
+
 // =============================================
 // CONFIGURAÇÃO DE PRODUÇÃO (SEMPRE)
 // =============================================

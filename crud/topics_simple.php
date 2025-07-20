@@ -290,9 +290,14 @@ if (isset($_GET['edit'])) {
                             <input type="checkbox" name="concluido" class="form-check-input" id="concluido" <?= (!empty($editTopic['concluido']) ? 'checked' : '') ?>>
                             <label class="form-check-label" for="concluido">Concluído</label>
                         </div>
-                        <button type="submit" class="btn btn-<?= $editTopic ? 'primary' : 'success' ?> w-100">
-                            <?= $editTopic ? 'Atualizar' : 'Criar' ?>
-                        </button>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-<?= $editTopic ? 'primary' : 'success' ?>">
+                                <?= $editTopic ? 'Atualizar' : 'Criar' ?>
+                            </button>
+                            <?php if ($editTopic): ?>
+                                <a href="?" class="btn btn-secondary">Cancelar</a>
+                            <?php endif; ?>
+                        </div>
                     </form>
                 </div>
             </div>

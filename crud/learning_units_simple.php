@@ -252,7 +252,12 @@ if (isset($_GET['edit'])) {
                         <div class="mb-3"><label>Prazo</label><input type="date" name="data_prazo" class="form-control" value="<?= $editUnit['data_prazo'] ?? '' ?>"></div>
                         <div class="mb-3 form-check"><input type="checkbox" name="concluido" class="form-check-input" id="concluido" <?= !empty($editUnit['concluido'])?'checked':'' ?>><label for="concluido" class="form-check-label">Concluído</label></div>
                         <div class="mb-3"><label>Tópico</label><select name="topico_id" class="form-select" required><option value="">Selecione</option><?php foreach($topicos as $t): ?><option value="<?= $t['id'] ?>" <?= (isset($editUnit['topico_id']) && $editUnit['topico_id']==$t['id'])?'selected':'' ?>><?= htmlspecialchars($t['disciplina_nome'].' > '.$t['nome']) ?></option><?php endforeach; ?></select></div>
-                        <button type="submit" class="btn btn-<?= $editUnit?'primary':'success' ?> w-100"><?= $editUnit?'Atualizar':'Criar' ?></button>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-<?= $editUnit?'primary':'success' ?>"><?= $editUnit?'Atualizar':'Criar' ?></button>
+                            <?php if ($editUnit): ?>
+                                <a href="?" class="btn btn-secondary">Cancelar</a>
+                            <?php endif; ?>
+                        </div>
                     </form>
                 </div>
             </div>

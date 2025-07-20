@@ -196,7 +196,7 @@ if (isset($_GET['edit'])) {
                     <?php else: ?>
                         <table class="table table-striped table-hover">
                             <thead><tr>
-                                <th>Nome</th><th>Código</th><th>Curso</th><th>C.H.</th><th>Sem.</th><th>Status</th><th>Ações</th>
+                                <th>Nome</th><th>Código</th><th>Curso</th><th>C.H.</th><th style="display: none;">Sem.</th><th>Status</th><th>Ações</th>
                             </tr></thead>
                             <tbody>
                             <?php foreach ($disciplinas as $d): ?>
@@ -205,7 +205,7 @@ if (isset($_GET['edit'])) {
                                     <td><?= htmlspecialchars($d['codigo']) ?></td>
                                     <td><?= htmlspecialchars($d['curso_nome']) ?></td>
                                     <td><?= $d['carga_horaria'] ?></td>
-                                    <td><?= $d['semestre'] ?></td>
+                                    <td style="display: none;"><?= $d['semestre'] ?></td>
                                     <td><?= $d['concluido'] ? 'Concluído' : 'Ativa' ?></td>
                                     <td>
                                         <a href="?edit=<?= $d['id'] ?>" class="btn btn-sm btn-primary"><i class="fas fa-edit"></i></a>
@@ -230,7 +230,8 @@ if (isset($_GET['edit'])) {
                         <div class="mb-3"><label>Código</label><input type="text" name="codigo" class="form-control" value="<?= htmlspecialchars($editDisc['codigo'] ?? '') ?>"></div>
                         <div class="mb-3"><label>Descrição</label><textarea name="descricao" class="form-control"><?= htmlspecialchars($editDisc['descricao'] ?? '') ?></textarea></div>
                         <div class="mb-3"><label>Carga Horária</label><input type="number" name="carga_horaria" class="form-control" value="<?= $editDisc['carga_horaria'] ?? 0 ?>"></div>
-                        <div class="mb-3"><label>Semestre</label><input type="number" name="semestre" class="form-control" value="<?= $editDisc['semestre'] ?? 0 ?>"></div>
+                        <!-- Campo semestre oculto -->
+                        <div class="mb-3" style="display: none;"><label>Semestre</label><input type="number" name="semestre" class="form-control" value="<?= $editDisc['semestre'] ?? 0 ?>"></div>
                         <div class="mb-3"><label>Curso</label><select name="curso_id" class="form-select" required><option value="">Selecione</option><?php foreach($cursos as $c): ?><option value="<?= $c['id'] ?>" <?= isset($editDisc['curso_id']) && $editDisc['curso_id']==$c['id']?'selected':'' ?>><?= htmlspecialchars($c['nome']) ?></option><?php endforeach; ?></select></div>
                         <div class="mb-3">
                             <label>Status</label>
@@ -239,7 +240,12 @@ if (isset($_GET['edit'])) {
                                 <option value="1" <?= isset($editDisc['concluido']) && $editDisc['concluido']==1?'selected':'' ?>>Concluída</option>
                             </select>
                         </div>
-                        <button type="submit" class="btn btn-<?= $editDisc ? 'primary' : 'success' ?> w-100"><?= $editDisc ? 'Atualizar' : 'Criar' ?></button>
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-<?= $editDisc ? 'primary' : 'success' ?>"><?= $editDisc ? 'Atualizar' : 'Criar' ?></button>
+                            <?php if ($editDisc): ?>
+                                <a href="?" class="btn btn-secondary">Cancelar</a>
+                            <?php endif; ?>
+                        </div>
                     </form>
                 </div>
             </div>
