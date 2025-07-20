@@ -11,6 +11,7 @@ if (!isset($_SESSION['user_id'])) {
 require_once 'Medoo.php';
 require_once __DIR__ . '/includes/version.php';
 require_once __DIR__ . '/includes/services/FinancialService.php';
+require_once __DIR__ . '/includes/log_sistema.php';
 
 // Database configuration
 $database = new Medoo\Medoo([
@@ -24,72 +25,61 @@ $database = new Medoo\Medoo([
 
 $user_id = $_SESSION['user_id'];
 
+log_sistema("Financial Dashboard acessado por usuário ID: $user_id", 'INFO');
+
 // Initialize Financial Service
 $financialService = new FinancialService($database);
 
-// Update subscription status
-$financialService->updateSubscriptionStatus($user_id);
+// Get current community tracking data
+$communityStatus = $financialService->getUserCommunityStatus($user_id);
 
-// Get current subscription data
-$subscription = $financialService->getUserSubscription($user_id);
-
-// Initialize subscription if not exists
-if (!$subscription) {
-    $result = $financialService->initializeUserSubscription($user_id);
+// Initialize community tracking if not exists
+if (!$communityStatus) {
+    log_sistema("Inicializando tracking comunitário para usuário ID: $user_id", 'INFO');
+    $result = $financialService->initializeUserContribution($user_id);
     if ($result['success']) {
-        $subscription = $result['subscription'];
-        // Reload subscription data with plan details
-        $subscription = $financialService->getUserSubscription($user_id);
+        $communityStatus = $financialService->getUserCommunityStatus($user_id);
+        log_sistema("Community tracking inicializado com sucesso para usuário ID: $user_id", 'SUCCESS');
+    } else {
+        log_sistema("Erro ao inicializar community tracking para usuário ID: $user_id - " . ($result['message'] ?? 'Unknown error'), 'ERROR');
     }
 }
 
-// Get grace period days remaining
-$graceDaysRemaining = $financialService->getGracePeriodDaysRemaining($user_id);
+// Check if should show contribution request
+$shouldShowRequest = $financialService->shouldShowContributionRequest($user_id);
 
-// Get payment history
-$paymentHistory = $financialService->getPaymentHistory($user_id);
+// Get contribution history
+$contributionHistory = $financialService->getContributionHistory($user_id);
 
 // Calculate dates for display
 $today = new DateTime();
-$registrationDate = new DateTime($subscription['registration_date']);
-$gracePeriodEnd = new DateTime($subscription['grace_period_end']);
+$registrationDate = new DateTime($communityStatus['registration_date']);
 $daysUsed = $today->diff($registrationDate)->days;
+$yearsPassed = floor($daysUsed / 365);
 
-// Status information
+// Status information for new community model
 $statusInfo = [
-    'grace_period' => [
+    'free_access' => [
         'class' => 'success',
         'icon' => 'fas fa-gift',
-        'title' => 'Período de Graça Ativo',
-        'description' => 'Você está no período gratuito de 365 dias'
+        'title' => 'Acesso Gratuito Ativo',
+        'description' => 'Você está usando o sistema gratuitamente'
     ],
-    'payment_due' => [
-        'class' => 'warning',
-        'icon' => 'fas fa-clock',
-        'title' => 'Contribuição Pendente',
-        'description' => 'Sua contribuição anual está vencida'
+    'contribution_eligible' => [
+        'class' => 'info',
+        'icon' => 'fas fa-heart',
+        'title' => 'Elegível para Contribuir',
+        'description' => 'Você pode contribuir voluntariamente para manter o sistema'
     ],
-    'overdue' => [
-        'class' => 'danger',
-        'icon' => 'fas fa-exclamation-triangle',
-        'title' => 'Contribuição em Atraso',
-        'description' => 'Sua conta pode ser suspensa em breve'
-    ],
-    'suspended' => [
-        'class' => 'danger',
-        'icon' => 'fas fa-ban',
-        'title' => 'Conta Suspensa',
-        'description' => 'Realize o pagamento para reativar sua conta'
-    ],
-    'active' => [
+    'active_contributor' => [
         'class' => 'success',
-        'icon' => 'fas fa-check-circle',
-        'title' => 'Conta Ativa',
-        'description' => 'Suas contribuições estão em dia'
+        'icon' => 'fas fa-star',
+        'title' => 'Contribuidor Ativo',
+        'description' => 'Obrigado por ajudar a manter o sistema funcionando!'
     ]
 ];
 
-$currentStatus = $statusInfo[$subscription['status']] ?? $statusInfo['grace_period'];
+$currentStatus = $statusInfo[$communityStatus['status']] ?? $statusInfo['free_access'];
 ?>
 
 <!DOCTYPE html>
@@ -97,7 +87,7 @@ $currentStatus = $statusInfo[$subscription['status']] ?? $statusInfo['grace_peri
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Contribuições Financeiras - CapivaraLearn</title>
+    <title>Comunidade e Sustentabilidade - CapivaraLearn</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <style>
@@ -162,10 +152,10 @@ $currentStatus = $statusInfo[$subscription['status']] ?? $statusInfo['grace_peri
                 <div class="card card-custom">
                     <div class="card-body text-center status-card">
                         <h1 class="display-6 mb-3">
-                            <i class="fas fa-dollar-sign me-3"></i>
-                            Contribuições Financeiras
+                            <i class="fas fa-heart me-3"></i>
+                            Comunidade e Sustentabilidade
                         </h1>
-                        <p class="lead mb-0">Acompanhe sua contribuição para manter o CapivaraLearn sustentável</p>
+                        <p class="lead mb-0">🌱 Sistema 100% Gratuito • Sustentável pela Comunidade • Sem Anúncios</p>
                     </div>
                 </div>
             </div>
@@ -181,7 +171,7 @@ $currentStatus = $statusInfo[$subscription['status']] ?? $statusInfo['grace_peri
                                 <i class="fas fa-home me-1"></i>Dashboard
                             </a>
                         </li>
-                        <li class="breadcrumb-item active">Contribuições Financeiras</li>
+                        <li class="breadcrumb-item active">Comunidade e Sustentabilidade</li>
                     </ol>
                 </nav>
             </div>
@@ -194,7 +184,7 @@ $currentStatus = $statusInfo[$subscription['status']] ?? $statusInfo['grace_peri
                     <div class="card-header bg-<?php echo $currentStatus['class']; ?> text-white">
                         <h5 class="mb-0">
                             <i class="<?php echo $currentStatus['icon']; ?> me-2"></i>
-                            Status da Conta
+                            Status da Sua Participação
                         </h5>
                     </div>
                     <div class="card-body">
@@ -205,66 +195,36 @@ $currentStatus = $statusInfo[$subscription['status']] ?? $statusInfo['grace_peri
                                 </h5>
                                 <p class="mb-3"><?php echo $currentStatus['description']; ?></p>
                                 
-                                <?php if ($subscription['status'] === 'grace_period' && $graceDaysRemaining !== null): ?>
-                                    <div class="alert alert-info">
-                                        <h6><i class="fas fa-clock me-2"></i>Tempo Restante no Período Gratuito</h6>
-                                        <div class="row">
-                                            <div class="col-md-6">
-                                                <strong><?php echo $graceDaysRemaining; ?> dias restantes</strong><br>
-                                                <small>Período gratuito até <?php echo $gracePeriodEnd->format('d/m/Y'); ?></small>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <strong><?php echo $daysUsed; ?> dias utilizados</strong><br>
-                                                <small>Desde <?php echo $registrationDate->format('d/m/Y'); ?></small>
-                                            </div>
+                                <div class="alert alert-success">
+                                    <h6><i class="fas fa-calendar me-2"></i>Seu Tempo no CapivaraLearn</h6>
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <strong><?php echo $daysUsed; ?> dias de uso</strong><br>
+                                            <small>Desde <?php echo $registrationDate->format('d/m/Y'); ?></small>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <strong><?php echo $yearsPassed; ?> ano(s) completo(s)</strong><br>
+                                            <small><?php echo $shouldShowRequest ? 'Elegível para contribuir voluntariamente' : 'Ainda no primeiro ano gratuito'; ?></small>
                                         </div>
                                     </div>
-                                <?php endif; ?>
+                                </div>
                                 
-                                <?php if (in_array($subscription['status'], ['payment_due', 'overdue'])): ?>
-                                    <div class="alert alert-warning">
-                                        <h6><i class="fas fa-exclamation-triangle me-2"></i>Ação Necessária</h6>
-                                        <p class="mb-2">Contribuição anual de <strong>USD <?php echo number_format($subscription['amount_due_usd'], 2); ?></strong> está pendente.</p>
-                                        <p class="mb-0">Vencimento: <strong><?php echo date('d/m/Y', strtotime($subscription['next_payment_due'])); ?></strong></p>
+                                <?php if ($shouldShowRequest): ?>
+                                    <div class="alert alert-info">
+                                        <h6><i class="fas fa-heart me-2"></i>Convite para Contribuir</h6>
+                                        <p class="mb-2">Você já usa o sistema há mais de um ano! Se quiser e puder, considere fazer uma contribuição voluntária para ajudar a manter o projeto.</p>
+                                        <p class="mb-0"><strong>Lembre-se:</strong> A contribuição é completamente opcional. O sistema continuará gratuito independentemente da sua escolha.</p>
                                     </div>
                                 <?php endif; ?>
                             </div>
                             <div class="col-md-4 text-center">
-                                <?php if ($subscription['status'] === 'grace_period'): ?>
-                                    <!-- Progress Circle -->
-                                    <?php 
-                                    $progressPercent = min(100, ($daysUsed / 365) * 100);
-                                    $circumference = 2 * 3.14159 * 45;
-                                    $strokeDasharray = $circumference;
-                                    $strokeDashoffset = $circumference - ($progressPercent / 100) * $circumference;
-                                    ?>
-                                    <svg class="progress-ring" width="120" height="120">
-                                        <circle class="progress-ring-circle" 
-                                                stroke="#e9ecef" 
-                                                stroke-width="8" 
-                                                fill="transparent" 
-                                                r="45" 
-                                                cx="60" 
-                                                cy="60"/>
-                                        <circle class="progress-ring-circle" 
-                                                stroke="#28a745" 
-                                                stroke-width="8" 
-                                                fill="transparent" 
-                                                r="45" 
-                                                cx="60" 
-                                                cy="60"
-                                                stroke-dasharray="<?php echo $strokeDasharray; ?>"
-                                                stroke-dashoffset="<?php echo $strokeDashoffset; ?>"/>
-                                    </svg>
-                                    <div class="mt-2">
-                                        <strong><?php echo round($progressPercent); ?>%</strong><br>
-                                        <small class="text-muted">do período gratuito usado</small>
-                                    </div>
-                                <?php else: ?>
-                                    <div class="display-1 text-<?php echo $currentStatus['class']; ?>">
-                                        <i class="<?php echo $currentStatus['icon']; ?>"></i>
-                                    </div>
-                                <?php endif; ?>
+                                <div class="display-1 text-<?php echo $currentStatus['class']; ?>">
+                                    <i class="<?php echo $currentStatus['icon']; ?>"></i>
+                                </div>
+                                <div class="mt-2">
+                                    <strong>🦫 CapivaraLearn</strong><br>
+                                    <small class="text-muted">Sempre gratuito!</small>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -272,36 +232,36 @@ $currentStatus = $statusInfo[$subscription['status']] ?? $statusInfo['grace_peri
             </div>
         </div>
 
-        <!-- Contribution Information -->
+        <!-- Community Philosophy -->
         <div class="row mb-4">
             <div class="col-12">
                 <div class="contribution-info">
                     <h3 class="mb-4">
-                        <i class="fas fa-heart me-3"></i>
-                        Por que Contribuir?
+                        <i class="fas fa-seedling me-3"></i>
+                        Nossa Filosofia de Sustentabilidade
                     </h3>
                     <div class="row">
                         <div class="col-md-6 mb-3">
-                            <h5><i class="fas fa-server me-2"></i>Infraestrutura</h5>
-                            <p class="mb-0">Manutenção de servidores, backup e segurança dos seus dados acadêmicos.</p>
+                            <h5><i class="fas fa-gift me-2"></i>100% Gratuito</h5>
+                            <p class="mb-0">O CapivaraLearn sempre será gratuito para todos. Sem limitações, sem anúncios, sem cobrança obrigatória.</p>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <h5><i class="fas fa-code me-2"></i>Desenvolvimento</h5>
-                            <p class="mb-0">Novas funcionalidades, correções e melhorias contínuas na plataforma.</p>
+                            <h5><i class="fas fa-users me-2"></i>Sustentado pela Comunidade</h5>
+                            <p class="mb-0">Quem pode e quer contribuir voluntariamente ajuda a manter o projeto funcionando para todos.</p>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <h5><i class="fas fa-headset me-2"></i>Suporte</h5>
-                            <p class="mb-0">Atendimento aos usuários e resolução de problemas técnicos.</p>
+                            <h5><i class="fas fa-heart me-2"></i>Contribuição Voluntária</h5>
+                            <p class="mb-0">Após 1 ano de uso, você pode escolher contribuir com qualquer valor que considerar justo.</p>
                         </div>
                         <div class="col-md-6 mb-3">
-                            <h5><i class="fas fa-leaf me-2"></i>Sustentabilidade</h5>
-                            <p class="mb-0">Manter o projeto independente e focado nas necessidades educacionais.</p>
+                            <h5><i class="fas fa-balance-scale me-2"></i>Sem Pressão</h5>
+                            <p class="mb-0">Sua experiência no sistema é a mesma, independentemente de contribuir ou não.</p>
                         </div>
                     </div>
                     
                     <div class="text-center mt-4 p-3 bg-white bg-opacity-25 rounded">
-                        <h4 class="mb-2">💝 Apenas USD 1,00 por ano</h4>
-                        <p class="mb-0">Menos que uma garrafinha de refrigerante para manter seus estudos organizados!</p>
+                        <h4 class="mb-2">� "Aprender é um direito. Sustentar é um ato de amor."</h4>
+                        <p class="mb-0">Uma contribuição equivale a: ☕ Um café • 🥤 Uma coca-cola • 🚌 Uma passagem de ônibus</p>
                     </div>
                 </div>
             </div>
@@ -312,50 +272,53 @@ $currentStatus = $statusInfo[$subscription['status']] ?? $statusInfo['grace_peri
             <div class="col-12">
                 <div class="card card-custom">
                     <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-timeline me-2"></i>Cronologia da Conta</h5>
+                        <h5 class="mb-0"><i class="fas fa-timeline me-2"></i>Sua Jornada no CapivaraLearn</h5>
                     </div>
                     <div class="card-body">
                         <div class="timeline-item completed">
-                            <h6 class="mb-1">Conta Criada</h6>
-                            <p class="text-muted mb-0"><?php echo $registrationDate->format('d/m/Y'); ?> - Início do período gratuito de 365 dias</p>
+                            <h6 class="mb-1">🎉 Conta Criada</h6>
+                            <p class="text-muted mb-0"><?php echo $registrationDate->format('d/m/Y'); ?> - Bem-vindo(a) ao CapivaraLearn!</p>
                         </div>
                         
-                        <?php if ($subscription['status'] === 'grace_period'): ?>
+                        <?php if ($yearsPassed < 1): ?>
                             <div class="timeline-item current">
-                                <h6 class="mb-1">Período Gratuito (Atual)</h6>
-                                <p class="text-muted mb-0"><?php echo $graceDaysRemaining; ?> dias restantes até <?php echo $gracePeriodEnd->format('d/m/Y'); ?></p>
+                                <h6 class="mb-1">🌱 Primeiro Ano Gratuito (Atual)</h6>
+                                <p class="text-muted mb-0">Aproveitando o sistema sem pressa - você tem <?php echo 365 - $daysUsed; ?> dias até completar 1 ano</p>
                             </div>
                         <?php else: ?>
                             <div class="timeline-item completed">
-                                <h6 class="mb-1">Período Gratuito Finalizado</h6>
-                                <p class="text-muted mb-0"><?php echo $gracePeriodEnd->format('d/m/Y'); ?> - 365 dias de uso gratuito completados</p>
+                                <h6 class="mb-1">🎂 Primeiro Ano Completado</h6>
+                                <p class="text-muted mb-0"><?php echo date('d/m/Y', strtotime($registrationDate->format('Y-m-d') . ' +1 year')); ?> - Obrigado por usar o CapivaraLearn!</p>
                             </div>
                         <?php endif; ?>
                         
-                        <div class="timeline-item <?php echo in_array($subscription['status'], ['payment_due', 'overdue', 'suspended']) ? 'current' : ''; ?>">
-                            <h6 class="mb-1">Primeira Contribuição</h6>
-                            <p class="text-muted mb-0">
-                                <?php if ($subscription['status'] === 'grace_period'): ?>
-                                    Prevista para <?php echo $gracePeriodEnd->format('d/m/Y'); ?> - USD 1,00
-                                <?php elseif ($subscription['last_payment_date']): ?>
-                                    Realizada em <?php echo date('d/m/Y', strtotime($subscription['last_payment_date'])); ?>
-                                <?php else: ?>
-                                    Pendente desde <?php echo date('d/m/Y', strtotime($subscription['next_payment_due'])); ?>
-                                <?php endif; ?>
-                            </p>
-                        </div>
+                        <?php if ($shouldShowRequest): ?>
+                            <div class="timeline-item current">
+                                <h6 class="mb-1">💝 Elegível para Contribuir Voluntariamente</h6>
+                                <p class="text-muted mb-0">
+                                    Você pode agora escolher contribuir voluntariamente se quiser ajudar a sustentar o projeto
+                                </p>
+                            </div>
+                        <?php else: ?>
+                            <div class="timeline-item">
+                                <h6 class="mb-1">💝 Futuras Contribuições Voluntárias</h6>
+                                <p class="text-muted mb-0">
+                                    Após 1 ano de uso, você poderá escolher contribuir voluntariamente (sem obrigação)
+                                </p>
+                            </div>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Payment History -->
-        <?php if (!empty($paymentHistory)): ?>
+        <!-- Contribution History -->
+        <?php if (!empty($contributionHistory)): ?>
         <div class="row mb-4">
             <div class="col-12">
                 <div class="card card-custom">
                     <div class="card-header">
-                        <h5 class="mb-0"><i class="fas fa-history me-2"></i>Histórico de Pagamentos</h5>
+                        <h5 class="mb-0"><i class="fas fa-heart me-2"></i>Histórico de Contribuições Voluntárias</h5>
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
@@ -363,22 +326,17 @@ $currentStatus = $statusInfo[$subscription['status']] ?? $statusInfo['grace_peri
                                 <thead>
                                     <tr>
                                         <th>Data</th>
-                                        <th>Tipo</th>
                                         <th>Valor</th>
                                         <th>Status</th>
                                         <th>Método</th>
+                                        <th>Mensagem</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    <?php foreach ($paymentHistory as $payment): ?>
+                                    <?php foreach ($contributionHistory as $contribution): ?>
                                     <tr>
-                                        <td><?php echo date('d/m/Y', strtotime($payment['created_at'])); ?></td>
-                                        <td>
-                                            <span class="badge bg-info">
-                                                <?php echo ucfirst($payment['transaction_type']); ?>
-                                            </span>
-                                        </td>
-                                        <td>USD <?php echo number_format($payment['amount_usd'], 2); ?></td>
+                                        <td><?php echo date('d/m/Y', strtotime($contribution['created_at'])); ?></td>
+                                        <td>USD <?php echo number_format($contribution['amount_usd'], 2); ?></td>
                                         <td>
                                             <?php
                                             $statusClass = [
@@ -387,13 +345,14 @@ $currentStatus = $statusInfo[$subscription['status']] ?? $statusInfo['grace_peri
                                                 'failed' => 'danger',
                                                 'cancelled' => 'secondary'
                                             ];
-                                            $class = $statusClass[$payment['status']] ?? 'secondary';
+                                            $class = $statusClass[$contribution['status']] ?? 'secondary';
                                             ?>
                                             <span class="badge bg-<?php echo $class; ?>">
-                                                <?php echo ucfirst($payment['status']); ?>
+                                                <?php echo ucfirst($contribution['status']); ?>
                                             </span>
                                         </td>
-                                        <td><?php echo $payment['payment_method'] ? ucfirst($payment['payment_method']) : '-'; ?></td>
+                                        <td><?php echo $contribution['payment_method'] ? ucfirst($contribution['payment_method']) : '-'; ?></td>
+                                        <td><?php echo $contribution['message'] ?? 'Contribuição voluntária'; ?></td>
                                     </tr>
                                     <?php endforeach; ?>
                                 </tbody>
@@ -405,29 +364,32 @@ $currentStatus = $statusInfo[$subscription['status']] ?? $statusInfo['grace_peri
         </div>
         <?php endif; ?>
 
-        <!-- Actions -->
-        <?php if (in_array($subscription['status'], ['payment_due', 'overdue'])): ?>
+        <!-- Voluntary Contribution Actions -->
+        <?php if ($shouldShowRequest): ?>
         <div class="row mb-4">
             <div class="col-12">
-                <div class="card card-custom border-warning">
+                <div class="card card-custom border-success">
                     <div class="card-body text-center">
-                        <h5 class="text-warning mb-3">
-                            <i class="fas fa-credit-card me-2"></i>
-                            Realizar Contribuição
+                        <h5 class="text-success mb-3">
+                            <i class="fas fa-heart me-2"></i>
+                            Contribuição Voluntária
                         </h5>
-                        <p class="mb-3">Sua contribuição anual de USD 1,00 está pendente.</p>
+                        <p class="mb-3">Se você quiser e puder, uma contribuição voluntária ajuda a manter o CapivaraLearn funcionando para toda a comunidade.</p>
                         <div class="row justify-content-center">
                             <div class="col-md-6">
-                                <button class="btn btn-warning btn-lg w-100 mb-2" disabled>
-                                    <i class="fas fa-credit-card me-2"></i>
-                                    Pagar com Cartão (Em Breve)
-                                </button>
-                                <button class="btn btn-info btn-lg w-100 mb-2" disabled>
-                                    <i class="fab fa-paypal me-2"></i>
-                                    Pagar com PayPal (Em Breve)
+                                <div class="alert alert-info mb-3">
+                                    <small>
+                                        <i class="fas fa-info-circle me-1"></i>
+                                        <strong>Lembre-se:</strong> A contribuição é totalmente voluntária. 
+                                        O sistema continuará gratuito para você independentemente da sua escolha.
+                                    </small>
+                                </div>
+                                <button class="btn btn-success btn-lg w-100 mb-2" disabled>
+                                    <i class="fas fa-heart me-2"></i>
+                                    Contribuir Voluntariamente (Em Breve)
                                 </button>
                                 <small class="text-muted d-block mt-2">
-                                    Os métodos de pagamento serão habilitados em breve
+                                    Os métodos de contribuição serão habilitados em breve
                                 </small>
                             </div>
                         </div>
@@ -442,17 +404,17 @@ $currentStatus = $statusInfo[$subscription['status']] ?? $statusInfo['grace_peri
             <div class="col-12">
                 <div class="card card-custom">
                     <div class="card-header bg-info text-white">
-                        <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>Precisa de Ajuda?</h5>
+                        <h5 class="mb-0"><i class="fas fa-question-circle me-2"></i>Dúvidas ou Sugestões?</h5>
                     </div>
                     <div class="card-body">
                         <div class="row">
                             <div class="col-md-6">
-                                <h6>💸 Dificuldades Financeiras?</h6>
-                                <p class="mb-3">Se você tem dificuldades financeiras, entre em contato conosco para discutir opções de isenção ou desconto.</p>
+                                <h6>🌱 Sobre a Sustentabilidade</h6>
+                                <p class="mb-3">Quer entender melhor como funciona nosso modelo de sustentabilidade comunitária? Estamos aqui para esclarecer!</p>
                             </div>
                             <div class="col-md-6">
-                                <h6>❓ Dúvidas sobre Pagamento?</h6>
-                                <p class="mb-3">Ficou com alguma dúvida sobre o processo de contribuição? Estamos aqui para ajudar!</p>
+                                <h6>💡 Sugestões e Ideias</h6>
+                                <p class="mb-3">Tem alguma ideia para melhorar o CapivaraLearn? Adoramos ouvir feedback da nossa comunidade!</p>
                             </div>
                         </div>
                         <div class="text-center">
@@ -460,6 +422,11 @@ $currentStatus = $statusInfo[$subscription['status']] ?? $statusInfo['grace_peri
                                 <i class="fas fa-envelope me-2"></i>
                                 Entrar em Contato
                             </a>
+                        </div>
+                        <div class="text-center mt-3">
+                            <small class="text-muted">
+                                🦫 <strong>CapivaraLearn</strong> - Educação gratuita e sustentável para todos
+                            </small>
                         </div>
                     </div>
                 </div>

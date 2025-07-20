@@ -727,24 +727,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['backup_file'])) {
             $financialService = new FinancialService($database);
             log_sistema('DEBUG: FinancialService instanciado com sucesso', 'INFO');
             
-            // Check if user already has a subscription
-            $existingSubscription = $financialService->getUserSubscription($user_id);
-            log_sistema('DEBUG: Verificação de subscription existente - Result: ' . ($existingSubscription ? 'EXISTS' : 'NEW'), 'INFO');
+            // Check if user already has community tracking
+            $existingTracking = $financialService->getUserCommunityStatus($user_id);
+            log_sistema('DEBUG: Verificação de community tracking existente - Result: ' . ($existingTracking ? 'EXISTS' : 'NEW'), 'INFO');
             
-            if (!$existingSubscription) {
-                log_sistema('DEBUG: Criando nova subscription financeira...', 'INFO');
-                $result = $financialService->initializeUserSubscription($user_id);
+            if (!$existingTracking) {
+                log_sistema('DEBUG: Criando novo community tracking...', 'INFO');
+                $result = $financialService->initializeUserContribution($user_id);
                 log_sistema('DEBUG: Resultado da criação: ' . json_encode($result), 'INFO');
                 
                 if ($result['success']) {
-                    $counters['financial_subscription'] = 1;
-                    log_sistema('Financial subscription initialized for restored user - User ID: ' . $user_id, 'SUCCESS');
+                    $counters['community_tracking'] = 1;
+                    log_sistema('Community tracking initialized for restored user - User ID: ' . $user_id, 'SUCCESS');
                 } else {
-                    log_sistema('Failed to initialize financial subscription for restored user - User ID: ' . $user_id . ' - Error: ' . ($result['error'] ?? 'Unknown error'), 'WARNING');
+                    log_sistema('Failed to initialize community tracking for restored user - User ID: ' . $user_id . ' - Error: ' . ($result['error'] ?? 'Unknown error'), 'WARNING');
                 }
             } else {
-                $counters['financial_subscription'] = 0; // Already exists
-                log_sistema('User already has financial subscription - User ID: ' . $user_id, 'INFO');
+                $counters['community_tracking'] = 0; // Already exists
+                log_sistema('User already has community tracking - User ID: ' . $user_id, 'INFO');
             }
             log_sistema('DEBUG: Sistema financeiro configurado com sucesso', 'INFO');
         } catch (Exception $e) {
@@ -940,17 +940,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['backup_file'])) {
                             </div>
                         </div>
                         
-                        <!-- Financial System Status -->
-                        <?php if (isset($import_stats['financial_subscription'])): ?>
+                        <!-- Community System Status -->
+                        <?php if (isset($import_stats['community_tracking'])): ?>
                         <div class="row mt-3">
                             <div class="col-12">
-                                <div class="alert alert-<?php echo $import_stats['financial_subscription'] ? 'success' : 'info'; ?>">
-                                    <i class="fas fa-dollar-sign me-2"></i>
-                                    <strong>Sistema Financeiro:</strong>
-                                    <?php if ($import_stats['financial_subscription']): ?>
-                                        Subscription criada com período de graça de 365 dias
+                                <div class="alert alert-<?php echo $import_stats['community_tracking'] ? 'success' : 'info'; ?>">
+                                    <i class="fas fa-heart me-2"></i>
+                                    <strong>Sistema Comunitário:</strong>
+                                    <?php if ($import_stats['community_tracking']): ?>
+                                        Community tracking iniciado - Sistema 100% gratuito ativo
                                     <?php else: ?>
-                                        Subscription já existia (mantida)
+                                        Community tracking já existia (mantido)
                                     <?php endif; ?>
                                 </div>
                             </div>
