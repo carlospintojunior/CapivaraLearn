@@ -35,35 +35,37 @@ class FinancialService
     {
         try {
             // Get default plan
-            $defaultPlan = $this->database->get('subscription_plans', '*', [
-                'plan_code' => 'ANNUAL_BASIC',
-                'is_active' => 1
-            ]);
+            $defaultPlan = $this->database->select(
+                "SELECT * FROM subscription_plans WHERE plan_code = ? AND is_active = 1",
+                ['ANNUAL_BASIC']
+            );
 
-            if (!$defaultPlan) {
+            if (!$defaultPlan || empty($defaultPlan)) {
                 throw new Exception('Default subscription plan not found');
             }
+            
+            $defaultPlan = $defaultPlan[0]; // Get first result
 
             // Calculate grace period end date
             $gracePeriodEnd = date('Y-m-d', strtotime('+365 days'));
             $nextPaymentDue = $gracePeriodEnd;
 
             // Check if subscription already exists
-            $existingSubscription = $this->database->get('user_subscriptions', '*', [
-                'user_id' => $userId,
-                'plan_id' => $defaultPlan['id']
-            ]);
+            $existingSubscription = $this->database->select(
+                "SELECT * FROM user_subscriptions WHERE user_id = ? AND plan_id = ?",
+                [$userId, $defaultPlan['id']]
+            );
 
-            if ($existingSubscription) {
+            if ($existingSubscription && !empty($existingSubscription)) {
                 return [
                     'success' => true,
                     'message' => 'Subscription already exists',
-                    'subscription' => $existingSubscription
+                    'subscription' => $existingSubscription[0]
                 ];
             }
 
             // Start transaction
-            $this->database->pdo->beginTransaction();
+            $this->database->beginTransaction();
 
             // Create subscription
             $subscriptionId = $this->database->insert('user_subscriptions', [
@@ -86,9 +88,13 @@ class FinancialService
                 date('Y-m-d', strtotime($gracePeriodEnd . ' -30 days')));
 
             // Commit transaction
-            $this->database->pdo->commit();
+            $this->database->commit();
 
-            $subscription = $this->database->get('user_subscriptions', '*', ['id' => $subscriptionId]);
+            $subscription = $this->database->select(
+                "SELECT * FROM user_subscriptions WHERE id = ?",
+                [$subscriptionId]
+            );
+            $subscription = $subscription ? $subscription[0] : null;
 
             $this->log('info', 'User subscription initialized', [
                 'user_id' => $userId,
@@ -103,8 +109,16 @@ class FinancialService
             ];
 
         } catch (Exception $e) {
-            if ($this->database->pdo->inTransaction()) {
-                $this->database->pdo->rollback();
+            try {
+                // Check if transaction is active using getConnection()
+                if ($this->database->getConnection()->inTransaction()) {
+                    $this->database->rollBack();
+                }
+            } catch (Exception $rollbackError) {
+                // Log rollback error but don't throw
+                $this->log('error', 'Failed to rollback transaction', [
+                    'error' => $rollbackError->getMessage()
+                ]);
             }
 
             $this->log('error', 'Failed to initialize user subscription', [
@@ -127,27 +141,27 @@ class FinancialService
      */
     public function getUserSubscription($userId)
     {
-        $subscription = $this->database->get('user_subscriptions', [
-            '[><]subscription_plans' => ['plan_id' => 'id']
-        ], [
-            'user_subscriptions.id',
-            'user_subscriptions.status',
-            'user_subscriptions.registration_date',
-            'user_subscriptions.grace_period_end',
-            'user_subscriptions.next_payment_due',
-            'user_subscriptions.last_payment_date',
-            'user_subscriptions.amount_due_usd',
-            'user_subscriptions.payment_attempts',
-            'subscription_plans.plan_name',
-            'subscription_plans.plan_code',
-            'subscription_plans.description',
-            'subscription_plans.price_usd',
-            'subscription_plans.billing_cycle'
-        ], [
-            'user_subscriptions.user_id' => $userId
-        ]);
+        $subscription = $this->database->select("
+            SELECT 
+                us.id,
+                us.status,
+                us.registration_date,
+                us.grace_period_end,
+                us.next_payment_due,
+                us.last_payment_date,
+                us.amount_due_usd,
+                us.payment_attempts,
+                sp.plan_name,
+                sp.plan_code,
+                sp.description,
+                sp.price_usd,
+                sp.billing_cycle
+            FROM user_subscriptions us
+            INNER JOIN subscription_plans sp ON us.plan_id = sp.id
+            WHERE us.user_id = ?
+        ", [$userId]);
 
-        return $subscription;
+        return $subscription && !empty($subscription) ? $subscription[0] : null;
     }
 
     /**
@@ -286,14 +300,12 @@ class FinancialService
     private function scheduleNotification($userId, $subscriptionId, $notificationType, $scheduledDate)
     {
         // Check if notification already exists
-        $existing = $this->database->get('payment_notifications', 'id', [
-            'user_id' => $userId,
-            'subscription_id' => $subscriptionId,
-            'notification_type' => $notificationType,
-            'status' => 'pending'
-        ]);
+        $existing = $this->database->select(
+            "SELECT id FROM payment_notifications WHERE user_id = ? AND subscription_id = ? AND notification_type = ? AND status = 'pending'",
+            [$userId, $subscriptionId, $notificationType]
+        );
 
-        if (!$existing) {
+        if (!$existing || empty($existing)) {
             $this->database->insert('payment_notifications', [
                 'user_id' => $userId,
                 'subscription_id' => $subscriptionId,
@@ -333,30 +345,27 @@ class FinancialService
             $stats['total_users'] = $this->database->count('usuarios');
 
             // Subscription status breakdown
-            $statusCounts = $this->database->select('user_subscriptions', [
-                'status',
-                'COUNT(*)' => 'count'
-            ], [
-                'GROUP' => 'status'
-            ]);
+            // Count by status
+            $statusCounts = $this->database->select(
+                "SELECT status, COUNT(*) as count FROM user_subscriptions GROUP BY status"
+            );
 
             foreach ($statusCounts as $status) {
                 $stats['status_' . $status['status']] = $status['count'];
             }
 
             // Users in grace period ending soon (next 30 days)
-            $stats['grace_period_ending_soon'] = $this->database->count('user_subscriptions', [
-                'status' => 'grace_period',
-                'grace_period_end[<>]' => [date('Y-m-d'), date('Y-m-d', strtotime('+30 days'))]
-            ]);
+            $gracePeriodEndingSoon = $this->database->select(
+                "SELECT COUNT(*) as count FROM user_subscriptions WHERE status = 'grace_period' AND grace_period_end BETWEEN ? AND ?",
+                [date('Y-m-d'), date('Y-m-d', strtotime('+30 days'))]
+            );
+            $stats['grace_period_ending_soon'] = $gracePeriodEndingSoon[0]['count'] ?? 0;
 
             // Total revenue
-            $revenue = $this->database->get('payment_transactions', [
-                'SUM(amount_usd)' => 'total'
-            ], [
-                'status' => 'completed'
-            ]);
-            $stats['total_revenue_usd'] = $revenue['total'] ?? 0;
+            $revenue = $this->database->select(
+                "SELECT SUM(amount_usd) as total FROM payment_transactions WHERE status = 'completed'"
+            );
+            $stats['total_revenue_usd'] = $revenue[0]['total'] ?? 0;
 
             return $stats;
 

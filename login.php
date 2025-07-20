@@ -37,7 +37,7 @@ if (!function_exists('generateToken')) {
 require_once __DIR__ . '/includes/MailService.php';
 
 // Load Financial Service for user registration
-require_once __DIR__ . '/includes/services/FinancialService.php';
+require_once __DIR__ . '/includes/services/FinancialServiceSimple.php';
 
 // Registrar acesso à página de login
 log_sistema('Tela de login carregada', 'INFO');
@@ -209,7 +209,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             if ($subscriptionResult['success']) {
                                 log_sistema("Financial subscription initialized for user ID: $userId", 'SUCCESS');
                             } else {
-                                log_sistema("Failed to initialize financial subscription for user ID: $userId - " . $subscriptionResult['error'], 'WARNING');
+                                log_sistema("Failed to initialize financial subscription for user ID: $userId - " . ($subscriptionResult['error'] ?? 'Unknown error'), 'WARNING');
                             }
                         } catch (Exception $e) {
                             log_sistema("Exception initializing financial subscription for user ID: $userId - " . $e->getMessage(), 'ERROR');
@@ -897,6 +897,16 @@ if (isset($_GET['resend_email'])) {
                                     • Após o período gratuito: <strong>USD 1,00 por ano</strong><br>
                                     • O sistema poderá solicitar o reembolso de despesas operacionais
                                 </p>
+                                <!-- Ênfase no baixo custo -->
+                                <div style="background: rgba(255, 255, 255, 0.3); padding: 0.8rem; border-radius: 8px; margin: 0.8rem 0; border-left: 4px solid #27ae60;">
+                                    <p style="margin: 0 0 0.3rem 0; font-size: 0.9rem; font-weight: 600; color: #27ae60;">
+                                        💰 Apenas USD 1,00 por ano é menos que:
+                                    </p>
+                                    <p style="margin: 0; font-size: 0.85rem; line-height: 1.4;">
+                                        ☕ Um café • 🥤 Uma coca-cola • 🚌 Uma passagem de ônibus<br>
+                                        <span style="font-weight: 600; color: #27ae60;">Educação de qualidade ao preço de um lanche!</span>
+                                    </p>
+                                </div>
                                 <p style="margin: 0; font-size: 0.85rem; opacity: 0.8;">
                                     Comece a usar agora, decida pagar depois! 🚀
                                 </p>

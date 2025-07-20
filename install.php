@@ -510,6 +510,23 @@ $deps = checkDependencies();
                         INDEX idx_subscription_id (subscription_id),
                         INDEX idx_scheduled_date (scheduled_date),
                         INDEX idx_status (status)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4",
+                    
+                    "logs_atividade" => "CREATE TABLE IF NOT EXISTS logs_atividade (
+                        id INT AUTO_INCREMENT PRIMARY KEY,
+                        usuario_id INT NULL,
+                        acao VARCHAR(255) NOT NULL,
+                        descricao TEXT,
+                        detalhes TEXT,
+                        data_hora TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        ip_address VARCHAR(45),
+                        user_agent TEXT,
+                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                        FOREIGN KEY (usuario_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+                        INDEX idx_usuario_id (usuario_id),
+                        INDEX idx_acao (acao),
+                        INDEX idx_data_hora (data_hora)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
                 ];
                 
