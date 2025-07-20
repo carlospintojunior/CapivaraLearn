@@ -12,11 +12,14 @@
  */
 
 // Informações da versão atual
-define('APP_VERSION', '1.0.0');
+define('APP_VERSION', '1.1.0');
 define('APP_NAME', 'CapivaraLearn');
 define('APP_BUILD_DATE', '2025-07-19');
-define('APP_BUILD_NUMBER', '001');
+define('APP_BUILD_NUMBER', '002');
 define('APP_ENVIRONMENT', 'development'); // development, staging, production
+define('APP_GITHUB_URL', 'https://github.com/carlospintojunior/CapivaraLearn');
+define('APP_GITHUB_BRANCH', '#24---Rotinas-de-becape-e-restauração-da-grade');
+define('APP_RELEASE_TAG', 'v1.1.0-beta');
 
 /**
  * Classe para gerenciar versões da aplicação
@@ -47,6 +50,9 @@ class AppVersion {
             'build' => APP_BUILD_NUMBER,
             'date' => APP_BUILD_DATE,
             'environment' => APP_ENVIRONMENT,
+            'github_url' => APP_GITHUB_URL ?? '',
+            'github_branch' => APP_GITHUB_BRANCH ?? '',
+            'release_tag' => APP_RELEASE_TAG ?? '',
             'full' => self::getFull()
         ];
     }
@@ -55,7 +61,13 @@ class AppVersion {
      * Retorna string formatada para footer
      */
     public static function getFooterText() {
-        return APP_NAME . ' v' . APP_VERSION . ' • Build ' . APP_BUILD_NUMBER;
+        $github_info = '';
+        if (defined('APP_GITHUB_BRANCH') && APP_GITHUB_BRANCH) {
+            $branch_name = str_replace('#', '', APP_GITHUB_BRANCH);
+            $branch_name = str_replace('-', ' ', $branch_name);
+            $github_info = ' • ' . $branch_name;
+        }
+        return APP_NAME . ' v' . APP_VERSION . ' • Build ' . APP_BUILD_NUMBER . $github_info;
     }
     
     /**
@@ -63,6 +75,24 @@ class AppVersion {
      */
     public static function getSidebarText() {
         $env = (APP_ENVIRONMENT !== 'production') ? ' (' . strtoupper(APP_ENVIRONMENT) . ')' : '';
-        return 'v' . APP_VERSION . $env;
+        $branch = '';
+        if (defined('APP_GITHUB_BRANCH') && APP_GITHUB_BRANCH) {
+            $branch_short = substr(str_replace(['#', '-'], ['', ' '], APP_GITHUB_BRANCH), 0, 15);
+            $branch = '<br><span style="font-size: 0.65rem; opacity: 0.8;">' . $branch_short . '</span>';
+        }
+        return 'v' . APP_VERSION . $env . $branch;
+    }
+    
+    /**
+     * Retorna informações do GitHub
+     */
+    public static function getGitHubInfo() {
+        return [
+            'url' => APP_GITHUB_URL ?? '',
+            'branch' => APP_GITHUB_BRANCH ?? '',
+            'release' => APP_RELEASE_TAG ?? '',
+            'issues_url' => (APP_GITHUB_URL ?? '') . '/issues',
+            'releases_url' => (APP_GITHUB_URL ?? '') . '/releases'
+        ];
     }
 }

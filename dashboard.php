@@ -45,6 +45,14 @@ try {
     error_log("DASHBOARD: ERRO ao carregar logs - " . $e->getMessage());
 }
 
+// Carregar sistema de versão
+try {
+    require_once __DIR__ . '/includes/version.php';
+    error_log("DASHBOARD: Sistema de versão carregado");
+} catch (Exception $e) {
+    error_log("DASHBOARD: ERRO ao carregar versão - " . $e->getMessage());
+}
+
 // Configuração do Medoo
 try {
     require_once 'Medoo.php';
@@ -222,11 +230,43 @@ try {
     $progresso_geral = $total_topicos > 0 ? round(($topicos_concluidos / $total_topicos) * 100) : 0;
     
     error_log("DASHBOARD: Progresso geral calculado - $progresso_geral% ($topicos_concluidos/$total_topicos)");
+    
+    // ===== ESTATÍSTICAS DE CARGA HORÁRIA =====
+    error_log("DASHBOARD: Calculando estatísticas de carga horária");
+    
+    // Carga horária total de todas as disciplinas do usuário
+    $carga_total_result = $database->sum("disciplinas", "carga_horaria", ["usuario_id" => $user_id]);
+    $carga_horaria_total = $carga_total_result ? (int)$carga_total_result : 0;
+    
+    // Carga horária das disciplinas concluídas
+    $carga_concluida_result = $database->sum("disciplinas", "carga_horaria", [
+        "usuario_id" => $user_id,
+        "concluido" => 1
+    ]);
+    $carga_horaria_concluida = $carga_concluida_result ? (int)$carga_concluida_result : 0;
+    
+    // Progresso por carga horária
+    $progresso_carga_horaria = $carga_horaria_total > 0 ? round(($carga_horaria_concluida / $carga_horaria_total) * 100) : 0;
+    
+    // Total de disciplinas e disciplinas concluídas
+    $total_disciplinas = $database->count("disciplinas", ["usuario_id" => $user_id]);
+    $disciplinas_concluidas = $database->count("disciplinas", [
+        "usuario_id" => $user_id,
+        "concluido" => 1
+    ]);
+    
+    error_log("DASHBOARD: Estatísticas calculadas - Carga: {$carga_horaria_concluida}h/{$carga_horaria_total}h ({$progresso_carga_horaria}%) - Disciplinas: {$disciplinas_concluidas}/{$total_disciplinas}");
+    
 } catch (Exception $e) {
     error_log("DASHBOARD: ERRO ao calcular progresso - " . $e->getMessage());
     $progresso_geral = 0;
     $topicos_concluidos = 0;
     $total_topicos = 0;
+    $carga_horaria_total = 0;
+    $carga_horaria_concluida = 0;
+    $progresso_carga_horaria = 0;
+    $total_disciplinas = 0;
+    $disciplinas_concluidas = 0;
 }
 
 error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
@@ -289,6 +329,8 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
             background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
             min-height: 100vh;
             padding: 20px 0;
+            display: flex;
+            flex-direction: column;
         }
         .sidebar .nav-link {
             color: white;
@@ -332,13 +374,31 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
             border-top: 1px solid rgba(255,255,255,0.2);
             margin: 0.5rem 0;
         }
-        .sidebar nav {
+        .sidebar-nav {
+            flex: 1;
             display: flex;
             flex-direction: column;
-            height: 100vh;
         }
-        .sidebar .nav-link:last-child {
-            margin-bottom: auto;
+        .sidebar-footer {
+            margin-top: auto;
+            padding-top: 1rem;
+            border-top: 1px solid rgba(255,255,255,0.2);
+        }
+        .sidebar-version {
+            background-color: rgba(255,255,255,0.1);
+            color: rgba(255,255,255,0.9) !important;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+        .nav-section-header {
+            font-size: 0.7rem;
+            font-weight: 600;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+            margin-top: 0.5rem;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
     </style>
 </head>
@@ -351,7 +411,8 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                     <h4 class="text-white">CapivaraLearn</h4>
                     <p class="text-white-50">Olá, <?php echo htmlspecialchars($user['nome'] ?? 'Usuário'); ?>!</p>
                 </div>
-                <nav class="nav flex-column">
+                
+                <nav class="nav flex-column sidebar-nav">
                     <a class="nav-link active" href="dashboard.php">
                         <i class="fas fa-tachometer-alt me-2"></i>Dashboard
                     </a>
@@ -374,6 +435,28 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                         <i class="fas fa-play-circle me-2"></i>Unidades
                     </a>
                     <div class="sidebar-divider"></div>
+                    
+                    <!-- Seção de Manutenção -->
+                    <div class="nav-section-header text-white-50 px-3 py-2">
+                        <small><i class="fas fa-tools me-2"></i>MANUTENÇÃO</small>
+                    </div>
+                    <a class="nav-link" href="backup_grade.php">
+                        <i class="fas fa-download me-2"></i>Backup Grade
+                    </a>
+                    <a class="nav-link" href="import_grade.php">
+                        <i class="fas fa-upload me-2"></i>Importar Grade
+                    </a>
+                    <a class="nav-link" href="backup_user_data.php">
+                        <i class="fas fa-user-shield me-2"></i>Backup Dados
+                    </a>
+                    <a class="nav-link" href="restore_user_data.php">
+                        <i class="fas fa-user-cog me-2"></i>Restaurar Dados
+                    </a>
+                    <a class="nav-link" href="changelog.php">
+                        <i class="fas fa-history me-2"></i>Changelog
+                    </a>
+                    
+                    <div class="sidebar-divider"></div>
                     <a class="nav-link" href="#">
                         <i class="fas fa-cog me-2"></i>Configurações
                     </a>
@@ -383,22 +466,26 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                     <a class="nav-link" href="logout.php">
                         <i class="fas fa-sign-out-alt me-2"></i>Sair
                     </a>
-                    
-                    <!-- Footer da Sidebar com Versão -->
-                    <div class="mt-auto pt-3 border-top">
-                        <div class="text-center">
-                            <small class="text-muted">
-                                <?php 
-                                if (class_exists('AppVersion')) {
-                                    echo AppVersion::getSidebarText(); 
-                                } else {
-                                    echo 'v1.0.0';
-                                }
-                                ?>
-                            </small>
-                        </div>
-                    </div>
                 </nav>
+                
+                <!-- Footer da Sidebar com Versão -->
+                <div class="sidebar-footer text-center">
+                    <small class="sidebar-version d-block mb-2">
+                        <?php 
+                        if (class_exists('AppVersion')) {
+                            echo AppVersion::getSidebarText(); 
+                        } else {
+                            echo 'v1.1.0';
+                        }
+                        ?>
+                    </small>
+                    <div class="mb-2">
+                        <a href="https://github.com/carlospintojunior/CapivaraLearn" target="_blank" 
+                           class="text-white-50 text-decoration-none" title="GitHub Repository">
+                            <i class="fab fa-github fa-lg"></i>
+                        </a>
+                    </div>
+                </div>
             </div>
 
             <!-- Main Content -->
@@ -488,13 +575,67 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                                 <h5><i class="fas fa-chart-line me-2"></i>Progresso Geral</h5>
                             </div>
                             <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <span>Tópicos Concluídos</span>
-                                    <span><?php echo $topicos_concluidos; ?> de <?php echo $total_topicos; ?></span>
+                                <!-- Progresso por Tópicos -->
+                                <div class="mb-4">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span><i class="fas fa-list-ul me-2 text-primary"></i>Tópicos Concluídos</span>
+                                        <span class="fw-bold"><?php echo $topicos_concluidos; ?> de <?php echo $total_topicos; ?></span>
+                                    </div>
+                                    <div class="progress progress-custom mb-1">
+                                        <div class="progress-bar bg-primary" role="progressbar" style="width: <?php echo $progresso_geral; ?>%">
+                                            <?php echo $progresso_geral; ?>%
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">Progresso baseado em tópicos de estudo</small>
                                 </div>
-                                <div class="progress progress-custom">
-                                    <div class="progress-bar" role="progressbar" style="width: <?php echo $progresso_geral; ?>%">
-                                        <?php echo $progresso_geral; ?>%
+
+                                <!-- Progresso por Disciplinas -->
+                                <div class="mb-4">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span><i class="fas fa-book me-2 text-success"></i>Disciplinas Concluídas</span>
+                                        <span class="fw-bold"><?php echo $disciplinas_concluidas; ?> de <?php echo $total_disciplinas; ?></span>
+                                    </div>
+                                    <div class="progress progress-custom mb-1">
+                                        <div class="progress-bar bg-success" role="progressbar" style="width: <?php echo $total_disciplinas > 0 ? round(($disciplinas_concluidas / $total_disciplinas) * 100) : 0; ?>%">
+                                            <?php echo $total_disciplinas > 0 ? round(($disciplinas_concluidas / $total_disciplinas) * 100) : 0; ?>%
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">Progresso baseado em disciplinas concluídas</small>
+                                </div>
+
+                                <!-- Progresso por Carga Horária -->
+                                <div class="mb-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span><i class="fas fa-clock me-2 text-warning"></i>Carga Horária Concluída</span>
+                                        <span class="fw-bold"><?php echo $carga_horaria_concluida; ?>h de <?php echo $carga_horaria_total; ?>h</span>
+                                    </div>
+                                    <div class="progress progress-custom mb-1">
+                                        <div class="progress-bar bg-warning" role="progressbar" style="width: <?php echo $progresso_carga_horaria; ?>%">
+                                            <?php echo $progresso_carga_horaria; ?>%
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">Progresso baseado na carga horária das disciplinas</small>
+                                </div>
+
+                                <!-- Estatísticas Resumidas -->
+                                <div class="row mt-4 pt-3 border-top">
+                                    <div class="col-md-4 text-center">
+                                        <div class="bg-light p-3 rounded">
+                                            <h6 class="text-primary mb-1"><?php echo $progresso_geral; ?>%</h6>
+                                            <small class="text-muted">Por Tópicos</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 text-center">
+                                        <div class="bg-light p-3 rounded">
+                                            <h6 class="text-success mb-1"><?php echo $total_disciplinas > 0 ? round(($disciplinas_concluidas / $total_disciplinas) * 100) : 0; ?>%</h6>
+                                            <small class="text-muted">Por Disciplinas</small>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 text-center">
+                                        <div class="bg-light p-3 rounded">
+                                            <h6 class="text-warning mb-1"><?php echo $progresso_carga_horaria; ?>%</h6>
+                                            <small class="text-muted">Por Carga Horária</small>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -599,7 +740,12 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
         // Log no console para debug
         console.log('Dashboard carregado com sucesso!');
         console.log('Estatísticas:', <?php echo json_encode($stats); ?>);
-        console.log('Progresso geral:', <?php echo $progresso_geral; ?>);
+        console.log('Progresso por tópicos:', <?php echo $progresso_geral; ?>);
+        console.log('Progresso por disciplinas:', <?php echo $total_disciplinas > 0 ? round(($disciplinas_concluidas / $total_disciplinas) * 100) : 0; ?>);
+        console.log('Progresso por carga horária:', <?php echo $progresso_carga_horaria; ?>);
+        console.log('Carga horária:', '<?php echo $carga_horaria_concluida; ?>h / <?php echo $carga_horaria_total; ?>h');
+        console.log('Disciplinas:', '<?php echo $disciplinas_concluidas; ?> / <?php echo $total_disciplinas; ?>');
+        console.log('Tópicos:', '<?php echo $topicos_concluidos; ?> / <?php echo $total_topicos; ?>');
     </script>
 </body>
 </html>

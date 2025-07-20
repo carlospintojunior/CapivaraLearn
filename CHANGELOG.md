@@ -5,6 +5,25 @@ Todas as alterações notáveis deste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [1.1.0] - 2025-07-19
+
+### ✅ Adicionado
+- **Sistema de Backup e Importação de Grades Curriculares**
+  - Exportação completa de curso em formato JSON
+  - Importação de estrutura curricular entre usuários
+  - Preservação de hierarquia: Curso → Disciplinas → Tópicos → Unidades
+  - Interface intuitiva para backup/restore
+  - Validação de arquivos e tratamento de erros
+  - Estatísticas de importação/exportação
+- Botões "Cancelar" em todas as páginas de edição CRUD
+- Campo semestre ocultado na tela de disciplinas
+- Links para backup/importação no dashboard
+
+### 🔧 Corrigido
+- Caracteres "+" indesejados na tabela de cursos
+- Falta de opção cancelar nas edições de disciplinas, tópicos e unidades
+- Layout de botões nas páginas CRUD (melhor espaçamento)
+
 ## [1.0.0] - 2025-07-19
 
 ### ✅ Adicionado
