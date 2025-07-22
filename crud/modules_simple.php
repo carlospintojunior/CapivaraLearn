@@ -1,10 +1,11 @@
 <?php
 // Configuração simplificada - Gerenciar Disciplinas
+require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../Medoo.php';
 
 use Medoo\Medoo;
 
-// Iniciar sessão e autenticar usuário
+// Iniciar sessão
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }

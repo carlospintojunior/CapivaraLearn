@@ -5,9 +5,8 @@
  */
 
 // Configuração simplificada
+require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../Medoo.php';
-// Configuração de logging Monolog
-require_once __DIR__ . '/../includes/logger_config.php';
 
 use Medoo\Medoo;
 
