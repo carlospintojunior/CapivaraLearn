@@ -633,9 +633,12 @@ $deps = checkDependencies();
                 echo '<div class="success">✅ Estrutura completa do banco criada (13 tabelas + sistema financeiro)</div>';
                 log_sistema("Estrutura completa do banco de dados criada com sucesso - 13 tabelas incluindo sistema financeiro", 'SUCCESS');
                 
-                // Criar arquivo de configuração básico
+                // Criar arquivo de configuração básico (com logger centralizado)
                 $configContent = "<?php
-// Configuração básica do CapivaraLearn
+/**
+ * CapivaraLearn - Arquivo de Configuração
+ * Gerado pelo instalador em " . date('d/m/Y H:i:s') . "
+ */
 
 // Configuração de fuso horário para o Brasil (São Paulo)
 date_default_timezone_set('America/Sao_Paulo');
@@ -643,13 +646,26 @@ date_default_timezone_set('America/Sao_Paulo');
 // Incluir sistema de versionamento
 require_once __DIR__ . '/version.php';
 
+// Incluir e configurar o logger centralizado (Monolog)
+require_once __DIR__ . '/logger_config.php';
+logInfo('Sistema iniciado', ['environment' => 'development']);
+
+// Configurações de sessão
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+// Configurações de banco de dados
 define('DB_HOST', '$host');
 define('DB_NAME', '$dbname');
 define('DB_USER', '$user');
 define('DB_PASS', '$pass');
 define('DB_CHARSET', 'utf8mb4');
+
+// Configurações de ambiente
 define('APP_ENV', 'development');
-?>";
+define('APP_URL', 'http://' . \$_SERVER['SERVER_NAME']);
+";
                 
                 if (!is_dir('includes')) {
                     mkdir('includes', 0755, true);

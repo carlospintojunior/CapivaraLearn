@@ -1,24 +1,7 @@
 <?php
 // Configuração simplificada - CRUD de Cursos
-error_reporting(E_ALL);
-ini_set('display_errors', 0);
-ini_set('log_errors', 1);
-ini_set('error_log', __DIR__ . '/../logs/sistema.log');
-
-// Manipuladores globais de erro e exceção
-set_exception_handler(function($e) {
-    error_log("COURSES_UNCAUGHT_EXCEPTION: " . $e->getMessage() . " em " . $e->getFile() . ":" . $e->getLine());
-    http_response_code(500);
-    exit('Erro interno do sistema. Verifique os logs.');
-});
-
-set_error_handler(function($severity, $message, $file, $line) {
-    error_log("COURSES_ERROR[$severity]: $message em $file:$line");
-    return false;
-});
-
+require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../Medoo.php';
-require_once __DIR__ . '/../includes/logger_config.php';
 
 use Medoo\Medoo;
 

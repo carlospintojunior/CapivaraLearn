@@ -31,6 +31,12 @@ date_default_timezone_set('America/Sao_Paulo');
 // Incluir sistema de versionamento
 require_once __DIR__ . '/version.php';
 
+// Incluir e configurar o logger centralizado (Monolog)
+require_once __DIR__ . '/logger_config.php';
+
+// Log de início de sistema
+logInfo('Sistema iniciado', ['request_uri' => $_SERVER['REQUEST_URI'] ?? 'N/A']);
+
 // =============================================
 // CONFIGURAÇÃO DE PRODUÇÃO (SEMPRE)
 // =============================================
@@ -72,11 +78,21 @@ if (session_status() === PHP_SESSION_NONE) {
 // =============================================
 // CONFIGURAÇÕES DO BANCO DE DADOS
 // =============================================
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'capivaralearn');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_CHARSET', 'utf8mb4');
+if ($config && isset($config['production'])) {
+    $envConfig = $config['production'];
+    define('DB_HOST', $envConfig['db_host'] ?? 'localhost');
+    define('DB_NAME', $envConfig['db_name'] ?? 'capivaralearn');
+    define('DB_USER', $envConfig['db_user'] ?? 'root');
+    define('DB_PASS', $envConfig['db_pass'] ?? '');
+    define('DB_CHARSET', $envConfig['db_charset'] ?? 'utf8mb4');
+} else {
+    // Configurações padrão
+    define('DB_HOST', 'localhost');
+    define('DB_NAME', 'capivaralearn');
+    define('DB_USER', 'root');
+    define('DB_PASS', '');
+    define('DB_CHARSET', 'utf8mb4');
+}
 
 // =============================================
 // CONFIGURAÇÕES BASEADAS NO AMBIENTE
@@ -90,83 +106,20 @@ define('DEBUG_MODE', true); // Manter debug ativo para logs
 define('TIMEZONE', 'America/Sao_Paulo');
 
 // =============================================
-// CONFIGURAÇÕES DE SEGURANÇA
+// CLASSE DE BANCO DE DADOS (LEGADO)
 // =============================================
-define('SECRET_KEY', '1888ab4c943c806ebcfa8cd9fe7ae961f9264c49e544ee8d0b3ad3023a1e6a50');
-define('SESSION_LIFETIME', 3600 * 24 * 7); // 7 dias
-define('PASSWORD_MIN_LENGTH', 6);
+/**
+ * Classe Database - Conexão com o banco de dados MySQL
+ * 
+ * Esta classe é responsável por gerenciar a conexão com o banco de dados MySQL
+ * utilizando PDO. Ela implementa o padrão Singleton para garantir que apenas
+ * uma instância da conexão exista durante a execução do script.
+ * 
+ * Uso:
+ * $db = Database::getInstance()->getConnection();
+ * $result = $db->select("SELECT * FROM usuarios WHERE id = ?", [1]);
+ */
 
-// =============================================
-// CONFIGURAÇÕES DA APLICAÇÃO
-// =============================================
-if (!defined('APP_NAME')) {
-    define('APP_NAME', 'CapivaraLearn');
-}
-if (!defined('APP_VERSION')) {
-    define('APP_VERSION', '1.0.0');
-}
-
-// Configurar timezone
-date_default_timezone_set(TIMEZONE);
-
-// =============================================
-// CONFIGURAÇÕES DE LOG
-// =============================================
-require_once __DIR__ . '/Logger.php';
-
-$logDir = __DIR__ . '/../logs';
-$logFile = $logDir . '/php_errors.log';
-
-// Garantir que o diretório de logs existe
-if (!is_dir($logDir)) {
-    mkdir($logDir, 0777, true);
-}
-
-// Garantir que o arquivo de log existe
-if (!file_exists($logFile)) {
-    touch($logFile);
-    chmod($logFile, 0666);
-}
-
-// Configurar logs do PHP
-ini_set('log_errors', 1);
-ini_set('error_log', $logFile);
-
-// Definir constante para o arquivo de log
-define('LOG_FILE', $logFile);
-
-// Inicializar o sistema de logs
-$logger = Logger::getInstance();
-$logger->info("Sistema iniciado", ['timestamp' => date('Y-m-d H:i:s'), 'ip' => $_SERVER['REMOTE_ADDR'] ?? 'CLI']);
-
-// =============================================
-// CONFIGURAÇÕES DE EMAIL (SEMPRE PRODUÇÃO)
-// =============================================
-if ($config && isset($config['production'])) {
-    $envConfig = $config['production'];
-    define('MAIL_HOST', $envConfig['mail_host'] ?? 'mail.capivaralearn.com.br');
-    define('MAIL_PORT', $envConfig['mail_port'] ?? 465);
-    define('MAIL_USERNAME', $envConfig['mail_username'] ?? 'capivara@capivaralearn.com.br');
-    define('MAIL_PASSWORD', $envConfig['mail_password'] ?? '_,CeLlORRy,92');
-    define('MAIL_FROM_NAME', $envConfig['mail_from_name'] ?? 'CapivaraLearn');
-    define('MAIL_FROM_EMAIL', $envConfig['mail_from_email'] ?? 'capivara@capivaralearn.com.br');
-    define('MAIL_SECURE', $envConfig['mail_secure'] ?? 'ssl');
-    define('MAIL_AUTH', $envConfig['mail_auth'] ?? true);
-} else {
-    // Configurações padrão de produção
-    define('MAIL_HOST', 'mail.capivaralearn.com.br');
-    define('MAIL_PORT', 465);
-    define('MAIL_USERNAME', 'capivara@capivaralearn.com.br');
-    define('MAIL_PASSWORD', '_,CeLlORRy,92');
-    define('MAIL_FROM_NAME', 'CapivaraLearn');
-    define('MAIL_FROM_EMAIL', 'capivara@capivaralearn.com.br');
-    define('MAIL_SECURE', 'ssl');
-    define('MAIL_AUTH', true);
-}
-
-// =============================================
-// CLASSE DE CONEXÃO COM BANCO - VERSÃO COMPLETA
-// =============================================
 class Database {
     private static $instance = null;
     private $connection;
@@ -329,37 +282,6 @@ function jsonResponse($data, $statusCode = 200) {
     header('Content-Type: application/json');
     echo json_encode($data, JSON_UNESCAPED_UNICODE);
     exit();
-}
-
-// =============================================
-// FUNÇÕES DE LOG E ATIVIDADE
-// =============================================
-function logActivity($action, $description = '', $userId = null) {
-    try {
-        $db = Database::getInstance();
-        $sql = "INSERT INTO logs_atividade (usuario_id, acao, descricao, data_hora, ip_address, user_agent) 
-                VALUES (:usuario_id, :acao, :descricao, NOW(), :ip, :user_agent)";
-        
-        $params = [
-            ':usuario_id' => $userId ?? ($_SESSION['user_id'] ?? null),
-            ':acao' => $action,
-            ':descricao' => $description,
-            ':ip' => $_SERVER['REMOTE_ADDR'] ?? 'CLI',
-            ':user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? 'CLI'
-        ];
-        
-        $db->execute($sql, $params);
-    } catch (Exception $e) {
-        error_log('Erro ao registrar atividade: ' . $e->getMessage());
-    }
-}
-
-function logError($message, $context = []) {
-    $logMessage = '[' . date('Y-m-d H:i:s') . '] ERROR: ' . $message;
-    if (!empty($context)) {
-        $logMessage .= ' Context: ' . json_encode($context);
-    }
-    error_log($logMessage);
 }
 
 // =============================================

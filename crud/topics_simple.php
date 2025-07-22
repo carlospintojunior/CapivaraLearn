@@ -1,27 +1,6 @@
 <?php
-// Ativar exibição e registro detalhado de erros
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
-ini_set('log_errors', 1);
-// Registrar erros em sistema.log
-ini_set('error_log', __DIR__ . '/../logs/sistema.log');
-// Manipuladores globais para capturar exceções não tratadas
-set_exception_handler(function (Throwable $e) {
-    error_log("TOPICOS UNCAUGHT EXCEPTION: " . $e->getMessage() . " em " . $e->getFile() . ":" . $e->getLine());
-    http_response_code(500);
-    exit('Erro interno do sistema. Verifique o log.');
-});
-set_error_handler(function ($severity, $message, $file, $line) {
-    error_log("TOPICOS ERROR [$severity]: $message em $file:$line");
-    return false; // Executa o handler padrão
-});
-// Error logging to sistema.log
-error_reporting(E_ALL);
-ini_set('display_errors', 0);
-ini_set('log_errors', 1);
-ini_set('error_log', __DIR__ . '/../logs/sistema.log');
-// CRUD Simplificado de Tópicos - CapivaraLearn
+// Configuração simplificada
+require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../Medoo.php';
 
 use Medoo\Medoo;
