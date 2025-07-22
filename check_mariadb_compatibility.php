@@ -12,10 +12,10 @@ try {
     // Database configuration
     $database = new Medoo\Medoo([
         'type' => 'mysql',
-        'host' => 'localhost',
-        'database' => 'capivaralearn',
-        'username' => 'root',
-        'password' => '',
+        'host' => DB_HOST,
+        'database' => DB_NAME,
+        'username' => DB_USER,
+        'password' => DB_PASS,
         'charset' => 'utf8mb4'
     ]);
 

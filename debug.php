@@ -21,10 +21,10 @@ try {
     // Teste 4: Banco de dados
     $database = new Medoo([
         'type' => 'mysql',
-        'host' => 'localhost',
-        'database' => 'capivaralearn',
-        'username' => 'root',
-        'password' => '',
+        'host' => DB_HOST,
+        'database' => DB_NAME,
+        'username' => DB_USER,
+        'password' => DB_PASS,
         'charset' => 'utf8mb4'
     ]);
     

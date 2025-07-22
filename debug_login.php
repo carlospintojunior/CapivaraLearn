@@ -121,10 +121,10 @@ echo "Verifique o arquivo de log: logs/debug_login.log\n";
     echo "<p>3. Testando conexão com banco...</p>";
     $database = new Medoo([
         'type' => 'mysql',
-        'host' => 'localhost',
-        'database' => 'capivaralearn',
-        'username' => 'root',
-        'password' => '',
+        'host' => DB_HOST,
+        'database' => DB_NAME,
+        'username' => DB_USER,
+        'password' => DB_PASS,
         'charset' => 'utf8mb4'
     ]);
     echo "<p>✅ Banco OK</p>";

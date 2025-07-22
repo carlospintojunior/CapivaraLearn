@@ -227,7 +227,7 @@ class Medoo
      *      // Required
      *      'type' => 'mysql',
      *      'database' => 'name',
-     *      'host' => 'localhost',
+     *      'host' => DB_HOST,
      *      'username' => 'your_username',
      *      'password' => 'your_password',
      *
