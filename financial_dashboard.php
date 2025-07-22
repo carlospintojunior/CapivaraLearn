@@ -1,6 +1,9 @@
 <?php
 session_start();
 
+// Include configuration
+require_once __DIR__ . '/includes/config.php';
+
 // Check if user is logged in
 if (!isset($_SESSION['user_id'])) {
     header('Location: login.php');
@@ -16,10 +19,10 @@ require_once __DIR__ . '/includes/log_sistema.php';
 // Database configuration
 $database = new Medoo\Medoo([
     'type' => 'mysql',
-    'host' => 'localhost',
-    'database' => 'capivaralearn',
-    'username' => 'root',
-    'password' => '',
+    'host' => DB_HOST,
+    'database' => DB_NAME,
+    'username' => DB_USER,
+    'password' => DB_PASS,
     'charset' => 'utf8mb4'
 ]);
 

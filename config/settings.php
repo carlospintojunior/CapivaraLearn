@@ -8,12 +8,12 @@ return [
         
         // Configurações do banco de dados
         'db' => [
-            'host' => 'localhost',
+            'host' => DB_HOST,
             'port' => 3306,
-            'database' => 'capivaralearn',
-            'username' => 'root',
-            'password' => '',
-            'charset' => 'utf8mb4',
+            'database' => DB_NAME,
+            'username' => DB_USER,
+            'password' => DB_PASS,
+            'charset' => DB_CHARSET,
             'collation' => 'utf8mb4_unicode_ci',
             'prefix' => '',
         ],

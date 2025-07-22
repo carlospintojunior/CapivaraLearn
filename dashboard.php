@@ -19,6 +19,9 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// Incluir configurações
+require_once __DIR__ . '/includes/config.php';
+
 error_log("DASHBOARD: Sessão iniciada - session_id: " . session_id());
 
 // Verificar login
@@ -59,11 +62,11 @@ try {
     
     $database = new Medoo\Medoo([
         'type' => 'mysql',
-        'host' => 'localhost',
-        'database' => 'capivaralearn',
-        'username' => 'root',
-        'password' => '',
-        'charset' => 'utf8mb4'
+        'host' => DB_HOST,
+        'database' => DB_NAME,
+        'username' => DB_USER,
+        'password' => DB_PASS,
+        'charset' => DB_CHARSET
     ]);
     
     error_log("DASHBOARD: Medoo configurado com sucesso");
