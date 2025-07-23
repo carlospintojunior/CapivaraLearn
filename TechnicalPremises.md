@@ -13,6 +13,8 @@ Technical Premises
 * Production database requires password authentication (different from local development)
 * Database configurations are read from includes/environment.ini file
 * Production server uses Nginx with PHP-FPM (not Apache)
+* HTTPS enabled with Let's Encrypt SSL certificate for capivaralearn.com.br
+* Automatic SSL certificate renewal configured via Certbot
 
 The database is located at:
 DatabaseSchema.md

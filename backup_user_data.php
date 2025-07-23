@@ -1,5 +1,6 @@
 <?php
-session_start();
+// Configuração essencial
+require_once __DIR__ . '/includes/config.php';
 
 // Verificar login
 if (!isset($_SESSION['user_id'])) {
@@ -9,7 +10,6 @@ if (!isset($_SESSION['user_id'])) {
 
 // Carregar dependências
 require_once 'Medoo.php';
-require_once __DIR__ . '/includes/version.php';
 
 // Configuração do banco
 $database = new Medoo\Medoo([
