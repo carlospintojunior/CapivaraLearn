@@ -73,7 +73,7 @@ if (isset($_GET['download']) && $_GET['download'] === 'true') {
                 'total_topics' => count($topicos),
                 'total_learning_units' => count($unidades),
                 'total_enrollments' => count($matriculas),
-                'completed_subjects' => count(array_filter($disciplinas, fn($d) => $d['concluido'] == 1)),
+                'completed_subjects' => count(array_filter($disciplinas, fn($d) => $d['status'] == 1)),
                 'completed_topics' => count(array_filter($topicos, fn($t) => $t['concluido'] == 1))
             ]
         ];

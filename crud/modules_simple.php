@@ -28,6 +28,30 @@ $user_id = $_SESSION['user_id'];
 $message = '';
 $messageType = '';
 
+// Função para converter status numérico em texto
+function getStatusText($status) {
+    $statusMap = [
+        0 => 'Ativa',
+        1 => 'Concluída', 
+        2 => 'A Cursar',
+        3 => 'Aproveitada',
+        4 => 'Dispensada'
+    ];
+    return $statusMap[$status] ?? 'Desconhecido';
+}
+
+// Função para obter classe CSS do status
+function getStatusClass($status) {
+    $classMap = [
+        0 => 'badge bg-primary',      // Ativa - azul
+        1 => 'badge bg-success',      // Concluída - verde
+        2 => 'badge bg-warning',      // A Cursar - amarelo
+        3 => 'badge bg-info',         // Aproveitada - ciano
+        4 => 'badge bg-secondary'     // Dispensada - cinza
+    ];
+    return $classMap[$status] ?? 'badge bg-dark';
+}
+
 // Carregar cursos para o select
 $cursos = $database->select('cursos', ['id', 'nome'], [
     'usuario_id' => $user_id,
@@ -46,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $carga_horaria = intval($_POST['carga_horaria'] ?? 0);
                 $semestre = intval($_POST['semestre'] ?? 0);
                 $curso_id = intval($_POST['curso_id'] ?? 0);
-                $concluido = intval($_POST['concluido'] ?? 0);
+                $status = intval($_POST['status'] ?? 0);
                 if (empty($nome) || $curso_id <= 0) {
                     throw new Exception('Nome e curso são obrigatórios.');
                 }
@@ -64,7 +88,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'descricao' => $descricao,
                     'carga_horaria' => $carga_horaria,
                     'semestre' => $semestre,
-                    'concluido' => $concluido,
+                    'status' => $status,
                     'curso_id' => $curso_id,
                     'usuario_id' => $user_id
                 ]);
@@ -79,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $carga_horaria = intval($_POST['carga_horaria'] ?? 0);
                 $semestre = intval($_POST['semestre'] ?? 0);
                 $curso_id = intval($_POST['curso_id'] ?? 0);
-                $concluido = intval($_POST['concluido'] ?? 0);
+                $status = intval($_POST['status'] ?? 0);
                 if ($id <= 0 || empty($nome) || $curso_id <= 0) {
                     throw new Exception('ID, nome e curso são obrigatórios.');
                 }
@@ -103,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'carga_horaria' => $carga_horaria,
                     'semestre' => $semestre,
                     'curso_id' => $curso_id,
-                    'concluido' => $concluido
+                    'status' => $status
                 ], [
                     'id' => $id,
                     'usuario_id' => $user_id
@@ -146,7 +170,7 @@ $disciplinas = $database->select('disciplinas', [
     'disciplinas.codigo',
     'disciplinas.carga_horaria',
     'disciplinas.semestre',
-    'disciplinas.concluido',
+    'disciplinas.status',
     'cursos.nome(curso_nome)'
 ], [
     'disciplinas.usuario_id' => $user_id,
@@ -207,7 +231,7 @@ if (isset($_GET['edit'])) {
                                     <td><?= htmlspecialchars($d['curso_nome']) ?></td>
                                     <td><?= $d['carga_horaria'] ?></td>
                                     <td style="display: none;"><?= $d['semestre'] ?></td>
-                                    <td><?= $d['concluido'] ? 'Concluído' : 'Ativa' ?></td>
+                                    <td><span class="<?= getStatusClass($d['status']) ?>"><?= getStatusText($d['status']) ?></span></td>
                                     <td>
                                         <a href="?edit=<?= $d['id'] ?>" class="btn btn-sm btn-primary"><i class="fas fa-edit"></i></a>
                                         <form method="post" class="d-inline"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $d['id'] ?>"><button class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button></form>
@@ -236,9 +260,12 @@ if (isset($_GET['edit'])) {
                         <div class="mb-3"><label>Curso</label><select name="curso_id" class="form-select" required><option value="">Selecione</option><?php foreach($cursos as $c): ?><option value="<?= $c['id'] ?>" <?= isset($editDisc['curso_id']) && $editDisc['curso_id']==$c['id']?'selected':'' ?>><?= htmlspecialchars($c['nome']) ?></option><?php endforeach; ?></select></div>
                         <div class="mb-3">
                             <label>Status</label>
-                            <select name="concluido" class="form-select">
-                                <option value="0" <?= isset($editDisc['concluido']) && $editDisc['concluido']==0?'selected':'' ?>>Ativa</option>
-                                <option value="1" <?= isset($editDisc['concluido']) && $editDisc['concluido']==1?'selected':'' ?>>Concluída</option>
+                            <select name="status" class="form-select">
+                                <option value="0" <?= isset($editDisc['status']) && $editDisc['status']==0?'selected':'' ?>>Ativa</option>
+                                <option value="1" <?= isset($editDisc['status']) && $editDisc['status']==1?'selected':'' ?>>Concluída</option>
+                                <option value="2" <?= isset($editDisc['status']) && $editDisc['status']==2?'selected':'' ?>>A Cursar</option>
+                                <option value="3" <?= isset($editDisc['status']) && $editDisc['status']==3?'selected':'' ?>>Aproveitada</option>
+                                <option value="4" <?= isset($editDisc['status']) && $editDisc['status']==4?'selected':'' ?>>Dispensada</option>
                             </select>
                         </div>
                         <div class="d-grid gap-2">

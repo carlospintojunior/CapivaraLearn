@@ -206,11 +206,11 @@ try {
     ], [
         "disciplinas.id",
         "disciplinas.nome",
-        "disciplinas.concluido (concluido)",
+        "disciplinas.status (status)",
         "cursos.nome (curso_nome)"
     ], [
         "disciplinas.usuario_id" => $user_id,
-        "disciplinas.concluido" => 0,
+        "disciplinas.status" => 0,
         "ORDER" => ["disciplinas.nome" => "ASC"]
     ]);
     
@@ -236,31 +236,117 @@ try {
     
     // ===== ESTATÍSTICAS DE CARGA HORÁRIA =====
     error_log("DASHBOARD: Calculando estatísticas de carga horária");
-    
+    logInfo('Iniciando cálculos de progresso', ['user_id' => $user_id]);
+
     // Carga horária total de todas as disciplinas do usuário
     $carga_total_result = $database->sum("disciplinas", "carga_horaria", ["usuario_id" => $user_id]);
     $carga_horaria_total = $carga_total_result ? (int)$carga_total_result : 0;
+    logInfo('Carga horária total calculada', [
+        'user_id' => $user_id,
+        'carga_total_result' => $carga_total_result,
+        'carga_horaria_total' => $carga_horaria_total
+    ]);
     
-    // Carga horária das disciplinas concluídas
+    // Primeiro vamos testar a sintaxe correta do Medoo para IN
+    // Opção 1: Usando OR
     $carga_concluida_result = $database->sum("disciplinas", "carga_horaria", [
         "usuario_id" => $user_id,
-        "concluido" => 1
+        "OR" => [
+            "status" => 1,  // Concluída
+            "status" => 3,  // Aproveitada  
+            "status" => 4   // Dispensada
+        ]
     ]);
-    $carga_horaria_concluida = $carga_concluida_result ? (int)$carga_concluida_result : 0;
     
-    // Progresso por carga horária
+    // Se não funcionar, vamos tentar com array direto
+    if (!$carga_concluida_result) {
+        $carga_concluida_result = $database->sum("disciplinas", "carga_horaria", [
+            "usuario_id" => $user_id,
+            "status" => [1, 3, 4]  // Array direto
+        ]);
+        logInfo('Tentativa com array direto', [
+            'user_id' => $user_id,
+            'carga_concluida_result' => $carga_concluida_result
+        ]);
+    }
+    
+    $carga_horaria_concluida = $carga_concluida_result ? (int)$carga_concluida_result : 0;
+    logInfo('Carga horária concluída calculada', [
+        'user_id' => $user_id,
+        'carga_concluida_result' => $carga_concluida_result,
+        'carga_horaria_concluida' => $carga_horaria_concluida,
+        'query_status' => 'status IN (1,3,4) - Concluída, Aproveitada, Dispensada'
+    ]);
+    
+    // Vamos fazer uma consulta manual para verificar os dados
+    $disciplinas_debug = $database->select("disciplinas", [
+        "id", "nome", "status", "carga_horaria"
+    ], [
+        "usuario_id" => $user_id
+    ]);
+    
+    $status_count = ['0'=>0, '1'=>0, '2'=>0, '3'=>0, '4'=>0];
+    $carga_por_status = ['0'=>0, '1'=>0, '2'=>0, '3'=>0, '4'=>0];
+    
+    foreach ($disciplinas_debug as $disc) {
+        $status = (string)$disc['status'];
+        $status_count[$status]++;
+        $carga_por_status[$status] += (int)$disc['carga_horaria'];
+    }
+    
+    logInfo('Debug detalhado das disciplinas', [
+        'user_id' => $user_id,
+        'total_disciplinas_debug' => count($disciplinas_debug),
+        'status_count' => $status_count,
+        'carga_por_status' => $carga_por_status,
+        'carga_manual_concluida' => $carga_por_status['1'] + $carga_por_status['3'] + $carga_por_status['4']
+    ]);
+
+    // Progresso por carga horária (prioridade 1)
     $progresso_carga_horaria = $carga_horaria_total > 0 ? round(($carga_horaria_concluida / $carga_horaria_total) * 100) : 0;
     
-    // Total de disciplinas e disciplinas concluídas
+    // Total de disciplinas e disciplinas concluídas, aproveitadas ou dispensadas
     $total_disciplinas = $database->count("disciplinas", ["usuario_id" => $user_id]);
+    
+    // Testando count com mesma lógica
     $disciplinas_concluidas = $database->count("disciplinas", [
         "usuario_id" => $user_id,
-        "concluido" => 1
+        "OR" => [
+            "status" => 1,  // Concluída
+            "status" => 3,  // Aproveitada  
+            "status" => 4   // Dispensada
+        ]
     ]);
     
-    error_log("DASHBOARD: Estatísticas calculadas - Carga: {$carga_horaria_concluida}h/{$carga_horaria_total}h ({$progresso_carga_horaria}%) - Disciplinas: {$disciplinas_concluidas}/{$total_disciplinas}");
+    // Se não funcionar, tentar com array
+    if (!$disciplinas_concluidas) {
+        $disciplinas_concluidas = $database->count("disciplinas", [
+            "usuario_id" => $user_id,
+            "status" => [1, 3, 4]
+        ]);
+    }
     
-} catch (Exception $e) {
+    logInfo('Contagem de disciplinas', [
+        'user_id' => $user_id,
+        'total_disciplinas' => $total_disciplinas,
+        'disciplinas_concluidas' => $disciplinas_concluidas,
+        'disciplinas_concluidas_manual' => $status_count['1'] + $status_count['3'] + $status_count['4']
+    ]);
+    
+    // Progresso por disciplinas (prioridade 2)  
+    $progresso_disciplinas = $total_disciplinas > 0 ? round(($disciplinas_concluidas / $total_disciplinas) * 100) : 0;
+    
+    logInfo('Resultado final dos cálculos', [
+        'user_id' => $user_id,
+        'carga_horaria_concluida' => $carga_horaria_concluida,
+        'carga_horaria_total' => $carga_horaria_total,
+        'progresso_carga_horaria' => $progresso_carga_horaria,
+        'disciplinas_concluidas' => $disciplinas_concluidas,
+        'total_disciplinas' => $total_disciplinas,
+        'progresso_disciplinas' => $progresso_disciplinas
+    ]);
+    
+    error_log("DASHBOARD: Estatísticas calculadas - Carga: {$carga_horaria_concluida}h/{$carga_horaria_total}h ({$progresso_carga_horaria}%) - Disciplinas: {$disciplinas_concluidas}/{$total_disciplinas} ({$progresso_disciplinas}%)");} catch (Exception $e) {
     error_log("DASHBOARD: ERRO ao calcular progresso - " . $e->getMessage());
     $progresso_geral = 0;
     $topicos_concluidos = 0;
@@ -270,6 +356,7 @@ try {
     $progresso_carga_horaria = 0;
     $total_disciplinas = 0;
     $disciplinas_concluidas = 0;
+    $progresso_disciplinas = 0;
 }
 
 error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
@@ -581,8 +668,37 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                                 <h5><i class="fas fa-chart-line me-2"></i>Progresso Geral</h5>
                             </div>
                             <div class="card-body">
-                                <!-- Progresso por Tópicos -->
+                                
+                                <!-- 1. Carga Horária Concluída (Prioridade 1) -->
                                 <div class="mb-4">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span><i class="fas fa-clock me-2 text-warning"></i>Carga Horária Concluída</span>
+                                        <span class="fw-bold"><?php echo $carga_horaria_concluida; ?>h de <?php echo $carga_horaria_total; ?>h</span>
+                                    </div>
+                                    <div class="progress progress-custom mb-1">
+                                        <div class="progress-bar bg-warning" role="progressbar" style="width: <?php echo $progresso_carga_horaria; ?>%">
+                                            <?php echo $progresso_carga_horaria; ?>%
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">Horas das disciplinas concluídas, aproveitadas ou dispensadas</small>
+                                </div>
+
+                                <!-- 2. Disciplinas Concluídas (Prioridade 2) -->
+                                <div class="mb-4">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span><i class="fas fa-book me-2 text-success"></i>Disciplinas Concluídas</span>
+                                        <span class="fw-bold"><?php echo $disciplinas_concluidas; ?> de <?php echo $total_disciplinas; ?></span>
+                                    </div>
+                                    <div class="progress progress-custom mb-1">
+                                        <div class="progress-bar bg-success" role="progressbar" style="width: <?php echo $progresso_disciplinas; ?>%">
+                                            <?php echo $progresso_disciplinas; ?>%
+                                        </div>
+                                    </div>
+                                    <small class="text-muted">Disciplinas concluídas, aproveitadas ou dispensadas</small>
+                                </div>
+
+                                <!-- 3. Tópicos Concluídos (Prioridade 3) -->
+                                <div class="mb-3">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <span><i class="fas fa-list-ul me-2 text-primary"></i>Tópicos Concluídos</span>
                                         <span class="fw-bold"><?php echo $topicos_concluidos; ?> de <?php echo $total_topicos; ?></span>
@@ -595,52 +711,24 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                                     <small class="text-muted">Progresso baseado em tópicos de estudo</small>
                                 </div>
 
-                                <!-- Progresso por Disciplinas -->
-                                <div class="mb-4">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <span><i class="fas fa-book me-2 text-success"></i>Disciplinas Concluídas</span>
-                                        <span class="fw-bold"><?php echo $disciplinas_concluidas; ?> de <?php echo $total_disciplinas; ?></span>
-                                    </div>
-                                    <div class="progress progress-custom mb-1">
-                                        <div class="progress-bar bg-success" role="progressbar" style="width: <?php echo $total_disciplinas > 0 ? round(($disciplinas_concluidas / $total_disciplinas) * 100) : 0; ?>%">
-                                            <?php echo $total_disciplinas > 0 ? round(($disciplinas_concluidas / $total_disciplinas) * 100) : 0; ?>%
-                                        </div>
-                                    </div>
-                                    <small class="text-muted">Progresso baseado em disciplinas concluídas</small>
-                                </div>
-
-                                <!-- Progresso por Carga Horária -->
-                                <div class="mb-3">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <span><i class="fas fa-clock me-2 text-warning"></i>Carga Horária Concluída</span>
-                                        <span class="fw-bold"><?php echo $carga_horaria_concluida; ?>h de <?php echo $carga_horaria_total; ?>h</span>
-                                    </div>
-                                    <div class="progress progress-custom mb-1">
-                                        <div class="progress-bar bg-warning" role="progressbar" style="width: <?php echo $progresso_carga_horaria; ?>%">
-                                            <?php echo $progresso_carga_horaria; ?>%
-                                        </div>
-                                    </div>
-                                    <small class="text-muted">Progresso baseado na carga horária das disciplinas</small>
-                                </div>
-
                                 <!-- Estatísticas Resumidas -->
                                 <div class="row mt-4 pt-3 border-top">
                                     <div class="col-md-4 text-center">
                                         <div class="bg-light p-3 rounded">
-                                            <h6 class="text-primary mb-1"><?php echo $progresso_geral; ?>%</h6>
-                                            <small class="text-muted">Por Tópicos</small>
+                                            <h6 class="text-warning mb-1"><?php echo $progresso_carga_horaria; ?>%</h6>
+                                            <small class="text-muted">Por Carga Horária</small>
                                         </div>
                                     </div>
                                     <div class="col-md-4 text-center">
                                         <div class="bg-light p-3 rounded">
-                                            <h6 class="text-success mb-1"><?php echo $total_disciplinas > 0 ? round(($disciplinas_concluidas / $total_disciplinas) * 100) : 0; ?>%</h6>
+                                            <h6 class="text-success mb-1"><?php echo $progresso_disciplinas; ?>%</h6>
                                             <small class="text-muted">Por Disciplinas</small>
                                         </div>
                                     </div>
                                     <div class="col-md-4 text-center">
                                         <div class="bg-light p-3 rounded">
-                                            <h6 class="text-warning mb-1"><?php echo $progresso_carga_horaria; ?>%</h6>
-                                            <small class="text-muted">Por Carga Horária</small>
+                                            <h6 class="text-primary mb-1"><?php echo $progresso_geral; ?>%</h6>
+                                            <small class="text-muted">Por Tópicos</small>
                                         </div>
                                     </div>
                                 </div>
@@ -727,7 +815,10 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                                                 <div class="disciplina-item">
                                                     <h6 class="mb-1"><?php echo htmlspecialchars($disciplina['nome']); ?></h6>
                                                     <p class="text-muted mb-0"><?php echo htmlspecialchars($disciplina['curso_nome']); ?></p>
-                                                    <span class="badge bg-info"><?php echo $disciplina['concluido'] ? 'Concluída' : 'Ativa'; ?></span>
+                                                    <span class="badge bg-info"><?php 
+                                                        $statusMap = [0 => 'Ativa', 1 => 'Concluída', 2 => 'A Cursar', 3 => 'Aproveitada', 4 => 'Dispensada'];
+                                                        echo $statusMap[$disciplina['status']] ?? 'Desconhecido'; 
+                                                    ?></span>
                                                 </div>
                                             </div>
                                         <?php endforeach; ?>
