@@ -4,7 +4,13 @@
  * Sistema CapivaraLearn
  */
 
-// Configuração simplificada
+
+// Configuração de log igual ao dashboard
+error_reporting(E_ALL);
+ini_set('display_errors', 0); // Não mostrar erros na tela
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/../logs/sistema.log');
+
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../Medoo.php';
 
@@ -150,7 +156,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Buscar unidades para exibição
+// Buscar unidades para exibição com filtros
+
+
+$where = [
+    'unidades_aprendizagem.usuario_id' => $user_id
+];
+// Filtro de disciplina
+if (isset($_GET['filtro_disciplina'])) {
+    if ($_GET['filtro_disciplina'] === 'ativas') {
+        $where['disciplinas.status'] = 1;
+    } elseif ($_GET['filtro_disciplina'] === 'pendentes') {
+        $where['disciplinas.status'] = 0;
+    }
+}
+// Filtro de tópico
+if (isset($_GET['filtro_topico'])) {
+    if ($_GET['filtro_topico'] === 'ativos') {
+        $where['topicos.ativo'] = 1;
+    } elseif ($_GET['filtro_topico'] === 'pendentes') {
+        $where['topicos.ativo'] = 0;
+    }
+}
+// Filtro de unidade
+if (isset($_GET['filtro_unidade'])) {
+    if ($_GET['filtro_unidade'] === 'ativas') {
+        $where['unidades_aprendizagem.concluido'] = 1;
+    } elseif ($_GET['filtro_unidade'] === 'pendentes') {
+        $where['unidades_aprendizagem.concluido'] = 0;
+    }
+}
+
+$where['ORDER'] = [
+    'disciplinas.nome' => 'ASC',
+    'topicos.nome' => 'ASC',
+    'unidades_aprendizagem.nome' => 'ASC'
+];
+
+
+// LOG: filtros aplicados (Monolog e error_log)
+if (file_exists(__DIR__ . '/../includes/log_sistema.php')) {
+    require_once __DIR__ . '/../includes/log_sistema.php';
+    if (function_exists('getLogger')) {
+        $logger = getLogger();
+        $logger->info('Filtros WHERE learning_units_simple', ['where' => $where, 'get' => $_GET]);
+    }
+}
+error_log('LEARNING_UNITS_SIMPLE: Filtros WHERE: ' . var_export($where, true) . ' | GET: ' . var_export($_GET, true));
+
+
 $unidades = $database->select('unidades_aprendizagem', [
     '[>]topicos' => ['topico_id' => 'id'],
     '[>]disciplinas' => ['topicos.disciplina_id' => 'id']
@@ -163,10 +217,18 @@ $unidades = $database->select('unidades_aprendizagem', [
     'unidades_aprendizagem.concluido',
     'disciplinas.nome(disciplina_nome)',
     'topicos.nome(topico_nome)'
-], [
-    'unidades_aprendizagem.usuario_id' => $user_id,
-    'ORDER' => ['disciplinas.nome' => 'ASC', 'topicos.nome' => 'ASC', 'unidades_aprendizagem.nome' => 'ASC']
-]);
+], $where);
+
+// LOG: resultado da consulta (Monolog e error_log)
+if (isset($logger)) {
+    $logger->info('Resultado SELECT learning_units_simple', ['count' => count($unidades), 'unidades' => $unidades]);
+}
+error_log('LEARNING_UNITS_SIMPLE: Resultado SELECT: count=' . count($unidades) . ' | unidades=' . var_export($unidades, true));
+
+// LOG: resultado da consulta
+if (isset($logger)) {
+    $logger->info('Resultado SELECT learning_units_simple', ['count' => count($unidades), 'unidades' => $unidades]);
+}
 
 // Preparar edição
 $editUnit = null;
@@ -211,52 +273,251 @@ if (isset($_GET['edit'])) {
                     Unidades Cadastradas (<?= count($unidades) ?>)
                 </div>
                 <div class="card-body">
-                    <?php if (empty($unidades)): ?>
-                        <p class="text-center text-muted">Nenhuma unidade cadastrada.</p>
-                    <?php else: ?>
-                        <table class="table table-striped">
-                            <thead><tr>
-                                <th>Nome</th><th>Disciplina/Tópico</th><th>Tipo</th><th>Nota</th><th>Status</th><th>Ações</th>
-                            </tr></thead>
+                    <!-- Formulário de filtros com dropdowns -->
+                    <form method="get" class="row g-2 mb-3 align-items-end">
+                        <div class="col-md-3">
+                            <label for="filtro_disciplina" class="form-label mb-0">Disciplinas</label>
+                            <select class="form-select" name="filtro_disciplina" id="filtro_disciplina">
+                                <option value="todos" <?php if(!isset($_GET['filtro_disciplina']) || $_GET['filtro_disciplina']==='todos') echo 'selected'; ?>>Todas</option>
+                                <option value="ativas" <?php if(isset($_GET['filtro_disciplina']) && $_GET['filtro_disciplina']==='ativas') echo 'selected'; ?>>Somente ativas</option>
+                                <option value="pendentes" <?php if(isset($_GET['filtro_disciplina']) && $_GET['filtro_disciplina']==='pendentes') echo 'selected'; ?>>Somente pendentes</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="filtro_topico" class="form-label mb-0">Tópicos</label>
+                            <select class="form-select" name="filtro_topico" id="filtro_topico">
+                                <option value="todos" <?php if(!isset($_GET['filtro_topico']) || $_GET['filtro_topico']==='todos') echo 'selected'; ?>>Todos</option>
+                                <option value="ativos" <?php if(isset($_GET['filtro_topico']) && $_GET['filtro_topico']==='ativos') echo 'selected'; ?>>Somente ativos</option>
+                                <option value="pendentes" <?php if(isset($_GET['filtro_topico']) && $_GET['filtro_topico']==='pendentes') echo 'selected'; ?>>Somente pendentes</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="filtro_unidade" class="form-label mb-0">Unidades</label>
+                            <select class="form-select" name="filtro_unidade" id="filtro_unidade">
+                                <option value="todos" <?php if(!isset($_GET['filtro_unidade']) || $_GET['filtro_unidade']==='todos') echo 'selected'; ?>>Todas</option>
+                                <option value="ativas" <?php if(isset($_GET['filtro_unidade']) && $_GET['filtro_unidade']==='ativas') echo 'selected'; ?>>Somente ativas</option>
+                                <option value="pendentes" <?php if(isset($_GET['filtro_unidade']) && $_GET['filtro_unidade']==='pendentes') echo 'selected'; ?>>Somente pendentes</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-outline-primary w-100">Filtrar</button>
+                        </div>
+                    </form>
+                    <!-- Tabela de unidades cadastradas -->
+                    <div class="table-responsive mb-3">
+                        <table class="table table-striped table-bordered align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Disciplina</th>
+                                    <th>Tópico</th>
+                                    <th>Nome</th>
+                                    <th>Tipo</th>
+                                    <th>Nota</th>
+                                    <th>Prazo</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
                             <tbody>
-                                <?php foreach ($unidades as $u): ?>
-                                    <tr>
-                                        <td><?= htmlspecialchars($u['nome']) ?></td>
-                                        <td><?= htmlspecialchars($u['disciplina_nome'] . ' > ' . $u['topico_nome']) ?></td>
-                                        <td><?= htmlspecialchars($u['tipo']) ?></td>
-                                        <td><?= $u['nota'] ?? '-' ?></td>
-                                        <td><?= $u['concluido'] ? 'Concluída' : 'Pendente' ?></td>
-                                        <td>
-                                            <a href="?edit=<?= $u['id'] ?>" class="btn btn-sm btn-primary"><i class="fas fa-edit"></i></a>
-                                            <form method="post" class="d-inline"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $u['id'] ?>"><button class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button></form>
-                                        </td>
-                                    </tr>
-                                <?php endforeach; ?>
+                                <?php if (empty($unidades)): ?>
+                                    <tr><td colspan="8" class="text-center">Nenhuma unidade encontrada.</td></tr>
+                                <?php else: ?>
+                                    <?php foreach ($unidades as $u): ?>
+                                        <tr>
+                                            <td><?= htmlspecialchars($u['disciplina_nome'] ?? '-') ?></td>
+                                            <td><?= htmlspecialchars($u['topico_nome'] ?? '-') ?></td>
+                                            <td><?= htmlspecialchars($u['nome']) ?></td>
+                                            <td><?= htmlspecialchars($u['tipo']) ?></td>
+                                            <td><?= is_null($u['nota']) ? '-' : number_format($u['nota'], 2, ',', '.') ?></td>
+                                            <td><?= $u['data_prazo'] ? date('d/m/Y', strtotime($u['data_prazo'])) : '-' ?></td>
+                                            <td>
+                                                <?php if (isset($u['concluido']) && $u['concluido']): ?>
+                                                    <span class="badge bg-success">Ativa</span>
+                                                <?php else: ?>
+                                                    <span class="badge bg-secondary">Pendente</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <a href="?edit=<?= $u['id'] ?>" class="btn btn-sm btn-primary" title="Editar"><i class="fas fa-edit"></i></a>
+                                                <form method="post" action="" style="display:inline-block" onsubmit="return confirm('Tem certeza que deseja excluir esta unidade?');">
+                                                    <input type="hidden" name="action" value="delete">
+                                                    <input type="hidden" name="id" value="<?= $u['id'] ?>">
+                                                    <button type="submit" class="btn btn-sm btn-danger" title="Excluir"><i class="fas fa-trash"></i></button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
                             </tbody>
                         </table>
-                    <?php endif; ?>
+                    </div>
                 </div>
             </div>
         </div>
-        <!-- Formulário -->
-        <div class="col-md-4">
+        <!-- Formulário de cadastro/edição -->
+        <div class="col-md-4 mb-4">
             <div class="card">
-                <div class="card-header"><i class="fas fa-plus"></i> <?= $editUnit ? 'Editar' : 'Nova' ?> Unidade</div>
+                <div class="card-header">
+                    <?= $editUnit ? 'Editar Unidade' : 'Nova Unidade' ?>
+                </div>
                 <div class="card-body">
-                    <form method="post">
+                    <form method="post" action="">
                         <input type="hidden" name="action" value="<?= $editUnit ? 'update' : 'create' ?>">
-                        <?php if ($editUnit): ?><input type="hidden" name="id" value="<?= $editUnit['id'] ?>"><?php endif;?>
-                        <div class="mb-3"><label>Nome *</label><input type="text" name="nome" class="form-control" value="<?= htmlspecialchars($editUnit['nome'] ?? '') ?>" required></div>
-                        <div class="mb-3"><label>Descrição</label><textarea name="descricao" class="form-control"><?= htmlspecialchars($editUnit['descricao'] ?? '') ?></textarea></div>
-                        <div class="mb-3"><label>Tipo</label><select name="tipo" class="form-select"><option value="leitura" <?= (isset($editUnit['tipo']) && $editUnit['tipo']=='leitura')?'selected':'' ?>>Leitura</option><option value="exercicio" <?= (isset($editUnit['tipo']) && $editUnit['tipo']=='exercicio')?'selected':'' ?>>Exercício</option><option value="projeto" <?= (isset($editUnit['tipo']) && $editUnit['tipo']=='projeto')?'selected':'' ?>>Projeto</option><option value="prova" <?= (isset($editUnit['tipo']) && $editUnit['tipo']=='prova')?'selected':'' ?>>Prova</option><option value="outros" <?= (isset($editUnit['tipo']) && $editUnit['tipo']=='outros')?'selected':'' ?>>Outros</option></select></div>
-                        <div class="mb-3"><label>Nota</label><input type="number" step="0.01" min="0" max="10" name="nota" class="form-control" value="<?= $editUnit['nota'] ?? '' ?>"></div>
-                        <div class="mb-3"><label>Prazo</label><input type="date" name="data_prazo" class="form-control" value="<?= $editUnit['data_prazo'] ?? '' ?>"></div>
-                        <div class="mb-3 form-check"><input type="checkbox" name="concluido" class="form-check-input" id="concluido" <?= !empty($editUnit['concluido'])?'checked':'' ?>><label for="concluido" class="form-check-label">Concluído</label></div>
-                        <div class="mb-3"><label>Tópico</label><select name="topico_id" class="form-select" required><option value="">Selecione</option><?php foreach($topicos as $t): ?><option value="<?= $t['id'] ?>" <?= (isset($editUnit['topico_id']) && $editUnit['topico_id']==$t['id'])?'selected':'' ?>><?= htmlspecialchars($t['disciplina_nome'].' > '.$t['nome']) ?></option><?php endforeach; ?></select></div>
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-<?= $editUnit?'primary':'success' ?>"><?= $editUnit?'Atualizar':'Criar' ?></button>
+                        <?php if ($editUnit): ?>
+                            <input type="hidden" name="id" value="<?= $editUnit['id'] ?>">
+                        <?php endif; ?>
+                        <div class="mb-2">
+                            <label for="nome" class="form-label">Nome</label>
+                            <input type="text" class="form-control" name="nome" id="nome" value="<?= htmlspecialchars($editUnit['nome'] ?? '') ?>" required>
+                        </div>
+                        <div class="mb-2">
+                            <label for="descricao" class="form-label">Descrição</label>
+                            <textarea class="form-control" name="descricao" id="descricao" rows="2"><?= htmlspecialchars($editUnit['descricao'] ?? '') ?></textarea>
+                        </div>
+                        <div class="mb-2">
+                            <label for="tipo" class="form-label">Tipo</label>
+                            <select class="form-select" name="tipo" id="tipo">
+                                <option value="leitura" <?= (isset($editUnit['tipo']) && $editUnit['tipo'] === 'leitura') ? 'selected' : '' ?>>Leitura</option>
+                                <option value="atividade" <?= (isset($editUnit['tipo']) && $editUnit['tipo'] === 'atividade') ? 'selected' : '' ?>>Atividade</option>
+                                <option value="prova" <?= (isset($editUnit['tipo']) && $editUnit['tipo'] === 'prova') ? 'selected' : '' ?>>Prova</option>
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label for="nota" class="form-label">Nota</label>
+                            <input type="number" step="0.01" class="form-control" name="nota" id="nota" value="<?= htmlspecialchars($editUnit['nota'] ?? '') ?>">
+                        </div>
+                        <div class="mb-2">
+                            <label for="data_prazo" class="form-label">Prazo</label>
+                            <input type="date" class="form-control" name="data_prazo" id="data_prazo" value="<?= isset($editUnit['data_prazo']) && $editUnit['data_prazo'] ? date('Y-m-d', strtotime($editUnit['data_prazo'])) : '' ?>">
+                        </div>
+                        <div class="mb-2 form-check">
+                            <input type="checkbox" class="form-check-input" name="concluido" id="concluido" value="1" <?= (isset($editUnit['concluido']) && $editUnit['concluido']) ? 'checked' : '' ?>>
+                            <label for="concluido" class="form-check-label">Concluído/Ativo</label>
+                        </div>
+                        <div class="mb-2">
+                            <label for="topico_id" class="form-label">Tópico</label>
+                            <select class="form-select" name="topico_id" id="topico_id" required>
+                                <option value="">Selecione...</option>
+                                <?php foreach ($topicos as $t): ?>
+                                    <option value="<?= $t['id'] ?>" <?= (isset($editUnit['topico_id']) && $editUnit['topico_id'] == $t['id']) ? 'selected' : '' ?>><?= htmlspecialchars($t['disciplina_nome'] . ' - ' . $t['nome']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-success">Salvar</button>
                             <?php if ($editUnit): ?>
-                                <a href="?" class="btn btn-secondary">Cancelar</a>
+                                <a href="learning_units_simple.php" class="btn btn-secondary">Cancelar</a>
+                            <?php endif; ?>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+                        </div>
+                    </form>
+
+                    <!-- Tabela de unidades cadastradas -->
+                    <div class="table-responsive mb-3">
+                        <table class="table table-striped table-bordered align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Disciplina</th>
+                                    <th>Tópico</th>
+                                    <th>Nome</th>
+                                    <th>Tipo</th>
+                                    <th>Nota</th>
+                                    <th>Prazo</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($unidades)): ?>
+                                    <tr><td colspan="8" class="text-center">Nenhuma unidade encontrada.</td></tr>
+                                <?php else: ?>
+                                    <?php foreach ($unidades as $u): ?>
+                                        <tr>
+                                            <td><?= htmlspecialchars($u['disciplina_nome'] ?? '-') ?></td>
+                                            <td><?= htmlspecialchars($u['topico_nome'] ?? '-') ?></td>
+                                            <td><?= htmlspecialchars($u['nome']) ?></td>
+                                            <td><?= htmlspecialchars($u['tipo']) ?></td>
+                                            <td><?= is_null($u['nota']) ? '-' : number_format($u['nota'], 2, ',', '.') ?></td>
+                                            <td><?= $u['data_prazo'] ? date('d/m/Y', strtotime($u['data_prazo'])) : '-' ?></td>
+                                            <td>
+                                                <?php if (isset($u['concluido']) && $u['concluido']): ?>
+                                                    <span class="badge bg-success">Ativa</span>
+                                                <?php else: ?>
+                                                    <span class="badge bg-secondary">Pendente</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <a href="?edit=<?= $u['id'] ?>" class="btn btn-sm btn-primary" title="Editar"><i class="fas fa-edit"></i></a>
+                                                <form method="post" action="" style="display:inline-block" onsubmit="return confirm('Tem certeza que deseja excluir esta unidade?');">
+                                                    <input type="hidden" name="action" value="delete">
+                                                    <input type="hidden" name="id" value="<?= $u['id'] ?>">
+                                                    <button type="submit" class="btn btn-sm btn-danger" title="Excluir"><i class="fas fa-trash"></i></button>
+                                                </form>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+        </div>
+        <!-- Formulário de cadastro/edição -->
+        <div class="col-md-4 mb-4">
+            <div class="card">
+                <div class="card-header">
+                    <?= $editUnit ? 'Editar Unidade' : 'Nova Unidade' ?>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="">
+                        <input type="hidden" name="action" value="<?= $editUnit ? 'update' : 'create' ?>">
+                        <?php if ($editUnit): ?>
+                            <input type="hidden" name="id" value="<?= $editUnit['id'] ?>">
+                        <?php endif; ?>
+                        <div class="mb-2">
+                            <label for="nome" class="form-label">Nome</label>
+                            <input type="text" class="form-control" name="nome" id="nome" value="<?= htmlspecialchars($editUnit['nome'] ?? '') ?>" required>
+                        </div>
+                        <div class="mb-2">
+                            <label for="descricao" class="form-label">Descrição</label>
+                            <textarea class="form-control" name="descricao" id="descricao" rows="2"><?= htmlspecialchars($editUnit['descricao'] ?? '') ?></textarea>
+                        </div>
+                        <div class="mb-2">
+                            <label for="tipo" class="form-label">Tipo</label>
+                            <select class="form-select" name="tipo" id="tipo">
+                                <option value="leitura" <?= (isset($editUnit['tipo']) && $editUnit['tipo'] === 'leitura') ? 'selected' : '' ?>>Leitura</option>
+                                <option value="atividade" <?= (isset($editUnit['tipo']) && $editUnit['tipo'] === 'atividade') ? 'selected' : '' ?>>Atividade</option>
+                                <option value="prova" <?= (isset($editUnit['tipo']) && $editUnit['tipo'] === 'prova') ? 'selected' : '' ?>>Prova</option>
+                            </select>
+                        </div>
+                        <div class="mb-2">
+                            <label for="nota" class="form-label">Nota</label>
+                            <input type="number" step="0.01" class="form-control" name="nota" id="nota" value="<?= htmlspecialchars($editUnit['nota'] ?? '') ?>">
+                        </div>
+                        <div class="mb-2">
+                            <label for="data_prazo" class="form-label">Prazo</label>
+                            <input type="date" class="form-control" name="data_prazo" id="data_prazo" value="<?= isset($editUnit['data_prazo']) && $editUnit['data_prazo'] ? date('Y-m-d', strtotime($editUnit['data_prazo'])) : '' ?>">
+                        </div>
+                        <div class="mb-2 form-check">
+                            <input type="checkbox" class="form-check-input" name="concluido" id="concluido" value="1" <?= (isset($editUnit['concluido']) && $editUnit['concluido']) ? 'checked' : '' ?>>
+                            <label for="concluido" class="form-check-label">Concluído/Ativo</label>
+                        </div>
+                        <div class="mb-2">
+                            <label for="topico_id" class="form-label">Tópico</label>
+                            <select class="form-select" name="topico_id" id="topico_id" required>
+                                <option value="">Selecione...</option>
+                                <?php foreach ($topicos as $t): ?>
+                                    <option value="<?= $t['id'] ?>" <?= (isset($editUnit['topico_id']) && $editUnit['topico_id'] == $t['id']) ? 'selected' : '' ?>><?= htmlspecialchars($t['disciplina_nome'] . ' - ' . $t['nome']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-success">Salvar</button>
+                            <?php if ($editUnit): ?>
+                                <a href="learning_units_simple.php" class="btn btn-secondary">Cancelar</a>
                             <?php endif; ?>
                         </div>
                     </form>
@@ -264,7 +525,3 @@ if (isset($_GET['edit'])) {
             </div>
         </div>
     </div>
-</div>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-</body>
-</html>
