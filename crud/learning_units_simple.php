@@ -165,17 +165,19 @@ $where = [
 // Filtro de disciplina
 if (isset($_GET['filtro_disciplina'])) {
     if ($_GET['filtro_disciplina'] === 'ativas') {
-        $where['disciplinas.status'] = 1;
+        // Disciplinas concluídas, aproveitadas ou dispensadas (status 1, 3, 4)
+        $where['disciplinas.status'] = [1, 3, 4];
     } elseif ($_GET['filtro_disciplina'] === 'pendentes') {
-        $where['disciplinas.status'] = 0;
+        // Disciplinas ativas ou a cursar (status 0, 2)
+        $where['disciplinas.status'] = [0, 2];
     }
 }
 // Filtro de tópico
 if (isset($_GET['filtro_topico'])) {
     if ($_GET['filtro_topico'] === 'ativos') {
-        $where['topicos.ativo'] = 1;
+        $where['topicos.concluido'] = 1;
     } elseif ($_GET['filtro_topico'] === 'pendentes') {
-        $where['topicos.ativo'] = 0;
+        $where['topicos.concluido'] = 0;
     }
 }
 // Filtro de unidade
@@ -279,24 +281,24 @@ if (isset($_GET['edit'])) {
                             <label for="filtro_disciplina" class="form-label mb-0">Disciplinas</label>
                             <select class="form-select" name="filtro_disciplina" id="filtro_disciplina">
                                 <option value="todos" <?php if(!isset($_GET['filtro_disciplina']) || $_GET['filtro_disciplina']==='todos') echo 'selected'; ?>>Todas</option>
-                                <option value="ativas" <?php if(isset($_GET['filtro_disciplina']) && $_GET['filtro_disciplina']==='ativas') echo 'selected'; ?>>Somente ativas</option>
-                                <option value="pendentes" <?php if(isset($_GET['filtro_disciplina']) && $_GET['filtro_disciplina']==='pendentes') echo 'selected'; ?>>Somente pendentes</option>
+                                <option value="ativas" <?php if(isset($_GET['filtro_disciplina']) && $_GET['filtro_disciplina']==='ativas') echo 'selected'; ?>>Concluídas</option>
+                                <option value="pendentes" <?php if(isset($_GET['filtro_disciplina']) && $_GET['filtro_disciplina']==='pendentes') echo 'selected'; ?>>Pendentes</option>
                             </select>
                         </div>
                         <div class="col-md-3">
                             <label for="filtro_topico" class="form-label mb-0">Tópicos</label>
                             <select class="form-select" name="filtro_topico" id="filtro_topico">
                                 <option value="todos" <?php if(!isset($_GET['filtro_topico']) || $_GET['filtro_topico']==='todos') echo 'selected'; ?>>Todos</option>
-                                <option value="ativos" <?php if(isset($_GET['filtro_topico']) && $_GET['filtro_topico']==='ativos') echo 'selected'; ?>>Somente ativos</option>
-                                <option value="pendentes" <?php if(isset($_GET['filtro_topico']) && $_GET['filtro_topico']==='pendentes') echo 'selected'; ?>>Somente pendentes</option>
+                                <option value="ativos" <?php if(isset($_GET['filtro_topico']) && $_GET['filtro_topico']==='ativos') echo 'selected'; ?>>Concluídos</option>
+                                <option value="pendentes" <?php if(isset($_GET['filtro_topico']) && $_GET['filtro_topico']==='pendentes') echo 'selected'; ?>>Pendentes</option>
                             </select>
                         </div>
                         <div class="col-md-3">
                             <label for="filtro_unidade" class="form-label mb-0">Unidades</label>
                             <select class="form-select" name="filtro_unidade" id="filtro_unidade">
                                 <option value="todos" <?php if(!isset($_GET['filtro_unidade']) || $_GET['filtro_unidade']==='todos') echo 'selected'; ?>>Todas</option>
-                                <option value="ativas" <?php if(isset($_GET['filtro_unidade']) && $_GET['filtro_unidade']==='ativas') echo 'selected'; ?>>Somente ativas</option>
-                                <option value="pendentes" <?php if(isset($_GET['filtro_unidade']) && $_GET['filtro_unidade']==='pendentes') echo 'selected'; ?>>Somente pendentes</option>
+                                <option value="ativas" <?php if(isset($_GET['filtro_unidade']) && $_GET['filtro_unidade']==='ativas') echo 'selected'; ?>>Concluídas</option>
+                                <option value="pendentes" <?php if(isset($_GET['filtro_unidade']) && $_GET['filtro_unidade']==='pendentes') echo 'selected'; ?>>Pendentes</option>
                             </select>
                         </div>
                         <div class="col-md-3">
@@ -332,7 +334,7 @@ if (isset($_GET['edit'])) {
                                             <td><?= $u['data_prazo'] ? date('d/m/Y', strtotime($u['data_prazo'])) : '-' ?></td>
                                             <td>
                                                 <?php if (isset($u['concluido']) && $u['concluido']): ?>
-                                                    <span class="badge bg-success">Ativa</span>
+                                                    <span class="badge bg-success">Concluída</span>
                                                 <?php else: ?>
                                                     <span class="badge bg-secondary">Pendente</span>
                                                 <?php endif; ?>
@@ -392,7 +394,7 @@ if (isset($_GET['edit'])) {
                         </div>
                         <div class="mb-2 form-check">
                             <input type="checkbox" class="form-check-input" name="concluido" id="concluido" value="1" <?= (isset($editUnit['concluido']) && $editUnit['concluido']) ? 'checked' : '' ?>>
-                            <label for="concluido" class="form-check-label">Concluído/Ativo</label>
+                            <label for="concluido" class="form-check-label">Concluído</label>
                         </div>
                         <div class="mb-2">
                             <label for="topico_id" class="form-label">Tópico</label>
