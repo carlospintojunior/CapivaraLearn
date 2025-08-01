@@ -1,14 +1,26 @@
 <?php
-// Configuração simplificada
+/**
+ * CRUD Simplificado de Tópicos - CapivaraLearn
+ * Sistema CapivaraLearn
+ */
+
+// Configuração de log igual ao dashboard
+error_reporting(E_ALL);
+ini_set('display_errors', 0); // Não mostrar erros na tela
+ini_set('log_errors', 1);
+ini_set('error_log', __DIR__ . '/../logs/sistema.log');
+
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../Medoo.php';
 
 use Medoo\Medoo;
 
-// Iniciar sessão e validar autenticação
+// Iniciar sessão
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+
+// Verificar login simples
 if (!isset($_SESSION['user_id'])) {
     header('Location: /CapivaraLearn/login.php');
     exit;
@@ -143,11 +155,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Buscar tópicos para exibição
-$topicos = $database->select('topicos', '*', [
-    'usuario_id' => $user_id,
-    'ORDER' => ['nome' => 'ASC']
-]);
+// Buscar tópicos para exibição com filtros
+$where = [
+    'topicos.usuario_id' => $user_id
+];
+
+// Filtro de disciplina
+if (isset($_GET['filtro_disciplina'])) {
+    if ($_GET['filtro_disciplina'] === 'ativas') {
+        // Disciplinas concluídas, aproveitadas ou dispensadas (status 1, 3, 4)
+        $where['disciplinas.status'] = [1, 3, 4];
+    } elseif ($_GET['filtro_disciplina'] === 'pendentes') {
+        // Disciplinas ativas ou a cursar (status 0, 2)
+        $where['disciplinas.status'] = [0, 2];
+    }
+}
+
+// Filtro de tópico
+if (isset($_GET['filtro_topico'])) {
+    if ($_GET['filtro_topico'] === 'ativos') {
+        $where['topicos.concluido'] = 1;
+    } elseif ($_GET['filtro_topico'] === 'pendentes') {
+        $where['topicos.concluido'] = 0;
+    }
+}
+
+$where['ORDER'] = [
+    'disciplinas.nome' => 'ASC',
+    'topicos.nome' => 'ASC'
+];
+
+// LOG: filtros aplicados (Monolog e error_log)
+if (file_exists(__DIR__ . '/../includes/log_sistema.php')) {
+    require_once __DIR__ . '/../includes/log_sistema.php';
+    if (function_exists('getLogger')) {
+        $logger = getLogger();
+        $logger->info('Filtros WHERE topics_simple', ['where' => $where, 'get' => $_GET]);
+    }
+}
+error_log('TOPICS_SIMPLE: Filtros WHERE: ' . var_export($where, true) . ' | GET: ' . var_export($_GET, true));
+
+$topicos = $database->select('topicos', [
+    '[>]disciplinas' => ['disciplina_id' => 'id']
+], [
+    'topicos.id',
+    'topicos.nome',
+    'topicos.descricao',
+    'topicos.ordem',
+    'topicos.data_prazo',
+    'topicos.concluido',
+    'topicos.disciplina_id',
+    'disciplinas.nome(disciplina_nome)'
+], $where);
+
+// LOG: resultado da consulta (Monolog e error_log)
+if (isset($logger)) {
+    $logger->info('Resultado SELECT topics_simple', ['count' => count($topicos), 'topicos' => $topicos]);
+}
+error_log('TOPICS_SIMPLE: Resultado SELECT: count=' . count($topicos) . ' | topicos=' . var_export($topicos, true));
 
 // Buscar tópico para edição
 $editTopic = null;
@@ -190,46 +255,75 @@ if (isset($_GET['edit'])) {
         <div class="col-md-8 mb-4">
             <div class="card">
                 <div class="card-header">
-                    <h5 class="mb-0">Lista de Tópicos <small class="text-muted"><?= count($topicos) ?> registros</small></h5>
+                    Tópicos Cadastrados (<?= count($topicos) ?>)
                 </div>
                 <div class="card-body">
-                    <?php if (empty($topicos)): ?>
-                        <p class="text-muted text-center">Nenhum tópico cadastrado.</p>
-                    <?php else: ?>
-                        <div class="table-responsive">
-                            <table class="table table-striped table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Nome</th>
-                                        <th>Disciplina</th>
-                                        <th>Ordem</th>
-                                        <th>Prazo</th>
-                                        <th>Status</th>
-                                        <th width="120">Ações</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
+                    <!-- Formulário de filtros com dropdowns -->
+                    <form method="get" class="row g-2 mb-3 align-items-end">
+                        <div class="col-md-4">
+                            <label for="filtro_disciplina" class="form-label mb-0">Disciplinas</label>
+                            <select class="form-select" name="filtro_disciplina" id="filtro_disciplina">
+                                <option value="todos" <?php if(!isset($_GET['filtro_disciplina']) || $_GET['filtro_disciplina']==='todos') echo 'selected'; ?>>Todas</option>
+                                <option value="ativas" <?php if(isset($_GET['filtro_disciplina']) && $_GET['filtro_disciplina']==='ativas') echo 'selected'; ?>>Concluídas</option>
+                                <option value="pendentes" <?php if(isset($_GET['filtro_disciplina']) && $_GET['filtro_disciplina']==='pendentes') echo 'selected'; ?>>Pendentes</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="filtro_topico" class="form-label mb-0">Tópicos</label>
+                            <select class="form-select" name="filtro_topico" id="filtro_topico">
+                                <option value="todos" <?php if(!isset($_GET['filtro_topico']) || $_GET['filtro_topico']==='todos') echo 'selected'; ?>>Todos</option>
+                                <option value="ativos" <?php if(isset($_GET['filtro_topico']) && $_GET['filtro_topico']==='ativos') echo 'selected'; ?>>Concluídos</option>
+                                <option value="pendentes" <?php if(isset($_GET['filtro_topico']) && $_GET['filtro_topico']==='pendentes') echo 'selected'; ?>>Pendentes</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="submit" class="btn btn-outline-primary w-100">Filtrar</button>
+                        </div>
+                    </form>
+                    <!-- Tabela de tópicos cadastrados -->
+                    <div class="table-responsive mb-3">
+                        <table class="table table-striped table-bordered align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Disciplina</th>
+                                    <th>Nome</th>
+                                    <th>Ordem</th>
+                                    <th>Prazo</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($topicos)): ?>
+                                    <tr><td colspan="6" class="text-center">Nenhum tópico encontrado.</td></tr>
+                                <?php else: ?>
                                     <?php foreach ($topicos as $t): ?>
                                         <tr>
+                                            <td><?= htmlspecialchars($t['disciplina_nome'] ?? '-') ?></td>
                                             <td><?= htmlspecialchars($t['nome']) ?></td>
-                                        <td><?= htmlspecialchars($disciplinasMap[$t['disciplina_id']] ?? '-') ?></td>
                                             <td><?= $t['ordem'] ?></td>
-                                            <td><?= $t['data_prazo'] ?: '-' ?></td>
-                                            <td><?= $t['concluido'] ? 'Concluído' : 'Pendente' ?></td>
+                                            <td><?= $t['data_prazo'] ? date('d/m/Y', strtotime($t['data_prazo'])) : '-' ?></td>
                                             <td>
-                                                <a href="?edit=<?= $t['id'] ?>" class="btn btn-sm btn-primary"><i class="fas fa-edit"></i></a>
-                                                <form method="post" class="d-inline">
+                                                <?php if (isset($t['concluido']) && $t['concluido']): ?>
+                                                    <span class="badge bg-success">Concluído</span>
+                                                <?php else: ?>
+                                                    <span class="badge bg-secondary">Pendente</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td>
+                                                <a href="?edit=<?= $t['id'] ?>" class="btn btn-sm btn-primary" title="Editar"><i class="fas fa-edit"></i></a>
+                                                <form method="post" action="" style="display:inline-block" onsubmit="return confirm('Tem certeza que deseja excluir este tópico?');">
                                                     <input type="hidden" name="action" value="delete">
                                                     <input type="hidden" name="id" value="<?= $t['id'] ?>">
-                                                    <button class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button>
+                                                    <button type="submit" class="btn btn-sm btn-danger" title="Excluir"><i class="fas fa-trash"></i></button>
                                                 </form>
                                             </td>
                                         </tr>
                                     <?php endforeach; ?>
-                                </tbody>
-                            </table>
-                        </div>
-                    <?php endif; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
@@ -237,44 +331,48 @@ if (isset($_GET['edit'])) {
         <!-- Formulário de Criação/Edição -->
         <div class="col-md-4">
             <div class="card">
-                <div class="card-header"><i class="fas fa-<?= $editTopic ? 'edit' : 'plus' ?>"></i> <?= $editTopic ? 'Editar' : 'Novo' ?> Tópico</div>
+                <div class="card-header">
+                    <?= $editTopic ? 'Editar Tópico' : 'Novo Tópico' ?>
+                </div>
                 <div class="card-body">
-                    <form method="post">
+                    <form method="post" action="">
                         <input type="hidden" name="action" value="<?= $editTopic ? 'update' : 'create' ?>">
-                        <?php if ($editTopic): ?><input type="hidden" name="id" value="<?= $editTopic['id'] ?>"><?php endif;?>
-                        <div class="mb-3">
-                            <label class="form-label">Nome</label>
-                            <input type="text" name="nome" class="form-control" value="<?= htmlspecialchars($editTopic['nome'] ?? '') ?>" required>
+                        <?php if ($editTopic): ?>
+                            <input type="hidden" name="id" value="<?= $editTopic['id'] ?>">
+                        <?php endif; ?>
+                        <div class="mb-2">
+                            <label for="nome" class="form-label">Nome</label>
+                            <input type="text" class="form-control" name="nome" id="nome" value="<?= htmlspecialchars($editTopic['nome'] ?? '') ?>" required>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Disciplina</label>
-                            <select name="disciplina_id" class="form-select" required>
-                                <option value="">Selecione</option>
+                        <div class="mb-2">
+                            <label for="descricao" class="form-label">Descrição</label>
+                            <textarea class="form-control" name="descricao" id="descricao" rows="2"><?= htmlspecialchars($editTopic['descricao'] ?? '') ?></textarea>
+                        </div>
+                        <div class="mb-2">
+                            <label for="disciplina_id" class="form-label">Disciplina</label>
+                            <select class="form-select" name="disciplina_id" id="disciplina_id" required>
+                                <option value="">Selecione...</option>
                                 <?php foreach ($disciplinas as $d): ?>
-                                    <option value="<?= $d['id'] ?>" <?= isset($editTopic['disciplina_id']) && $editTopic['disciplina_id']==$d['id'] ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($d['nome']) ?>
-                                    </option>
+                                    <option value="<?= $d['id'] ?>" <?= (isset($editTopic['disciplina_id']) && $editTopic['disciplina_id'] == $d['id']) ? 'selected' : '' ?>><?= htmlspecialchars($d['nome']) ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Ordem</label>
-                            <input type="number" name="ordem" class="form-control" value="<?= $editTopic['ordem'] ?? 0 ?>">
+                        <div class="mb-2">
+                            <label for="ordem" class="form-label">Ordem</label>
+                            <input type="number" class="form-control" name="ordem" id="ordem" value="<?= htmlspecialchars($editTopic['ordem'] ?? 0) ?>">
                         </div>
-                        <div class="mb-3">
-                            <label class="form-label">Prazo</label>
-                            <input type="date" name="data_prazo" class="form-control" value="<?= $editTopic['data_prazo'] ?? '' ?>">
+                        <div class="mb-2">
+                            <label for="data_prazo" class="form-label">Prazo</label>
+                            <input type="date" class="form-control" name="data_prazo" id="data_prazo" value="<?= isset($editTopic['data_prazo']) && $editTopic['data_prazo'] ? date('Y-m-d', strtotime($editTopic['data_prazo'])) : '' ?>">
                         </div>
-                        <div class="form-check mb-3">
-                            <input type="checkbox" name="concluido" class="form-check-input" id="concluido" <?= (!empty($editTopic['concluido']) ? 'checked' : '') ?>>
-                            <label class="form-check-label" for="concluido">Concluído</label>
+                        <div class="mb-2 form-check">
+                            <input type="checkbox" class="form-check-input" name="concluido" id="concluido" value="1" <?= (isset($editTopic['concluido']) && $editTopic['concluido']) ? 'checked' : '' ?>>
+                            <label for="concluido" class="form-check-label">Concluído</label>
                         </div>
-                        <div class="d-grid gap-2">
-                            <button type="submit" class="btn btn-<?= $editTopic ? 'primary' : 'success' ?>">
-                                <?= $editTopic ? 'Atualizar' : 'Criar' ?>
-                            </button>
+                        <div class="d-flex justify-content-between">
+                            <button type="submit" class="btn btn-success">Salvar</button>
                             <?php if ($editTopic): ?>
-                                <a href="?" class="btn btn-secondary">Cancelar</a>
+                                <a href="topics_simple.php" class="btn btn-secondary">Cancelar</a>
                             <?php endif; ?>
                         </div>
                     </form>
