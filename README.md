@@ -148,6 +148,7 @@ sudo /opt/lampp/xampp restart
 
 pscp -i /home/carlos/Nextcloud/Documents/ppk/capivaralearn.ppk crud/learning_units_simple.php root@198.23.132.15:/var/www/capivaralearn/crud/learning_units_simple.php
 
+pscp -batch -i /home/carlos/Nextcloud/Documents/ppk/capivaralearn.ppk crud/modules_simple.php root@198.23.132.15:/var/www/capivaralearn/crud/
 
 ## Premissas
 

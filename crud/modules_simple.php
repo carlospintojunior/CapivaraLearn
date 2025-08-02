@@ -1,6 +1,7 @@
 <?php
 // Configuração simplificada - Gerenciar Disciplinas
 require_once __DIR__ . '/../includes/config.php';
+require_once __DIR__ . '/../includes/logger_config.php';
 require_once __DIR__ . '/../Medoo.php';
 
 use Medoo\Medoo;
@@ -161,7 +162,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Buscar disciplinas para exibição
+// Buscar disciplinas para exibição com filtros
+$filtro_curso = $_GET['filtro_curso'] ?? 'todos';
+$filtro_status = $_GET['filtro_status'] ?? 'todos';
+
+// Log dos filtros aplicados
+logInfo("Filtros aplicados - Curso: $filtro_curso, Status: $filtro_status");
+
+// Construir condições de filtro
+$conditions = ['disciplinas.usuario_id' => $user_id];
+
+// Aplicar filtro de curso
+if ($filtro_curso !== 'todos') {
+    $conditions['cursos.id'] = intval($filtro_curso);
+    logInfo("Filtro de curso aplicado: " . intval($filtro_curso));
+}
+
+// Aplicar filtro de status
+if ($filtro_status !== 'todos') {
+    switch ($filtro_status) {
+        case 'ativas':
+            $conditions['disciplinas.status'] = 0;
+            break;
+        case 'concluidas':
+            $conditions['disciplinas.status'] = 1;
+            break;
+        case 'a_cursar':
+            $conditions['disciplinas.status'] = 2;
+            break;
+        case 'aproveitadas':
+            $conditions['disciplinas.status'] = 3;
+            break;
+        case 'dispensadas':
+            $conditions['disciplinas.status'] = 4;
+            break;
+    }
+    logInfo("Filtro de status aplicado: $filtro_status");
+}
+
+// Adicionar ordenação
+$conditions['ORDER'] = ['cursos.nome' => 'ASC', 'disciplinas.nome' => 'ASC'];
+
 $disciplinas = $database->select('disciplinas', [
     '[>]cursos' => ['curso_id' => 'id']
 ], [
@@ -172,10 +213,9 @@ $disciplinas = $database->select('disciplinas', [
     'disciplinas.semestre',
     'disciplinas.status',
     'cursos.nome(curso_nome)'
-], [
-    'disciplinas.usuario_id' => $user_id,
-    'ORDER' => ['cursos.nome' => 'ASC', 'disciplinas.nome' => 'ASC']
-]);
+], $conditions);
+
+logInfo("Disciplinas encontradas: " . count($disciplinas));
 
 // Preparar edição
 $editDisc = null;
@@ -214,33 +254,71 @@ if (isset($_GET['edit'])) {
     <div class="row">
         <div class="col-md-8 mb-4">
             <div class="card">
-                <div class="card-header"><h5>Lista de Disciplinas (<?= count($disciplinas) ?>)</h5></div>
+                <div class="card-header">
+                    <h5>Lista de Disciplinas (<?= count($disciplinas) ?>)</h5>
+                </div>
                 <div class="card-body">
-                    <?php if (empty($disciplinas)): ?>
-                        <p class="text-center text-muted">Nenhuma disciplina cadastrada.</p>
-                    <?php else: ?>
-                        <table class="table table-striped table-hover">
-                            <thead><tr>
-                                <th>Nome</th><th>Código</th><th>Curso</th><th>C.H.</th><th style="display: none;">Sem.</th><th>Status</th><th>Ações</th>
-                            </tr></thead>
-                            <tbody>
-                            <?php foreach ($disciplinas as $d): ?>
-                                <tr>
-                                    <td><?= htmlspecialchars($d['nome']) ?></td>
-                                    <td><?= htmlspecialchars($d['codigo']) ?></td>
-                                    <td><?= htmlspecialchars($d['curso_nome']) ?></td>
-                                    <td><?= $d['carga_horaria'] ?></td>
-                                    <td style="display: none;"><?= $d['semestre'] ?></td>
-                                    <td><span class="<?= getStatusClass($d['status']) ?>"><?= getStatusText($d['status']) ?></span></td>
-                                    <td>
-                                        <a href="?edit=<?= $d['id'] ?>" class="btn btn-sm btn-primary"><i class="fas fa-edit"></i></a>
-                                        <form method="post" class="d-inline"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $d['id'] ?>"><button class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button></form>
-                                    </td>
-                                </tr>
-                            <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    <?php endif; ?>
+                    <!-- Formulário de filtros -->
+                    <form method="get" class="row g-2 mb-3 align-items-end">
+                        <div class="col-md-4">
+                            <label for="filtro_curso" class="form-label mb-0">Curso</label>
+                            <select class="form-select" name="filtro_curso" id="filtro_curso">
+                                <option value="todos" <?php if($filtro_curso === 'todos') echo 'selected'; ?>>Todos os Cursos</option>
+                                <?php foreach($cursos as $curso): ?>
+                                    <option value="<?= $curso['id'] ?>" <?php if($filtro_curso == $curso['id']) echo 'selected'; ?>>
+                                        <?= htmlspecialchars($curso['nome']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="filtro_status" class="form-label mb-0">Status</label>
+                            <select class="form-select" name="filtro_status" id="filtro_status">
+                                <option value="todos" <?php if($filtro_status === 'todos') echo 'selected'; ?>>Todos os Status</option>
+                                <option value="ativas" <?php if($filtro_status === 'ativas') echo 'selected'; ?>>Ativas</option>
+                                <option value="concluidas" <?php if($filtro_status === 'concluidas') echo 'selected'; ?>>Concluídas</option>
+                                <option value="a_cursar" <?php if($filtro_status === 'a_cursar') echo 'selected'; ?>>A Cursar</option>
+                                <option value="aproveitadas" <?php if($filtro_status === 'aproveitadas') echo 'selected'; ?>>Aproveitadas</option>
+                                <option value="dispensadas" <?php if($filtro_status === 'dispensadas') echo 'selected'; ?>>Dispensadas</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="submit" class="btn btn-outline-primary w-100">Filtrar</button>
+                        </div>
+                    </form>
+                    
+                    <!-- Tabela de disciplinas -->
+                    <div class="table-responsive">
+                        <?php if (empty($disciplinas)): ?>
+                            <p class="text-center text-muted">Nenhuma disciplina encontrada com os filtros aplicados.</p>
+                        <?php else: ?>
+                            <table class="table table-striped table-hover">
+                                <thead><tr>
+                                    <th>Nome</th><th>Código</th><th>Curso</th><th>C.H.</th><th style="display: none;">Sem.</th><th>Status</th><th>Ações</th>
+                                </tr></thead>
+                                <tbody>
+                                <?php foreach ($disciplinas as $d): ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars($d['nome']) ?></td>
+                                        <td><?= htmlspecialchars($d['codigo']) ?></td>
+                                        <td><?= htmlspecialchars($d['curso_nome']) ?></td>
+                                        <td><?= $d['carga_horaria'] ?></td>
+                                        <td style="display: none;"><?= $d['semestre'] ?></td>
+                                        <td><span class="<?= getStatusClass($d['status']) ?>"><?= getStatusText($d['status']) ?></span></td>
+                                        <td>
+                                            <a href="?edit=<?= $d['id'] ?>" class="btn btn-sm btn-primary" title="Editar"><i class="fas fa-edit"></i></a>
+                                            <form method="post" class="d-inline" onsubmit="return confirm('Tem certeza que deseja excluir esta disciplina?');">
+                                                <input type="hidden" name="action" value="delete">
+                                                <input type="hidden" name="id" value="<?= $d['id'] ?>">
+                                                <button class="btn btn-sm btn-danger" title="Excluir"><i class="fas fa-trash"></i></button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                                </tbody>
+                            </table>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
         </div>
