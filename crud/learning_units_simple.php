@@ -324,7 +324,12 @@ if (isset($_GET['edit'])) {
                                             <td><?= htmlspecialchars($u['topico_nome'] ?? '-') ?></td>
                                             <td><?= htmlspecialchars($u['nome']) ?></td>
                                             <td><?= htmlspecialchars($u['tipo']) ?></td>
-                                            <td><?= is_null($u['nota']) ? '-' : number_format($u['nota'], 2, ',', '.') ?></td>
+                                            <td><?= 
+                                                // Só mostrar nota se a unidade estiver concluída
+                                                (isset($u['concluido']) && $u['concluido'] && !is_null($u['nota'])) 
+                                                    ? number_format($u['nota'], 2, ',', '.') 
+                                                    : '-' 
+                                            ?></td>
                                             <td><?= $u['data_prazo'] ? date('d/m/Y', strtotime($u['data_prazo'])) : '-' ?></td>
                                             <td>
                                                 <?php if (isset($u['concluido']) && $u['concluido']): ?>
