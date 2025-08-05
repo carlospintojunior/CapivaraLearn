@@ -35,6 +35,14 @@ $user_id = $_SESSION['user_id'];
 $message = '';
 $messageType = '';
 
+// Buscar disciplinas para o filtro por disciplina específica
+$disciplinas = $database->select('disciplinas', [
+    'id', 'nome'
+], [
+    'usuario_id' => $user_id,
+    'ORDER' => ['nome' => 'ASC']
+]);
+
 // Buscar tópicos com disciplinas para selects
 $topicos = $database->select('topicos', [
     '[>]disciplinas' => ['disciplina_id' => 'id']
@@ -152,12 +160,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 // ===== SISTEMA DE PERSISTÊNCIA DE FILTROS =====
 // Verificar se há filtros sendo enviados pelo GET
-if (isset($_GET['filtro_disciplina']) || isset($_GET['filtro_topico']) || isset($_GET['filtro_unidade'])) {
+if (isset($_GET['filtro_disciplina']) || isset($_GET['filtro_topico']) || isset($_GET['filtro_unidade']) || isset($_GET['disciplina_especifica'])) {
     // Salvar filtros na sessão
     $_SESSION['learning_units_filters'] = [
         'filtro_disciplina' => $_GET['filtro_disciplina'] ?? 'todos',
         'filtro_topico' => $_GET['filtro_topico'] ?? 'todos',
-        'filtro_unidade' => $_GET['filtro_unidade'] ?? 'todos'
+        'filtro_unidade' => $_GET['filtro_unidade'] ?? 'todos',
+        'disciplina_especifica' => $_GET['disciplina_especifica'] ?? 'todas'
     ];
 } elseif (isset($_GET['clear_filters'])) {
     // Limpar filtros se solicitado
@@ -173,18 +182,24 @@ if (isset($_GET['filtro_disciplina']) || isset($_GET['filtro_topico']) || isset(
 $filtro_disciplina = $_GET['filtro_disciplina'] ?? 'todos';
 $filtro_topico = $_GET['filtro_topico'] ?? 'todos';
 $filtro_unidade = $_GET['filtro_unidade'] ?? 'todos';
+$disciplina_especifica = $_GET['disciplina_especifica'] ?? 'todas';
 
 $where = [
     'unidades_aprendizagem.usuario_id' => $user_id
 ];
 
-// Filtro de disciplina
-if ($filtro_disciplina === 'ativas') {
-    // Disciplinas concluídas, aproveitadas ou dispensadas (status 1, 3, 4)
-    $where['disciplinas.status'] = [1, 3, 4];
-} elseif ($filtro_disciplina === 'pendentes') {
-    // Disciplinas ativas ou a cursar (status 0, 2)
-    $where['disciplinas.status'] = [0, 2];
+// Filtro por disciplina específica (tem prioridade sobre o filtro de status)
+if ($disciplina_especifica !== 'todas') {
+    $where['disciplinas.id'] = intval($disciplina_especifica);
+} else {
+    // Filtro de disciplina por status (apenas se não há disciplina específica selecionada)
+    if ($filtro_disciplina === 'ativas') {
+        // Disciplinas concluídas, aproveitadas ou dispensadas (status 1, 3, 4)
+        $where['disciplinas.status'] = [1, 3, 4];
+    } elseif ($filtro_disciplina === 'pendentes') {
+        // Disciplinas ativas ou a cursar (status 0, 2)
+        $where['disciplinas.status'] = [0, 2];
+    }
 }
 
 // Filtro de tópico
@@ -290,8 +305,19 @@ if (isset($_GET['edit'])) {
                     <!-- Formulário de filtros com dropdowns -->
                     <form method="get" class="row g-2 mb-3 align-items-end">
                         <div class="col-md-2">
-                            <label for="filtro_disciplina" class="form-label mb-0">Disciplinas</label>
-                            <select class="form-select" name="filtro_disciplina" id="filtro_disciplina">
+                            <label for="disciplina_especifica" class="form-label mb-0">Disciplina</label>
+                            <select class="form-select" name="disciplina_especifica" id="disciplina_especifica">
+                                <option value="todas" <?php if($disciplina_especifica === 'todas') echo 'selected'; ?>>Todas as Disciplinas</option>
+                                <?php foreach($disciplinas as $disc): ?>
+                                    <option value="<?= $disc['id'] ?>" <?php if($disciplina_especifica == $disc['id']) echo 'selected'; ?>>
+                                        <?= htmlspecialchars($disc['nome']) ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label for="filtro_disciplina" class="form-label mb-0">Status Disc.</label>
+                            <select class="form-select" name="filtro_disciplina" id="filtro_disciplina" <?php if($disciplina_especifica !== 'todas') echo 'disabled'; ?>>
                                 <option value="todos" <?php if($filtro_disciplina === 'todos') echo 'selected'; ?>>Todas</option>
                                 <option value="ativas" <?php if($filtro_disciplina === 'ativas') echo 'selected'; ?>>Concluídas</option>
                                 <option value="pendentes" <?php if($filtro_disciplina === 'pendentes') echo 'selected'; ?>>Pendentes</option>
@@ -313,12 +339,12 @@ if (isset($_GET['edit'])) {
                                 <option value="pendentes" <?php if($filtro_unidade === 'pendentes') echo 'selected'; ?>>Pendentes</option>
                             </select>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <button type="submit" class="btn btn-outline-primary w-100">
                                 <i class="fas fa-filter me-1"></i>Filtrar
                             </button>
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <a href="?clear_filters=1" class="btn btn-outline-secondary w-100">
                                 <i class="fas fa-times me-1"></i>Limpar
                             </a>
@@ -326,13 +352,26 @@ if (isset($_GET['edit'])) {
                     </form>
                     
                     <!-- Indicador de filtros ativos -->
-                    <?php if ($filtro_disciplina !== 'todos' || $filtro_topico !== 'todos' || $filtro_unidade !== 'todos'): ?>
+                    <?php if ($filtro_disciplina !== 'todos' || $filtro_topico !== 'todos' || $filtro_unidade !== 'todos' || $disciplina_especifica !== 'todas'): ?>
                         <div class="alert alert-info alert-dismissible fade show" role="alert">
                             <i class="fas fa-info-circle me-2"></i>
                             <strong>Filtros ativos:</strong>
-                            <?php if ($filtro_disciplina !== 'todos'): ?>
+                            <?php if ($disciplina_especifica !== 'todas'): ?>
+                                <?php 
+                                $disciplinaNome = '';
+                                foreach($disciplinas as $disc) {
+                                    if($disc['id'] == $disciplina_especifica) {
+                                        $disciplinaNome = $disc['nome'];
+                                        break;
+                                    }
+                                }
+                                ?>
+                                <span class="badge bg-success me-1">
+                                    Disciplina: <?php echo htmlspecialchars($disciplinaNome); ?>
+                                </span>
+                            <?php elseif ($filtro_disciplina !== 'todos'): ?>
                                 <span class="badge bg-primary me-1">
-                                    Disciplinas: <?php 
+                                    Status Disciplinas: <?php 
                                         echo $filtro_disciplina === 'ativas' ? 'Concluídas' : 'Pendentes'; 
                                     ?>
                                 </span>
@@ -345,7 +384,7 @@ if (isset($_GET['edit'])) {
                                 </span>
                             <?php endif; ?>
                             <?php if ($filtro_unidade !== 'todos'): ?>
-                                <span class="badge bg-success me-1">
+                                <span class="badge bg-warning me-1">
                                     Unidades: <?php 
                                         echo $filtro_unidade === 'ativas' ? 'Concluídas' : 'Pendentes'; 
                                     ?>
@@ -356,6 +395,7 @@ if (isset($_GET['edit'])) {
                             </a>
                         </div>
                     <?php endif; ?>
+                    
                     <!-- Tabela de unidades cadastradas -->
                     <div class="table-responsive mb-3">
                         <table class="table table-striped table-bordered align-middle">
@@ -467,3 +507,30 @@ if (isset($_GET['edit'])) {
             </div>
         </div>
     </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // JavaScript para controlar a interação entre os filtros
+        document.addEventListener('DOMContentLoaded', function() {
+            const disciplinaEspecifica = document.getElementById('disciplina_especifica');
+            const filtroDisciplina = document.getElementById('filtro_disciplina');
+            
+            // Função para habilitar/desabilitar o filtro de status de disciplina
+            function toggleStatusDisciplina() {
+                if (disciplinaEspecifica.value !== 'todas') {
+                    filtroDisciplina.disabled = true;
+                    filtroDisciplina.value = 'todos';
+                } else {
+                    filtroDisciplina.disabled = false;
+                }
+            }
+            
+            // Executar na inicialização
+            toggleStatusDisciplina();
+            
+            // Executar quando a disciplina específica mudar
+            disciplinaEspecifica.addEventListener('change', toggleStatusDisciplina);
+        });
+    </script>
+</body>
+</html>
