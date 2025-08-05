@@ -150,29 +150,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// ===== SISTEMA DE PERSISTÊNCIA DE FILTROS =====
+// Verificar se há filtros sendo enviados pelo GET
+if (isset($_GET['filtro_disciplina']) || isset($_GET['filtro_topico'])) {
+    // Salvar filtros na sessão
+    $_SESSION['topics_filters'] = [
+        'filtro_disciplina' => $_GET['filtro_disciplina'] ?? 'todos',
+        'filtro_topico' => $_GET['filtro_topico'] ?? 'todos'
+    ];
+} elseif (isset($_GET['clear_filters'])) {
+    // Limpar filtros se solicitado
+    unset($_SESSION['topics_filters']);
+    $filtros_ativos = [];
+} else {
+    // Recuperar filtros salvos na sessão se não há GET
+    if (isset($_SESSION['topics_filters'])) {
+        $_GET = array_merge($_GET, $_SESSION['topics_filters']);
+    }
+}
+
 // Buscar tópicos para exibição com filtros
 $where = [
     'topicos.usuario_id' => $user_id
 ];
 
+// Aplicar filtros salvos ou recebidos
+$filtro_disciplina = $_GET['filtro_disciplina'] ?? 'todos';
+$filtro_topico = $_GET['filtro_topico'] ?? 'todos';
+
 // Filtro de disciplina
-if (isset($_GET['filtro_disciplina'])) {
-    if ($_GET['filtro_disciplina'] === 'ativas') {
-        // Disciplinas concluídas, aproveitadas ou dispensadas (status 1, 3, 4)
-        $where['disciplinas.status'] = [1, 3, 4];
-    } elseif ($_GET['filtro_disciplina'] === 'pendentes') {
-        // Disciplinas ativas ou a cursar (status 0, 2)
-        $where['disciplinas.status'] = [0, 2];
-    }
+if ($filtro_disciplina === 'ativas') {
+    // Disciplinas concluídas, aproveitadas ou dispensadas (status 1, 3, 4)
+    $where['disciplinas.status'] = [1, 3, 4];
+} elseif ($filtro_disciplina === 'pendentes') {
+    // Disciplinas ativas ou a cursar (status 0, 2)
+    $where['disciplinas.status'] = [0, 2];
 }
 
 // Filtro de tópico
-if (isset($_GET['filtro_topico'])) {
-    if ($_GET['filtro_topico'] === 'ativos') {
-        $where['topicos.concluido'] = 1;
-    } elseif ($_GET['filtro_topico'] === 'pendentes') {
-        $where['topicos.concluido'] = 0;
-    }
+if ($filtro_topico === 'ativos') {
+    $where['topicos.concluido'] = 1;
+} elseif ($filtro_topico === 'pendentes') {
+    $where['topicos.concluido'] = 0;
 }
 
 $where['ORDER'] = [
@@ -255,26 +274,58 @@ if (isset($_GET['edit'])) {
                 <div class="card-body">
                     <!-- Formulário de filtros com dropdowns -->
                     <form method="get" class="row g-2 mb-3 align-items-end">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label for="filtro_disciplina" class="form-label mb-0">Disciplinas</label>
                             <select class="form-select" name="filtro_disciplina" id="filtro_disciplina">
-                                <option value="todos" <?php if(!isset($_GET['filtro_disciplina']) || $_GET['filtro_disciplina']==='todos') echo 'selected'; ?>>Todas</option>
-                                <option value="ativas" <?php if(isset($_GET['filtro_disciplina']) && $_GET['filtro_disciplina']==='ativas') echo 'selected'; ?>>Concluídas</option>
-                                <option value="pendentes" <?php if(isset($_GET['filtro_disciplina']) && $_GET['filtro_disciplina']==='pendentes') echo 'selected'; ?>>Pendentes</option>
+                                <option value="todos" <?php if($filtro_disciplina === 'todos') echo 'selected'; ?>>Todas</option>
+                                <option value="ativas" <?php if($filtro_disciplina === 'ativas') echo 'selected'; ?>>Concluídas</option>
+                                <option value="pendentes" <?php if($filtro_disciplina === 'pendentes') echo 'selected'; ?>>Pendentes</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label for="filtro_topico" class="form-label mb-0">Tópicos</label>
                             <select class="form-select" name="filtro_topico" id="filtro_topico">
-                                <option value="todos" <?php if(!isset($_GET['filtro_topico']) || $_GET['filtro_topico']==='todos') echo 'selected'; ?>>Todos</option>
-                                <option value="ativos" <?php if(isset($_GET['filtro_topico']) && $_GET['filtro_topico']==='ativos') echo 'selected'; ?>>Concluídos</option>
-                                <option value="pendentes" <?php if(isset($_GET['filtro_topico']) && $_GET['filtro_topico']==='pendentes') echo 'selected'; ?>>Pendentes</option>
+                                <option value="todos" <?php if($filtro_topico === 'todos') echo 'selected'; ?>>Todos</option>
+                                <option value="ativos" <?php if($filtro_topico === 'ativos') echo 'selected'; ?>>Concluídos</option>
+                                <option value="pendentes" <?php if($filtro_topico === 'pendentes') echo 'selected'; ?>>Pendentes</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
-                            <button type="submit" class="btn btn-outline-primary w-100">Filtrar</button>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-outline-primary w-100">
+                                <i class="fas fa-filter me-1"></i>Filtrar
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="?clear_filters=1" class="btn btn-outline-secondary w-100">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
                         </div>
                     </form>
+                    
+                    <!-- Indicador de filtros ativos -->
+                    <?php if ($filtro_disciplina !== 'todos' || $filtro_topico !== 'todos'): ?>
+                        <div class="alert alert-info alert-dismissible fade show" role="alert">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Filtros ativos:</strong>
+                            <?php if ($filtro_disciplina !== 'todos'): ?>
+                                <span class="badge bg-primary me-1">
+                                    Disciplinas: <?php 
+                                        echo $filtro_disciplina === 'ativas' ? 'Concluídas' : 'Pendentes'; 
+                                    ?>
+                                </span>
+                            <?php endif; ?>
+                            <?php if ($filtro_topico !== 'todos'): ?>
+                                <span class="badge bg-secondary me-1">
+                                    Tópicos: <?php 
+                                        echo $filtro_topico === 'ativos' ? 'Concluídos' : 'Pendentes'; 
+                                    ?>
+                                </span>
+                            <?php endif; ?>
+                            <a href="?clear_filters=1" class="ms-2 text-decoration-none">
+                                <small><i class="fas fa-times"></i> Limpar todos</small>
+                            </a>
+                        </div>
+                    <?php endif; ?>
                     <!-- Tabela de tópicos cadastrados -->
                     <div class="table-responsive mb-3">
                         <table class="table table-striped table-bordered align-middle">
