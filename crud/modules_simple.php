@@ -162,6 +162,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// ===== SISTEMA DE PERSISTÊNCIA DE FILTROS =====
+// Verificar se há filtros sendo enviados pelo GET
+if (isset($_GET['filtro_curso']) || isset($_GET['filtro_status'])) {
+    // Salvar filtros na sessão
+    $_SESSION['modules_filters'] = [
+        'filtro_curso' => $_GET['filtro_curso'] ?? 'todos',
+        'filtro_status' => $_GET['filtro_status'] ?? 'todos'
+    ];
+} elseif (isset($_GET['clear_filters'])) {
+    // Limpar filtros se solicitado
+    unset($_SESSION['modules_filters']);
+} else {
+    // Recuperar filtros salvos na sessão se não há GET
+    if (isset($_SESSION['modules_filters'])) {
+        $_GET = array_merge($_GET, $_SESSION['modules_filters']);
+    }
+}
+
 // Buscar disciplinas para exibição com filtros
 $filtro_curso = $_GET['filtro_curso'] ?? 'todos';
 $filtro_status = $_GET['filtro_status'] ?? 'todos';
@@ -260,7 +278,7 @@ if (isset($_GET['edit'])) {
                 <div class="card-body">
                     <!-- Formulário de filtros -->
                     <form method="get" class="row g-2 mb-3 align-items-end">
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label for="filtro_curso" class="form-label mb-0">Curso</label>
                             <select class="form-select" name="filtro_curso" id="filtro_curso">
                                 <option value="todos" <?php if($filtro_curso === 'todos') echo 'selected'; ?>>Todos os Cursos</option>
@@ -271,7 +289,7 @@ if (isset($_GET['edit'])) {
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <div class="col-md-4">
+                        <div class="col-md-3">
                             <label for="filtro_status" class="form-label mb-0">Status</label>
                             <select class="form-select" name="filtro_status" id="filtro_status">
                                 <option value="todos" <?php if($filtro_status === 'todos') echo 'selected'; ?>>Todos os Status</option>
@@ -282,10 +300,56 @@ if (isset($_GET['edit'])) {
                                 <option value="dispensadas" <?php if($filtro_status === 'dispensadas') echo 'selected'; ?>>Dispensadas</option>
                             </select>
                         </div>
-                        <div class="col-md-4">
-                            <button type="submit" class="btn btn-outline-primary w-100">Filtrar</button>
+                        <div class="col-md-3">
+                            <button type="submit" class="btn btn-outline-primary w-100">
+                                <i class="fas fa-filter me-1"></i>Filtrar
+                            </button>
+                        </div>
+                        <div class="col-md-3">
+                            <a href="?clear_filters=1" class="btn btn-outline-secondary w-100">
+                                <i class="fas fa-times me-1"></i>Limpar
+                            </a>
                         </div>
                     </form>
+                    
+                    <!-- Indicador de filtros ativos -->
+                    <?php if ($filtro_curso !== 'todos' || $filtro_status !== 'todos'): ?>
+                        <div class="alert alert-info alert-dismissible fade show" role="alert">
+                            <i class="fas fa-info-circle me-2"></i>
+                            <strong>Filtros ativos:</strong>
+                            <?php if ($filtro_curso !== 'todos'): ?>
+                                <?php 
+                                $cursoNome = '';
+                                foreach($cursos as $curso) {
+                                    if($curso['id'] == $filtro_curso) {
+                                        $cursoNome = $curso['nome'];
+                                        break;
+                                    }
+                                }
+                                ?>
+                                <span class="badge bg-primary me-1">
+                                    Curso: <?php echo htmlspecialchars($cursoNome); ?>
+                                </span>
+                            <?php endif; ?>
+                            <?php if ($filtro_status !== 'todos'): ?>
+                                <span class="badge bg-secondary me-1">
+                                    Status: <?php 
+                                        $statusNames = [
+                                            'ativas' => 'Ativas',
+                                            'concluidas' => 'Concluídas',
+                                            'a_cursar' => 'A Cursar',
+                                            'aproveitadas' => 'Aproveitadas',
+                                            'dispensadas' => 'Dispensadas'
+                                        ];
+                                        echo $statusNames[$filtro_status] ?? $filtro_status; 
+                                    ?>
+                                </span>
+                            <?php endif; ?>
+                            <a href="?clear_filters=1" class="ms-2 text-decoration-none">
+                                <small><i class="fas fa-times"></i> Limpar todos</small>
+                            </a>
+                        </div>
+                    <?php endif; ?>
                     
                     <!-- Tabela de disciplinas -->
                     <div class="table-responsive">
