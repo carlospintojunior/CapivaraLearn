@@ -123,6 +123,15 @@ function statusUnidade($concluido, $data_prazo) {
     return ['class' => 'bg-info', 'texto' => 'Pendente', 'icon' => 'fa-clock'];
 }
 
+// Função para status do tópico
+function statusTopico($concluido) {
+    if ($concluido) {
+        return ['class' => 'bg-success', 'texto' => 'Concluído', 'icon' => 'fa-check-circle'];
+    } else {
+        return ['class' => 'bg-warning', 'texto' => 'Pendente', 'icon' => 'fa-clock'];
+    }
+}
+
 // ===== BUSCAR DADOS DO USUÁRIO =====
 try {
     error_log("DASHBOARD: Buscando dados do usuário $user_id");
@@ -179,10 +188,10 @@ try {
         "disciplinas.nome (disciplina_nome)"
     ], [
         "topicos.usuario_id" => $user_id,
-        "topicos.concluido" => 0,
         "topicos.data_prazo[!]" => null,
+        "topicos.data_prazo[>=]" => date('Y-m-d', strtotime('-7 days')), // Incluir até 7 dias atrás
         "ORDER" => ["topicos.data_prazo" => "ASC"],
-        "LIMIT" => 10
+        "LIMIT" => 15
     ]);
     
     error_log("DASHBOARD: Encontrados " . count($topicos_urgentes) . " tópicos urgentes");
@@ -777,27 +786,45 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                     <!-- Tópicos Urgentes -->
                     <div class="col-md-6 mb-4">
                         <div class="card card-custom">
-                            <div class="card-header">
+                            <div class="card-header d-flex justify-content-between align-items-center">
                                 <h5><i class="fas fa-exclamation-triangle me-2"></i>Tópicos Urgentes</h5>
+                                <small class="text-muted"><?php echo count($topicos_urgentes); ?> tópicos</small>
                             </div>
-                            <div class="card-body">
+                            <div class="card-body" style="max-height: 400px; overflow-y: auto;">
                                 <?php if (empty($topicos_urgentes)): ?>
                                     <p class="text-muted text-center">Nenhum tópico urgente encontrado.</p>
                                 <?php else: ?>
                                     <?php foreach ($topicos_urgentes as $topico): ?>
                                         <?php 
                                             $dias = diasAtePrazo($topico['prazo_final']);
-                                            $status = statusPrazo($dias);
+                                            $status_prazo = statusPrazo($dias);
+                                            $status_topico = statusTopico($topico['concluido']);
                                         ?>
-                                        <div class="topic-item">
+                                        <div class="topic-item mb-2">
                                             <div class="d-flex justify-content-between align-items-start">
-                                                <div>
+                                                <div class="flex-grow-1">
                                                     <h6 class="mb-1"><?php echo htmlspecialchars($topico['titulo']); ?></h6>
-                                                    <p class="text-muted mb-0"><?php echo htmlspecialchars($topico['disciplina_nome']); ?></p>
+                                                    <p class="text-muted mb-2"><?php echo htmlspecialchars($topico['disciplina_nome']); ?></p>
+                                                    <div class="d-flex gap-2 flex-wrap">
+                                                        <!-- Status do Tópico -->
+                                                        <span class="badge <?php echo $status_topico['class']; ?>">
+                                                            <i class="fas <?php echo $status_topico['icon']; ?> me-1"></i>
+                                                            <?php echo $status_topico['texto']; ?>
+                                                        </span>
+                                                        
+                                                        <!-- Status do Prazo -->
+                                                        <span class="badge <?php echo $status_prazo['class']; ?>">
+                                                            <i class="fas fa-calendar me-1"></i>
+                                                            <?php echo $status_prazo['texto']; ?>
+                                                        </span>
+                                                        
+                                                        <!-- Data do Prazo -->
+                                                        <span class="badge bg-light text-dark">
+                                                            <?php echo formatarData($topico['prazo_final']); ?>
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                                <span class="badge <?php echo $status['class']; ?>"><?php echo $status['texto']; ?></span>
                                             </div>
-                                            <small class="text-muted">Prazo: <?php echo formatarData($topico['prazo_final']); ?></small>
                                         </div>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
@@ -851,8 +878,8 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                                                             </span>
                                                         <?php endif; ?>
                                                         
-                                                        <!-- Nota -->
-                                                        <?php if ($unidade['nota'] !== null): ?>
+                                                        <!-- Nota (apenas para unidades concluídas) -->
+                                                        <?php if ($unidade['nota'] !== null && $unidade['concluido'] == 1): ?>
                                                             <span class="badge bg-dark">
                                                                 <i class="fas fa-star me-1"></i>
                                                                 Nota: <?php echo number_format($unidade['nota'], 1); ?>
