@@ -103,6 +103,35 @@ function formatarData($data) {
     return date('d/m/Y', strtotime($data));
 }
 
+// Função para status da unidade de aprendizagem
+function statusUnidade($concluido, $data_prazo) {
+    if ($concluido) {
+        return ['class' => 'bg-success', 'texto' => 'Concluído', 'icon' => 'fa-check-circle'];
+    }
+    
+    $dias = diasAtePrazo($data_prazo);
+    if ($dias === null) {
+        return ['class' => 'bg-secondary', 'texto' => 'Pendente', 'icon' => 'fa-clock'];
+    }
+    if ($dias < 0) {
+        return ['class' => 'bg-danger', 'texto' => 'Atrasado', 'icon' => 'fa-exclamation-triangle'];
+    }
+    if ($dias <= 3) {
+        return ['class' => 'bg-warning', 'texto' => 'Urgente', 'icon' => 'fa-exclamation-circle'];
+    }
+    
+    return ['class' => 'bg-info', 'texto' => 'Pendente', 'icon' => 'fa-clock'];
+}
+
+// Função para status do tópico
+function statusTopico($concluido) {
+    if ($concluido) {
+        return ['class' => 'bg-success', 'texto' => 'Concluído', 'icon' => 'fa-check-circle'];
+    } else {
+        return ['class' => 'bg-warning', 'texto' => 'Pendente', 'icon' => 'fa-clock'];
+    }
+}
+
 // ===== BUSCAR DADOS DO USUÁRIO =====
 try {
     error_log("DASHBOARD: Buscando dados do usuário $user_id");
@@ -159,10 +188,10 @@ try {
         "disciplinas.nome (disciplina_nome)"
     ], [
         "topicos.usuario_id" => $user_id,
-        "topicos.concluido" => 0,
         "topicos.data_prazo[!]" => null,
+        "topicos.data_prazo[>=]" => date('Y-m-d', strtotime('-7 days')), // Incluir até 7 dias atrás
         "ORDER" => ["topicos.data_prazo" => "ASC"],
-        "LIMIT" => 10
+        "LIMIT" => 15
     ]);
     
     error_log("DASHBOARD: Encontrados " . count($topicos_urgentes) . " tópicos urgentes");
@@ -171,30 +200,34 @@ try {
     $topicos_urgentes = [];
 }
 
-// ===== PRÓXIMAS AULAS =====
+// ===== UNIDADES DE APRENDIZAGEM DAS DISCIPLINAS ATIVAS =====
 try {
-    error_log("DASHBOARD: Buscando próximas aulas");
+    error_log("DASHBOARD: Buscando unidades de aprendizagem das disciplinas ativas");
     
-    $proximas_aulas = $database->select("unidades_aprendizagem", [
+    $unidades_aprendizagem = $database->select("unidades_aprendizagem", [
         "[>]topicos" => ["topico_id" => "id"],
         "[>]disciplinas" => ["topicos.disciplina_id" => "id"]
     ], [
         "unidades_aprendizagem.id",
         "unidades_aprendizagem.nome (titulo)",
-        "unidades_aprendizagem.data_prazo (data_aula)",
-        "unidades_aprendizagem.tipo (horario)",
-        "disciplinas.nome (disciplina_nome)"
+        "unidades_aprendizagem.data_prazo",
+        "unidades_aprendizagem.concluido",
+        "unidades_aprendizagem.nota",
+        "disciplinas.nome (disciplina_nome)",
+        "disciplinas.status (disciplina_status)"
     ], [
         "unidades_aprendizagem.usuario_id" => $user_id,
-        "unidades_aprendizagem.data_prazo[>=]" => date('Y-m-d'),
-        "ORDER" => ["unidades_aprendizagem.data_prazo" => "ASC"],
-        "LIMIT" => 5
+        "disciplinas.status" => 0, // Apenas disciplinas ativas
+        "ORDER" => [
+            "disciplinas.nome" => "ASC",
+            "unidades_aprendizagem.data_prazo" => "ASC"
+        ]
     ]);
     
-    error_log("DASHBOARD: Encontradas " . count($proximas_aulas) . " próximas aulas");
+    error_log("DASHBOARD: Encontradas " . count($unidades_aprendizagem) . " unidades de aprendizagem");
 } catch (Exception $e) {
-    error_log("DASHBOARD: ERRO ao buscar próximas aulas - " . $e->getMessage());
-    $proximas_aulas = [];
+    error_log("DASHBOARD: ERRO ao buscar unidades de aprendizagem - " . $e->getMessage());
+    $unidades_aprendizagem = [];
 }
 
 // ===== DISCIPLINAS ATIVAS =====
@@ -414,6 +447,17 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
         .progress-custom {
             height: 10px;
             border-radius: 10px;
+        }
+        .unidade-item {
+            transition: all 0.3s ease;
+            border: 1px solid #e0e0e0 !important;
+        }
+        .unidade-item:hover {
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            transform: translateY(-1px);
+        }
+        .badge {
+            font-size: 0.75em;
         }
         .sidebar {
             background: linear-gradient(135deg, #2c3e50 0%, #3498db 100%);
@@ -742,27 +786,45 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                     <!-- Tópicos Urgentes -->
                     <div class="col-md-6 mb-4">
                         <div class="card card-custom">
-                            <div class="card-header">
+                            <div class="card-header d-flex justify-content-between align-items-center">
                                 <h5><i class="fas fa-exclamation-triangle me-2"></i>Tópicos Urgentes</h5>
+                                <small class="text-muted"><?php echo count($topicos_urgentes); ?> tópicos</small>
                             </div>
-                            <div class="card-body">
+                            <div class="card-body" style="max-height: 400px; overflow-y: auto;">
                                 <?php if (empty($topicos_urgentes)): ?>
                                     <p class="text-muted text-center">Nenhum tópico urgente encontrado.</p>
                                 <?php else: ?>
                                     <?php foreach ($topicos_urgentes as $topico): ?>
                                         <?php 
                                             $dias = diasAtePrazo($topico['prazo_final']);
-                                            $status = statusPrazo($dias);
+                                            $status_prazo = statusPrazo($dias);
+                                            $status_topico = statusTopico($topico['concluido']);
                                         ?>
-                                        <div class="topic-item">
+                                        <div class="topic-item mb-2">
                                             <div class="d-flex justify-content-between align-items-start">
-                                                <div>
+                                                <div class="flex-grow-1">
                                                     <h6 class="mb-1"><?php echo htmlspecialchars($topico['titulo']); ?></h6>
-                                                    <p class="text-muted mb-0"><?php echo htmlspecialchars($topico['disciplina_nome']); ?></p>
+                                                    <p class="text-muted mb-2"><?php echo htmlspecialchars($topico['disciplina_nome']); ?></p>
+                                                    <div class="d-flex gap-2 flex-wrap">
+                                                        <!-- Status do Tópico -->
+                                                        <span class="badge <?php echo $status_topico['class']; ?>">
+                                                            <i class="fas <?php echo $status_topico['icon']; ?> me-1"></i>
+                                                            <?php echo $status_topico['texto']; ?>
+                                                        </span>
+                                                        
+                                                        <!-- Status do Prazo -->
+                                                        <span class="badge <?php echo $status_prazo['class']; ?>">
+                                                            <i class="fas fa-calendar me-1"></i>
+                                                            <?php echo $status_prazo['texto']; ?>
+                                                        </span>
+                                                        
+                                                        <!-- Data do Prazo -->
+                                                        <span class="badge bg-light text-dark">
+                                                            <?php echo formatarData($topico['prazo_final']); ?>
+                                                        </span>
+                                                    </div>
                                                 </div>
-                                                <span class="badge <?php echo $status['class']; ?>"><?php echo $status['texto']; ?></span>
                                             </div>
-                                            <small class="text-muted">Prazo: <?php echo formatarData($topico['prazo_final']); ?></small>
                                         </div>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
@@ -770,26 +832,62 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                         </div>
                     </div>
 
-                    <!-- Próximas Aulas -->
+                    <!-- Unidades de Aprendizagem -->
                     <div class="col-md-6 mb-4">
                         <div class="card card-custom">
-                            <div class="card-header">
-                                <h5><i class="fas fa-calendar-alt me-2"></i>Próximas Aulas</h5>
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5><i class="fas fa-graduation-cap me-2"></i>Unidades de Aprendizagem</h5>
+                                <small class="text-muted"><?php echo count($unidades_aprendizagem); ?> unidades</small>
                             </div>
-                            <div class="card-body">
-                                <?php if (empty($proximas_aulas)): ?>
-                                    <p class="text-muted text-center">Nenhuma aula agendada.</p>
+                            <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                                <?php if (empty($unidades_aprendizagem)): ?>
+                                    <p class="text-muted text-center">Nenhuma unidade de aprendizagem encontrada nas disciplinas ativas.</p>
                                 <?php else: ?>
-                                    <?php foreach ($proximas_aulas as $aula): ?>
-                                        <div class="aula-item">
-                                            <div class="d-flex justify-content-between align-items-start">
-                                                <div>
-                                                    <h6 class="mb-1"><?php echo htmlspecialchars($aula['titulo']); ?></h6>
-                                                    <p class="text-muted mb-0"><?php echo htmlspecialchars($aula['disciplina_nome']); ?></p>
-                                                </div>
-                                                <span class="badge bg-success"><?php echo $aula['horario'] ?? 'Sem horário'; ?></span>
+                                    <?php 
+                                    $disciplina_atual = '';
+                                    foreach ($unidades_aprendizagem as $unidade): 
+                                        $status = statusUnidade($unidade['concluido'], $unidade['data_prazo']);
+                                        $prazo_info = statusPrazo(diasAtePrazo($unidade['data_prazo']));
+                                        
+                                        // Separador por disciplina
+                                        if ($disciplina_atual !== $unidade['disciplina_nome']):
+                                            if ($disciplina_atual !== '') echo '<hr class="my-2">';
+                                            $disciplina_atual = $unidade['disciplina_nome'];
+                                    ?>
+                                            <div class="fw-bold text-primary mb-2">
+                                                <i class="fas fa-book me-1"></i><?php echo htmlspecialchars($disciplina_atual); ?>
                                             </div>
-                                            <small class="text-muted">Data: <?php echo formatarData($aula['data_aula']); ?></small>
+                                    <?php endif; ?>
+                                        
+                                        <div class="unidade-item mb-2 p-2 border rounded">
+                                            <div class="d-flex justify-content-between align-items-start">
+                                                <div class="flex-grow-1">
+                                                    <h6 class="mb-1"><?php echo htmlspecialchars($unidade['titulo']); ?></h6>
+                                                    <div class="d-flex gap-2 flex-wrap">
+                                                        <!-- Status -->
+                                                        <span class="badge <?php echo $status['class']; ?>">
+                                                            <i class="fas <?php echo $status['icon']; ?> me-1"></i>
+                                                            <?php echo $status['texto']; ?>
+                                                        </span>
+                                                        
+                                                        <!-- Prazo -->
+                                                        <?php if ($unidade['data_prazo']): ?>
+                                                            <span class="badge bg-light text-dark">
+                                                                <i class="fas fa-calendar me-1"></i>
+                                                                <?php echo formatarData($unidade['data_prazo']); ?>
+                                                            </span>
+                                                        <?php endif; ?>
+                                                        
+                                                        <!-- Nota (apenas para unidades concluídas) -->
+                                                        <?php if ($unidade['nota'] !== null && $unidade['concluido'] == 1): ?>
+                                                            <span class="badge bg-dark">
+                                                                <i class="fas fa-star me-1"></i>
+                                                                Nota: <?php echo number_format($unidade['nota'], 1); ?>
+                                                            </span>
+                                                        <?php endif; ?>
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
                                     <?php endforeach; ?>
                                 <?php endif; ?>
