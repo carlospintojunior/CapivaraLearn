@@ -82,7 +82,9 @@ error_log("DASHBOARD: user_id definido como: $user_id");
 function diasAtePrazo($data_prazo) {
     if (!$data_prazo) return null;
     $hoje = new DateTime();
+    $hoje->setTime(0, 0, 0); // Zerar hora para comparar apenas a data
     $prazo = new DateTime($data_prazo);
+    $prazo->setTime(23, 59, 59); // Considerar o prazo até o final do dia
     $diff = $hoje->diff($prazo);
     return $prazo < $hoje ? -$diff->days : $diff->days;
 }

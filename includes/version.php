@@ -14,11 +14,11 @@
 // Informações da versão atual
 define('APP_VERSION', '0.7.0');
 define('APP_NAME', 'CapivaraLearn');
-define('APP_BUILD_DATE', '2025-07-20');
-define('APP_BUILD_NUMBER', '003');
+define('APP_BUILD_DATE', '2025-08-07');
+define('APP_BUILD_NUMBER', '004');
 define('APP_ENVIRONMENT', 'development'); // development, staging, production
 define('APP_GITHUB_URL', 'https://github.com/carlospintojunior/CapivaraLearn');
-define('APP_GITHUB_BRANCH', '#26---Incluir-monetização');
+define('APP_GITHUB_BRANCH', '#43---Corrigir-cálculo-do-prazo-no-dashboard.-');
 define('APP_RELEASE_TAG', 'v0.7.0-development');
 
 /**
