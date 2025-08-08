@@ -15,7 +15,7 @@
 define('APP_VERSION', '0.8.0');
 define('APP_NAME', 'CapivaraLearn');
 define('APP_BUILD_DATE', '2025-08-07');
-define('APP_BUILD_NUMBER', '008');
+define('APP_BUILD_NUMBER', '');
 define('APP_ENVIRONMENT', 'development'); // development, staging, production
 define('APP_GITHUB_URL', 'https://github.com/carlospintojunior/CapivaraLearn');
 define('APP_GITHUB_BRANCH', '#43---Corrigir-cálculo-do-prazo-no-dashboard.-');
