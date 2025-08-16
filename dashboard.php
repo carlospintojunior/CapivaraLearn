@@ -92,11 +92,24 @@ function diasAtePrazo($data_prazo) {
 // Função para status do prazo
 function statusPrazo($dias) {
     if ($dias === null) return ['class' => 'sem-prazo', 'texto' => 'Sem prazo'];
-    if ($dias < 0) return ['class' => 'atrasado', 'texto' => abs($dias) . ' dias atrasado'];
-    if ($dias == 0) return ['class' => 'hoje', 'texto' => 'Vence hoje!'];
-    if ($dias <= 3) return ['class' => 'urgente', 'texto' => $dias . ' dias'];
-    if ($dias <= 7) return ['class' => 'atencao', 'texto' => $dias . ' dias'];
-    return ['class' => 'normal', 'texto' => $dias . ' dias'];
+    if ($dias < 0) {
+        $texto = abs($dias) === 1 ? '1 dia atrasado' : abs($dias) . ' dias atrasado';
+        return ['class' => 'atrasado', 'texto' => $texto];
+    }
+    if ($dias == 0) return [
+        'class' => 'vence-hoje',
+        'texto' => '<span style="background:#d32f2f;color:#ffd600;font-weight:bold;padding:2px 8px;border-radius:6px;display:inline-block;"><i class="fas fa-exclamation-circle me-1"></i>Vence hoje!</span>'
+    ];
+    if ($dias <= 3) {
+        $texto = $dias === 1 ? '1 dia' : $dias . ' dias';
+        return ['class' => 'urgente', 'texto' => $texto];
+    }
+    if ($dias <= 7) {
+        $texto = $dias === 1 ? '1 dia' : $dias . ' dias';
+        return ['class' => 'atencao', 'texto' => $texto];
+    }
+    $texto = $dias === 1 ? '1 dia' : $dias . ' dias';
+    return ['class' => 'normal', 'texto' => $texto];
 }
 
 // Função para formatar data
@@ -193,8 +206,14 @@ try {
         "topicos.data_prazo[!]" => null,
         "topicos.data_prazo[>=]" => date('Y-m-d', strtotime('-7 days')), // Incluir até 7 dias atrás
         "ORDER" => ["topicos.data_prazo" => "ASC"],
-        "LIMIT" => 15
+        "LIMIT" => 30 // Aumenta limite para compensar filtro
     ]);
+
+    // Filtra para mostrar apenas tópicos não atrasados
+    $topicos_urgentes = array_filter($topicos_urgentes, function($topico) {
+        $dias = diasAtePrazo($topico['prazo_final']);
+        return $dias === null || $dias >= 0;
+    });
     
     error_log("DASHBOARD: Encontrados " . count($topicos_urgentes) . " tópicos urgentes");
 } catch (Exception $e) {
@@ -815,10 +834,14 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                                                         </span>
                                                         
                                                         <!-- Status do Prazo -->
-                                                        <span class="badge <?php echo $status_prazo['class']; ?>">
-                                                            <i class="fas fa-calendar me-1"></i>
+                                                        <?php if ($status_prazo['class'] === 'vence-hoje'): ?>
                                                             <?php echo $status_prazo['texto']; ?>
-                                                        </span>
+                                                        <?php else: ?>
+                                                            <span class="badge <?php echo $status_prazo['class']; ?>">
+                                                                <i class="fas fa-calendar me-1"></i>
+                                                                <?php echo $status_prazo['texto']; ?>
+                                                            </span>
+                                                        <?php endif; ?>
                                                         
                                                         <!-- Data do Prazo -->
                                                         <span class="badge bg-light text-dark">
