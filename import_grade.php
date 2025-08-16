@@ -124,53 +124,88 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         $curso_id = $database->id();
         
         // 3. Criar disciplinas, tópicos e unidades
-        $stats = ['disciplinas' => 0, 'topicos' => 0, 'unidades' => 0];
+        $stats = ['disciplinas' => 0, 'topicos' => 0, 'unidades' => 0, 'disciplinas_existentes' => 0, 'topicos_existentes' => 0, 'unidades_existentes' => 0];
         
         foreach ($grade_data['disciplinas'] as $disc_data) {
-            // Criar disciplina
-            $database->insert('disciplinas', [
+            // Verificar se disciplina já existe
+            $disciplina_id = $database->get('disciplinas', 'id', [
                 'nome' => $disc_data['nome'],
-                'codigo' => $disc_data['codigo'] ?? '',
-                'descricao' => $disc_data['descricao'] ?? '',
-                'carga_horaria' => $disc_data['carga_horaria'] ?? 0,
-                'semestre' => $disc_data['semestre'] ?? 0,
-                'concluido' => 0, // Sempre iniciar como não concluído
                 'curso_id' => $curso_id,
                 'usuario_id' => $user_id
             ]);
-            $disciplina_id = $database->id();
-            $stats['disciplinas']++;
+            
+            if (!$disciplina_id) {
+                // Criar disciplina se não existir
+                $database->insert('disciplinas', [
+                    'nome' => $disc_data['nome'],
+                    'codigo' => $disc_data['codigo'] ?? '',
+                    'descricao' => $disc_data['descricao'] ?? '',
+                    'carga_horaria' => $disc_data['carga_horaria'] ?? 0,
+                    'semestre' => $disc_data['semestre'] ?? 0,
+                    'concluido' => 0, // Sempre iniciar como não concluído
+                    'curso_id' => $curso_id,
+                    'usuario_id' => $user_id
+                ]);
+                $disciplina_id = $database->id();
+                $stats['disciplinas']++;
+            } else {
+                $stats['disciplinas_existentes']++;
+            }
             
             // Criar tópicos da disciplina
             if (isset($disc_data['topicos']) && is_array($disc_data['topicos'])) {
                 foreach ($disc_data['topicos'] as $topico_data) {
-                    $database->insert('topicos', [
+                    // Verificar se tópico já existe
+                    $topico_id = $database->get('topicos', 'id', [
                         'nome' => $topico_data['nome'],
-                        'descricao' => $topico_data['descricao'] ?? '',
-                        'data_prazo' => $topico_data['data_prazo'] ?? null,
-                        'prioridade' => $topico_data['prioridade'] ?? 'media',
-                        'concluido' => 0, // Sempre iniciar como não concluído
                         'disciplina_id' => $disciplina_id,
-                        'ordem' => $topico_data['ordem'] ?? 0,
                         'usuario_id' => $user_id
                     ]);
-                    $topico_id = $database->id();
-                    $stats['topicos']++;
+                    
+                    if (!$topico_id) {
+                        // Criar tópico se não existir
+                        $database->insert('topicos', [
+                            'nome' => $topico_data['nome'],
+                            'descricao' => $topico_data['descricao'] ?? '',
+                            'data_prazo' => $topico_data['data_prazo'] ?? null,
+                            'prioridade' => $topico_data['prioridade'] ?? 'media',
+                            'concluido' => 0, // Sempre iniciar como não concluído
+                            'disciplina_id' => $disciplina_id,
+                            'ordem' => $topico_data['ordem'] ?? 0,
+                            'usuario_id' => $user_id
+                        ]);
+                        $topico_id = $database->id();
+                        $stats['topicos']++;
+                    } else {
+                        $stats['topicos_existentes']++;
+                    }
                     
                     // Criar unidades de aprendizagem do tópico
                     if (isset($topico_data['unidades_aprendizagem']) && is_array($topico_data['unidades_aprendizagem'])) {
                         foreach ($topico_data['unidades_aprendizagem'] as $unidade_data) {
-                            $database->insert('unidades_aprendizagem', [
+                            // Verificar se unidade já existe
+                            $unidade_existente = $database->get('unidades_aprendizagem', 'id', [
                                 'nome' => $unidade_data['nome'],
-                                'descricao' => $unidade_data['descricao'] ?? '',
-                                'tipo' => $unidade_data['tipo'] ?? 'leitura',
-                                'nota' => null, // Não importar notas
-                                'data_prazo' => $unidade_data['data_prazo'] ?? null,
-                                'concluido' => 0, // Sempre iniciar como não concluído
                                 'topico_id' => $topico_id,
                                 'usuario_id' => $user_id
                             ]);
-                            $stats['unidades']++;
+                            
+                            if (!$unidade_existente) {
+                                // Criar unidade se não existir
+                                $database->insert('unidades_aprendizagem', [
+                                    'nome' => $unidade_data['nome'],
+                                    'descricao' => $unidade_data['descricao'] ?? '',
+                                    'tipo' => $unidade_data['tipo'] ?? 'leitura',
+                                    'nota' => null, // Não importar notas
+                                    'data_prazo' => $unidade_data['data_prazo'] ?? null,
+                                    'concluido' => 0, // Sempre iniciar como não concluído
+                                    'topico_id' => $topico_id,
+                                    'usuario_id' => $user_id
+                                ]);
+                                $stats['unidades']++;
+                            } else {
+                                $stats['unidades_existentes']++;
+                            }
                         }
                     }
                 }
@@ -182,8 +217,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         
         $message = "Grade curricular importada com sucesso!<br>";
         $message .= "<strong>Curso:</strong> " . htmlspecialchars($nome_curso) . "<br>";
-        $message .= "<strong>Estatísticas:</strong> " . $stats['disciplinas'] . " disciplinas, " . 
+        $message .= "<strong>Itens criados:</strong> " . $stats['disciplinas'] . " disciplinas, " . 
                    $stats['topicos'] . " tópicos, " . $stats['unidades'] . " unidades<br>";
+        
+        // Mostrar itens existentes que foram pulados, se houver
+        if ($stats['disciplinas_existentes'] > 0 || $stats['topicos_existentes'] > 0 || $stats['unidades_existentes'] > 0) {
+            $message .= "<strong>Itens já existentes (pulados):</strong> " . 
+                       $stats['disciplinas_existentes'] . " disciplinas, " . 
+                       $stats['topicos_existentes'] . " tópicos, " . 
+                       $stats['unidades_existentes'] . " unidades<br>";
+        }
+        
         $message .= "<strong>Exportado originalmente em:</strong> " . htmlspecialchars($grade_data['metadata']['data_exportacao'] ?? 'Data não informada');
         $messageType = 'success';
         
