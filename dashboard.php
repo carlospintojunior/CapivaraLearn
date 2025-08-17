@@ -126,16 +126,16 @@ function statusUnidade($concluido, $data_prazo) {
     
     $dias = diasAtePrazo($data_prazo);
     if ($dias === null) {
-        return ['class' => 'bg-secondary', 'texto' => 'Pendente', 'icon' => 'fa-clock'];
+        return ['class' => 'bg-warning', 'texto' => 'Pendente', 'icon' => 'fa-clock'];
     }
     if ($dias < 0) {
         return ['class' => 'bg-danger', 'texto' => 'Atrasado', 'icon' => 'fa-exclamation-triangle'];
     }
     if ($dias <= 3) {
-        return ['class' => 'bg-warning', 'texto' => 'Urgente', 'icon' => 'fa-exclamation-circle'];
+        return ['class' => 'bg-danger', 'texto' => 'Urgente', 'icon' => 'fa-exclamation-circle'];
     }
     
-    return ['class' => 'bg-info', 'texto' => 'Pendente', 'icon' => 'fa-clock'];
+    return ['class' => 'bg-warning', 'texto' => 'Pendente', 'icon' => 'fa-clock'];
 }
 
 // Função para status do tópico
@@ -903,8 +903,8 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                                                             </span>
                                                         <?php endif; ?>
                                                         
-                                                        <!-- Nota (apenas para unidades concluídas) -->
-                                                        <?php if ($unidade['nota'] !== null && $unidade['concluido'] == 1): ?>
+                                                        <!-- Nota (mostrar para qualquer unidade, exceto quando não concluída e nota é zero) -->
+                                                        <?php if ($unidade['nota'] !== null && !($unidade['concluido'] == 0 && $unidade['nota'] == 0)): ?>
                                                             <span class="badge bg-dark">
                                                                 <i class="fas fa-star me-1"></i>
                                                                 Nota: <?php echo number_format($unidade['nota'], 1); ?>
