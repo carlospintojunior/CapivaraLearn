@@ -209,6 +209,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// ===== FILTROS PARA A CONSULTA PRINCIPAL DAS UNIDADES =====
+$where = [
+    'unidades_aprendizagem.usuario_id' => $user_id
+];
+
+// Filtro por disciplina específica (tem prioridade sobre o filtro de status)
+if ($disciplina_especifica !== 'todas') {
+    $where['disciplinas.id'] = intval($disciplina_especifica);
+} else {
+    // Filtro de disciplina por status (apenas se não há disciplina específica selecionada)
+    if ($filtro_disciplina === 'ativas') {
+        // Disciplinas concluídas, aproveitadas ou dispensadas (status 1, 3, 4)
+        $where['disciplinas.status'] = [1, 3, 4];
+    } elseif ($filtro_disciplina === 'pendentes') {
+        // Disciplinas ativas ou a cursar (status 0, 2)
+        $where['disciplinas.status'] = [0, 2];
+    }
+}
+
+// Filtro de tópico
+if ($filtro_topico === 'ativos') {
+    $where['topicos.concluido'] = 1;
+} elseif ($filtro_topico === 'pendentes') {
+    $where['topicos.concluido'] = 0;
+}
+
+// Filtro de unidade
+if ($filtro_unidade === 'ativas') {
+    $where['unidades_aprendizagem.concluido'] = 1;
+} elseif ($filtro_unidade === 'pendentes') {
+    $where['unidades_aprendizagem.concluido'] = 0;
+}
+
+$where['ORDER'] = [
+    'disciplinas.nome' => 'ASC',
+    'topicos.nome' => 'ASC',
+    'unidades_aprendizagem.nome' => 'ASC'
+];
+
+// LOG: filtros aplicados (Monolog e error_log)
+if (file_exists(__DIR__ . '/../includes/log_sistema.php')) {
+    require_once __DIR__ . '/../includes/log_sistema.php';
+    if (function_exists('getLogger')) {
+        $logger = getLogger();
+        $logger->info('Filtros WHERE learning_units_simple', ['where' => $where, 'get' => $_GET]);
+    }
+}
+error_log('LEARNING_UNITS_SIMPLE: Filtros WHERE: ' . var_export($where, true) . ' | GET: ' . var_export($_GET, true));
 
 $unidades = $database->select('unidades_aprendizagem', [
     '[>]topicos' => ['topico_id' => 'id'],
