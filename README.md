@@ -154,3 +154,21 @@ pscp -batch -i /home/carlos/Nextcloud/Documents/ppk/capivaralearn.ppk crud/modul
 
 Veja o arquivo: TechnicalPremises.md
 
+
+## Gerar Releases
+
+Quando quiser criar o release v0.8.0, simplesmente execute:
+
+~~~
+./create_release.sh
+~~~
+
+
+O sistema irá:
+
+* Detectar todas as issues fechadas
+* Gerar changelog automático
+* Criar tag v0.8.0
+* Fazer push para GitHub
+* Criar release automaticamente
+

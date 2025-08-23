@@ -889,12 +889,12 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                                         
                                         <div class="unidade-item mb-2 p-2 border rounded" 
                                              style="cursor: pointer;" 
-                                             onclick="window.open('crud/learning_units_simple.php?edit=<?php echo $unidade['id']; ?>', '_blank')"
+                                             onclick="window.location.href='crud/learning_units_simple.php?edit=<?php echo $unidade['id']; ?>'"
                                              title="Clique para editar esta unidade de aprendizagem">
                                             <div class="d-flex justify-content-between align-items-start">
                                                 <div class="flex-grow-1">
                                                     <h6 class="mb-1">
-                                                        <i class="fas fa-external-link-alt me-1 text-muted" style="font-size: 0.7em;"></i>
+                                                        <i class="fas fa-edit me-1 text-muted" style="font-size: 0.7em;"></i>
                                                         <?php echo htmlspecialchars($unidade['titulo']); ?>
                                                     </h6>
                                                     <div class="d-flex gap-2 flex-wrap">
