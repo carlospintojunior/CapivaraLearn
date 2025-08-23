@@ -43,17 +43,68 @@ $disciplinas = $database->select('disciplinas', [
     'ORDER' => ['nome' => 'ASC']
 ]);
 
-// Buscar tópicos com disciplinas para selects
+// ===== SISTEMA DE PERSISTÊNCIA DE FILTROS =====
+// Verificar se há filtros sendo enviados pelo GET
+if (isset($_GET['filtro_disciplina']) || isset($_GET['filtro_topico']) || isset($_GET['filtro_unidade']) || isset($_GET['disciplina_especifica'])) {
+    // Salvar filtros na sessão
+    $_SESSION['learning_units_filters'] = [
+        'filtro_disciplina' => $_GET['filtro_disciplina'] ?? 'todos',
+        'filtro_topico' => $_GET['filtro_topico'] ?? 'todos',
+        'filtro_unidade' => $_GET['filtro_unidade'] ?? 'todos',
+        'disciplina_especifica' => $_GET['disciplina_especifica'] ?? 'todas'
+    ];
+} elseif (isset($_GET['clear_filters'])) {
+    // Limpar filtros se solicitado
+    unset($_SESSION['learning_units_filters']);
+} else {
+    // Recuperar filtros salvos na sessão se não há GET
+    if (isset($_SESSION['learning_units_filters'])) {
+        $_GET = array_merge($_GET, $_SESSION['learning_units_filters']);
+    }
+}
+
+// Buscar unidades para exibição com filtros
+$filtro_disciplina = $_GET['filtro_disciplina'] ?? 'todos';
+$filtro_topico = $_GET['filtro_topico'] ?? 'todos';
+$filtro_unidade = $_GET['filtro_unidade'] ?? 'todos';
+$disciplina_especifica = $_GET['disciplina_especifica'] ?? 'todas';
+
+// ===== APLICAR MESMOS FILTROS PARA TÓPICOS DO DROPDOWN =====
+$topicos_where = [
+    'topicos.usuario_id' => $user_id
+];
+
+// Filtro por disciplina específica (tem prioridade sobre o filtro de status)
+if ($disciplina_especifica !== 'todas') {
+    $topicos_where['disciplinas.id'] = intval($disciplina_especifica);
+} else {
+    // Filtro de disciplina por status (apenas se não há disciplina específica selecionada)
+    if ($filtro_disciplina === 'ativas') {
+        // Disciplinas concluídas, aproveitadas ou dispensadas (status 1, 3, 4)
+        $topicos_where['disciplinas.status'] = [1, 3, 4];
+    } elseif ($filtro_disciplina === 'pendentes') {
+        // Disciplinas ativas ou a cursar (status 0, 2)
+        $topicos_where['disciplinas.status'] = [0, 2];
+    }
+}
+
+// Filtro de tópico
+if ($filtro_topico === 'ativos') {
+    $topicos_where['topicos.concluido'] = 1;
+} elseif ($filtro_topico === 'pendentes') {
+    $topicos_where['topicos.concluido'] = 0;
+}
+
+$topicos_where['ORDER'] = ['disciplinas.nome' => 'ASC', 'topicos.nome' => 'ASC'];
+
+// Buscar tópicos com disciplinas para selects (aplicando os mesmos filtros da listagem)
 $topicos = $database->select('topicos', [
     '[>]disciplinas' => ['disciplina_id' => 'id']
 ], [
     'topicos.id',
     'topicos.nome',
     'disciplinas.nome(disciplina_nome)'
-], [
-    'topicos.usuario_id' => $user_id,
-    'ORDER' => ['disciplinas.nome' => 'ASC', 'topicos.nome' => 'ASC']
-]);
+], $topicos_where);
 
 // Processar ações POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -158,32 +209,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// ===== SISTEMA DE PERSISTÊNCIA DE FILTROS =====
-// Verificar se há filtros sendo enviados pelo GET
-if (isset($_GET['filtro_disciplina']) || isset($_GET['filtro_topico']) || isset($_GET['filtro_unidade']) || isset($_GET['disciplina_especifica'])) {
-    // Salvar filtros na sessão
-    $_SESSION['learning_units_filters'] = [
-        'filtro_disciplina' => $_GET['filtro_disciplina'] ?? 'todos',
-        'filtro_topico' => $_GET['filtro_topico'] ?? 'todos',
-        'filtro_unidade' => $_GET['filtro_unidade'] ?? 'todos',
-        'disciplina_especifica' => $_GET['disciplina_especifica'] ?? 'todas'
-    ];
-} elseif (isset($_GET['clear_filters'])) {
-    // Limpar filtros se solicitado
-    unset($_SESSION['learning_units_filters']);
-} else {
-    // Recuperar filtros salvos na sessão se não há GET
-    if (isset($_SESSION['learning_units_filters'])) {
-        $_GET = array_merge($_GET, $_SESSION['learning_units_filters']);
-    }
-}
-
-// Buscar unidades para exibição com filtros
-$filtro_disciplina = $_GET['filtro_disciplina'] ?? 'todos';
-$filtro_topico = $_GET['filtro_topico'] ?? 'todos';
-$filtro_unidade = $_GET['filtro_unidade'] ?? 'todos';
-$disciplina_especifica = $_GET['disciplina_especifica'] ?? 'todas';
-
+// ===== FILTROS PARA A CONSULTA PRINCIPAL DAS UNIDADES =====
 $where = [
     'unidades_aprendizagem.usuario_id' => $user_id
 ];
@@ -222,7 +248,6 @@ $where['ORDER'] = [
     'unidades_aprendizagem.nome' => 'ASC'
 ];
 
-
 // LOG: filtros aplicados (Monolog e error_log)
 if (file_exists(__DIR__ . '/../includes/log_sistema.php')) {
     require_once __DIR__ . '/../includes/log_sistema.php';
@@ -232,7 +257,6 @@ if (file_exists(__DIR__ . '/../includes/log_sistema.php')) {
     }
 }
 error_log('LEARNING_UNITS_SIMPLE: Filtros WHERE: ' . var_export($where, true) . ' | GET: ' . var_export($_GET, true));
-
 
 $unidades = $database->select('unidades_aprendizagem', [
     '[>]topicos' => ['topico_id' => 'id'],
