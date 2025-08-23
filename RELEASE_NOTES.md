@@ -4,7 +4,7 @@
 
 ## 📋 Release Overview
 
-This release includes 10 resolved issues with significant improvements to user experience, new features, and important bug fixes.
+This release includes 12 resolved issues with significant improvements to user experience, new features, and important bug fixes.
 
 ## 🚀 New Features
 
@@ -18,6 +18,8 @@ This release includes 10 resolved issues with significant improvements to user e
 
 ## 🔧 Other Changes
 
+- **Filtrar tópicos** (#51) - No cadastro de Unidades de Aprendizagem, no momento de cadastrar nova unidade, no combo-box de "T...
+- **Acesso rápido a UAs** (#52) - No dashboard, nas unidades de aprendizagem, ao selecionar a unidade de aprendizagem, abrir a pági...
 - **Mostrar notas mesmo que UA não concluída** (#49) - Implementation completed
 - **Persistir importações e restaurações** (#41) - Não duplicar dados na importação da grade e nem na restauração do becape.
 - **Correções em Tópicos Urgentes** (#46) - Em tópicos urgentes, no dashboard, quando o prazo for 1 dia, o texto deve ser "1 dia" ao invés de...
@@ -27,9 +29,9 @@ This release includes 10 resolved issues with significant improvements to user e
 
 ## 📊 Release Statistics
 
-- **Issues Resolved**: 10
-- **Files Modified**: 15+ files
-- **Commits**: 34+ commits
+- **Issues Resolved**: 12
+- **Files Modified**: 18+ files
+- **Commits**: 39+ commits
 - **Contributors**: 3
 
 ## 🔗 Useful Links
