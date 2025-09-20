@@ -421,7 +421,7 @@ $currentStatus = $statusInfo[$communityStatus['status']] ?? $statusInfo['free_ac
                             </div>
                         </div>
                         <div class="text-center">
-                            <a href="mailto:support@capivaralearn.com" class="btn btn-outline-info">
+                            <a href="mailto:capivara@capivaralearn.com.br" class="btn btn-outline-info">
                                 <i class="fas fa-envelope me-2"></i>
                                 Entrar em Contato
                             </a>

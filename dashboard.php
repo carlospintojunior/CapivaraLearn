@@ -480,6 +480,17 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
             border-color: #007bff !important;
             background-color: #f8f9ff;
         }
+        .topic-item {
+            transition: all 0.3s ease;
+            border: 1px solid #e0e0e0 !important;
+            cursor: pointer;
+        }
+        .topic-item:hover {
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transform: translateY(-2px);
+            border-color: #007bff !important;
+            background-color: #f8f9ff;
+        }
         .badge {
             font-size: 0.75em;
         }
@@ -824,10 +835,16 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                                             $status_prazo = statusPrazo($dias);
                                             $status_topico = statusTopico($topico['concluido']);
                                         ?>
-                                        <div class="topic-item mb-2">
+                                        <div class="topic-item mb-2 p-2 border rounded" 
+                                             style="cursor: pointer;" 
+                                             onclick="window.location.href='crud/topics_simple.php?edit=<?php echo $topico['id']; ?>'"
+                                             title="Clique para editar este tópico">
                                             <div class="d-flex justify-content-between align-items-start">
                                                 <div class="flex-grow-1">
-                                                    <h6 class="mb-1"><?php echo htmlspecialchars($topico['titulo']); ?></h6>
+                                                    <h6 class="mb-1">
+                                                        <i class="fas fa-edit me-1 text-muted" style="font-size: 0.7em;"></i>
+                                                        <?php echo htmlspecialchars($topico['titulo']); ?>
+                                                    </h6>
                                                     <p class="text-muted mb-2"><?php echo htmlspecialchars($topico['disciplina_nome']); ?></p>
                                                     <div class="d-flex gap-2 flex-wrap">
                                                         <!-- Status do Tópico -->
