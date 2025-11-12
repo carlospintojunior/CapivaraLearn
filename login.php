@@ -470,6 +470,14 @@ if (isset($_GET['resend_email'])) {
             background: linear-gradient(to bottom, #ffffff 0%, #f8f9fa 100%);
         }
 
+        .login-footer-note {
+            margin-top: 30px;
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 0.85rem;
+            letter-spacing: 0.03em;
+        }
+
         .tabs {
             display: flex;
             margin-bottom: 40px;
@@ -936,6 +944,11 @@ if (isset($_GET['resend_email'])) {
                         🌱 Criar Conta Gratuita
                     </button>
                 </form>
+            </div>
+
+            <div class="login-footer-note">
+                (C) Carlos Pinto Jr, 2025 · Suporte: 
+                <a href="mailto:capivara@capivaralearn.com.br" style="color: inherit; text-decoration: underline;">capivara@capivaralearn.com.br</a>
             </div>
         </div>
     </div>

@@ -5,6 +5,10 @@
     <div class="container">
         <div class="row align-items-center">
             <div class="col text-center">
+                <small class="text-muted d-block">(C) Carlos Pinto Jr, 2025</small>
+                <small class="text-muted d-block">
+                    Suporte: <a href="mailto:capivara@capivaralearn.com.br" class="text-muted text-decoration-none">capivara@capivaralearn.com.br</a>
+                </small>
                 <small class="text-muted">
                     <?php 
                     if (class_exists('AppVersion')) {

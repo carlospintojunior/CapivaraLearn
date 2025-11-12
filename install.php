@@ -72,6 +72,16 @@ $deps = checkDependencies();
             margin: 0;
             padding: 20px;
         }
+        .page-footer-note {
+            position: fixed;
+            bottom: 15px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.8);
+            font-size: 0.85rem;
+            letter-spacing: 0.05em;
+        }
         .installer {
             background: white;
             border-radius: 20px;
@@ -702,5 +712,9 @@ define('APP_URL', 'http://' . \$_SERVER['SERVER_NAME']);
         
         <?php endif; ?>
     </div>
+            <footer class="page-footer-note">
+                (C) Carlos Pinto Jr, 2025 · Suporte: 
+                <a href="mailto:capivara@capivaralearn.com.br" style="color: inherit; text-decoration: underline;">capivara@capivaralearn.com.br</a>
+            </footer>
 </body>
 </html>

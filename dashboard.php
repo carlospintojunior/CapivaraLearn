@@ -981,6 +981,11 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
         </div>
     </div>
 
+    <footer class="app-footer text-center py-3">
+        <small class="text-muted d-block">(C) Carlos Pinto Jr, 2025</small>
+        <small class="text-muted">Suporte: <a href="mailto:capivara@capivaralearn.com.br" class="text-muted text-decoration-underline">capivara@capivaralearn.com.br</a></small>
+    </footer>
+
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         // Log no console para debug
