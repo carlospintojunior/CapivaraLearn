@@ -74,24 +74,12 @@ sudo touch /opt/lampp/htdocs/CapivaraLearn/logs/php_errors.log
 sudo chmod 666 /opt/lampp/htdocs/CapivaraLearn/logs/php_errors.log
 ```
 
-### Método 3: Somente Arquivos Alterados (rsync incremental)
+### Método 3: Enviar apenas alguns arquivos (exemplo termos_uso.html)
 ```bash
 cd /home/carlos/Documents/GitHub/CapivaraLearn
 
-sudo mkdir -p /opt/lampp/htdocs/CapivaraLearn
-sudo mkdir -p /opt/lampp/htdocs/CapivaraLearn/logs
+pscp -batch -i /home/carlos/Nextcloud/Documents/ppk/capivaralearn.ppk termos_uso.html root@198.23.132.15:/var/www/capivaralearn/
 
-sudo rsync -av --delete \
-	--exclude 'logs/' \
-	--exclude '.git/' \
-	--exclude 'node_modules/' \
-	./ /opt/lampp/htdocs/CapivaraLearn/
-
-sudo chown -R daemon:daemon /opt/lampp/htdocs/CapivaraLearn
-sudo find /opt/lampp/htdocs/CapivaraLearn -type d -exec chmod 755 {} \;
-sudo find /opt/lampp/htdocs/CapivaraLearn -type f -exec chmod 644 {} \;
-sudo chmod 777 /opt/lampp/htdocs/CapivaraLearn/logs
-sudo chmod 666 /opt/lampp/htdocs/CapivaraLearn/logs/php_errors.log
 ```
 
 **Dica:** o `rsync` copia apenas os arquivos modificados (com base em tamanho e data), mantendo o histórico de permissões consistente e preservando os logs. Ideal para sincronizações rápidas no dia a dia.

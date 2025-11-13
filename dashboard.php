@@ -466,8 +466,19 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
         .atrasado { background-color: #ef5350; color: white; }
         .sem-prazo { background-color: #9e9e9e; color: white; }
         .progress-custom {
-            height: 10px;
-            border-radius: 10px;
+            height: 26px;
+            border-radius: 14px;
+            overflow: hidden;
+            background-color: #e9ecef;
+        }
+        .progress-custom .progress-bar {
+            font-size: 0.85rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 12px;
+            border-radius: 14px;
         }
         .unidade-item {
             transition: all 0.3s ease;
@@ -561,6 +572,26 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
             font-size: 0.75rem;
             font-weight: 500;
         }
+        .sidebar-footer .sidebar-copy {
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.65);
+        }
+        .sidebar-footer .sidebar-copy strong {
+            color: rgba(255,255,255,0.85);
+            font-weight: 600;
+        }
+        .sidebar-footer .contact-link {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.35rem;
+            font-size: 0.7rem;
+            color: rgba(255,255,255,0.75);
+            text-decoration: none;
+        }
+        .sidebar-footer .contact-link:hover {
+            color: #ffffff;
+        }
         .nav-section-header {
             font-size: 0.7rem;
             font-weight: 600;
@@ -651,7 +682,13 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                         }
                         ?>
                     </small>
-                    <div class="mb-2">
+                    <div class="sidebar-divider opacity-50 my-2"></div>
+                    <small class="sidebar-copy d-block">&copy; <?php echo date('Y'); ?> <strong>Carlos Pinto Jr</strong></small>
+                    <a href="mailto:capivara@capivaralearn.com.br" class="contact-link mb-2" title="Fale com o suporte">
+                        <i class="fas fa-envelope"></i>
+                        capivara@capivaralearn.com.br
+                    </a>
+                    <div class="d-flex justify-content-center gap-3">
                         <a href="https://github.com/carlospintojunior/CapivaraLearn" target="_blank" 
                            class="text-white-50 text-decoration-none" title="GitHub Repository">
                             <i class="fab fa-github fa-lg"></i>
@@ -980,11 +1017,6 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
             </div>
         </div>
     </div>
-
-    <footer class="app-footer text-center py-3">
-        <small class="text-muted d-block">(C) Carlos Pinto Jr, 2025</small>
-        <small class="text-muted">Suporte: <a href="mailto:capivara@capivaralearn.com.br" class="text-muted text-decoration-underline">capivara@capivaralearn.com.br</a></small>
-    </footer>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>

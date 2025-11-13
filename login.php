@@ -355,10 +355,12 @@ if (isset($_GET['resend_email'])) {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
             display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
             padding: 20px;
             position: relative;
+            gap: 30px;
         }
 
         body::before {
@@ -807,6 +809,32 @@ if (isset($_GET['resend_email'])) {
                 height: 60px;
             }
         }
+
+        /* Footer na página de login */
+        footer.app-footer {
+            position: relative;
+            width: 100%;
+            background: transparent !important;
+            border-top: none !important;
+            padding: 0 !important;
+            text-align: center;
+        }
+
+        footer .footer-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+
+        footer .footer-text,
+        footer .footer-link {
+            color: rgba(255, 255, 255, 0.85) !important;
+        }
+
+        footer .footer-link:hover {
+            color: #ffffff !important;
+        }
     </style>
 </head>
 <body>
@@ -945,13 +973,10 @@ if (isset($_GET['resend_email'])) {
                     </button>
                 </form>
             </div>
-
-            <div class="login-footer-note">
-                (C) Carlos Pinto Jr, 2025 · Suporte: 
-                <a href="mailto:capivara@capivaralearn.com.br" style="color: inherit; text-decoration: underline;">capivara@capivaralearn.com.br</a>
-            </div>
         </div>
     </div>
+
+    <?php require_once __DIR__ . '/includes/footer.php'; ?>
 
     <!-- Loading Popup -->
     <div id="loading-popup" style="display: none;">
