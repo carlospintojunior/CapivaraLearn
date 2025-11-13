@@ -74,6 +74,16 @@ sudo touch /opt/lampp/htdocs/CapivaraLearn/logs/php_errors.log
 sudo chmod 666 /opt/lampp/htdocs/CapivaraLearn/logs/php_errors.log
 ```
 
+### Método 3: Enviar apenas alguns arquivos (exemplo termos_uso.html)
+```bash
+cd /home/carlos/Documents/GitHub/CapivaraLearn
+
+pscp -batch -i /home/carlos/Nextcloud/Documents/ppk/capivaralearn.ppk termos_uso.html root@198.23.132.15:/var/www/capivaralearn/
+
+```
+
+**Dica:** o `rsync` copia apenas os arquivos modificados (com base em tamanho e data), mantendo o histórico de permissões consistente e preservando os logs. Ideal para sincronizações rápidas no dia a dia.
+
 **⚠️ Importante:** Execute a sincronização sempre que fizer alterações no código de desenvolvimento!
 
 

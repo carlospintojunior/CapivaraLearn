@@ -556,5 +556,8 @@ if (isset($_GET['edit'])) {
             disciplinaEspecifica.addEventListener('change', toggleStatusDisciplina);
         });
     </script>
+
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>
+
 </body>
 </html>
