@@ -357,6 +357,7 @@ $deps = checkDependencies();
                         nome VARCHAR(200) NOT NULL,
                         descricao TEXT,
                         tipo ENUM('leitura', 'exercicio', 'projeto', 'prova', 'outros') DEFAULT 'leitura',
+                        gabarito TEXT,
                         nota DECIMAL(4,2),
                         data_prazo DATE,
                         concluido TINYINT(1) DEFAULT 0,

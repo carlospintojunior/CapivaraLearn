@@ -149,6 +149,7 @@ CREATE TABLE unidades_aprendizagem (
     nome VARCHAR(200) NOT NULL,                   -- Learning unit name
     descricao TEXT,                               -- Description
     tipo ENUM('leitura', 'exercicio', 'projeto', 'prova', 'outros') DEFAULT 'leitura',
+    gabarito TEXT,                                -- Answer key/expected answers
     nota DECIMAL(4,2),                            -- Grade/Score
     data_prazo DATE,                              -- Due date
     concluido TINYINT(1) DEFAULT 0,              -- Completion status

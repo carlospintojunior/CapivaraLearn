@@ -130,10 +130,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!$check) {
                     throw new Exception('Tópico inválido ou não pertence ao usuário.');
                 }
+                $gabarito = trim($_POST['gabarito'] ?? '');
                 $database->insert('unidades_aprendizagem', [
                     'nome' => $nome,
                     'descricao' => $descricao,
                     'tipo' => $tipo,
+                    'gabarito' => $gabarito,
                     'nota' => $nota,
                     'data_prazo' => $data_prazo,
                     'concluido' => $concluido,
@@ -168,10 +170,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } elseif (!$checkTopico) {
                     throw new Exception('Tópico inválido.');
                 }
+                $gabarito = trim($_POST['gabarito'] ?? '');
                 $database->update('unidades_aprendizagem', [
                     'nome' => $nome,
                     'descricao' => $descricao,
                     'tipo' => $tipo,
+                    'gabarito' => $gabarito,
                     'nota' => $nota,
                     'data_prazo' => $data_prazo,
                     'concluido' => $concluido,
@@ -498,6 +502,10 @@ if (isset($_GET['edit'])) {
                                 <option value="atividade" <?= (isset($editUnit['tipo']) && $editUnit['tipo'] === 'atividade') ? 'selected' : '' ?>>Atividade</option>
                                 <option value="prova" <?= (isset($editUnit['tipo']) && $editUnit['tipo'] === 'prova') ? 'selected' : '' ?>>Prova</option>
                             </select>
+                        </div>
+                        <div class="mb-2">
+                            <label for="gabarito" class="form-label">Gabarito</label>
+                            <textarea class="form-control" name="gabarito" id="gabarito" rows="5"><?= htmlspecialchars($editUnit['gabarito'] ?? '') ?></textarea>
                         </div>
                         <div class="mb-2">
                             <label for="nota" class="form-label">Nota</label>
