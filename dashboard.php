@@ -660,7 +660,7 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                     <a class="nav-link" href="#">
                         <i class="fas fa-cog me-2"></i>Configurações
                     </a>
-                    <a class="nav-link" href="#">
+                    <a class="nav-link" href="profile.php">
                         <i class="fas fa-user me-2"></i>Minha Conta
                     </a>
                     <a class="nav-link" href="financial_dashboard.php">
