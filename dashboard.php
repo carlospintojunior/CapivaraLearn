@@ -643,10 +643,23 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                     <a class="nav-link" href="clinical_tests.php">
                         <i class="fas fa-stethoscope me-2"></i>Testes Especiais
                     </a>
+                    <?php if (($_SESSION['user_role'] ?? 'user') === 'admin'): ?>
                     <a class="nav-link" href="crud/clinical_tests_admin.php">
                         <i class="fas fa-cogs me-2"></i>Admin Testes
                     </a>
+                    <?php endif; ?>
                     <div class="sidebar-divider"></div>
+                    
+                    <?php if (($_SESSION['user_role'] ?? 'user') === 'admin'): ?>
+                    <!-- Seção Administração -->
+                    <div class="nav-section-header text-white-50 px-3 py-2">
+                        <small><i class="fas fa-shield-alt me-2"></i>ADMINISTRAÇÃO</small>
+                    </div>
+                    <a class="nav-link" href="crud/users_admin.php">
+                        <i class="fas fa-users-cog me-2"></i>Usuários
+                    </a>
+                    <div class="sidebar-divider"></div>
+                    <?php endif; ?>
                     
                     <!-- Seção de Manutenção -->
                     <div class="nav-section-header text-white-50 px-3 py-2">

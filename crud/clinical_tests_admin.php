@@ -18,6 +18,12 @@ if (!isset($_SESSION['user_id'])) {
     exit;
 }
 
+// Apenas administradores podem acessar
+if (($_SESSION['user_role'] ?? 'user') !== 'admin') {
+    header('Location: /CapivaraLearn/dashboard.php?erro=acesso_negado');
+    exit;
+}
+
 $database = new Medoo([
     'type' => 'mysql',
     'host' => DB_HOST,

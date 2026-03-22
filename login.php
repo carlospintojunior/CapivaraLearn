@@ -99,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 // Consultar usuário no banco
                 log_sistema("Buscando usuário no banco: {$email}", 'DEBUG');
                 $user = $db->select(
-                    "SELECT id, nome, email, senha, ativo, email_verificado FROM usuarios WHERE email = ? AND ativo = 1",
+                    "SELECT id, nome, email, senha, ativo, email_verificado, role FROM usuarios WHERE email = ? AND ativo = 1",
                     [$email]
                 );
                 log_sistema("Resultado do select usuário: " . var_export($user, true), 'DEBUG');
@@ -137,6 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $_SESSION['user_id'] = $user[0]['id'];
                     $_SESSION['user_name'] = $user[0]['nome'];
                     $_SESSION['user_email'] = $user[0]['email'];
+                    $_SESSION['user_role'] = $user[0]['role'] ?? 'user';
                     $_SESSION['logged_in'] = true;
                     
                     $db->execute("UPDATE usuarios SET data_ultimo_acesso = NOW() WHERE id = ?", [$user[0]['id']]);

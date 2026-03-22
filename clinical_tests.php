@@ -353,30 +353,115 @@ $regiaoAtual = $database->get('regioes_corporais', ['nome', 'descricao', 'icone'
 
         .empty-state i { font-size: 4rem; margin-bottom: 1rem; }
 
-        /* Responsivo */
+        /* Responsivo - Mobile */
         @media (max-width: 992px) {
-            .app-layout { flex-direction: column; }
+            .top-bar { padding: 0 0.8rem; }
+
+            .app-layout {
+                flex-direction: column;
+                padding-top: 48px;
+            }
+
+            /* Sidebars viram offcanvas no mobile */
             .sidebar-nav {
-                width: 100%;
+                position: fixed;
+                top: 48px;
+                left: -300px;
+                width: 280px;
                 min-width: unset;
-                position: relative;
-                flex-direction: row;
-                overflow-x: auto;
-                overflow-y: hidden;
+                transition: left 0.3s ease;
+                z-index: 150;
+                overflow-y: auto;
+                flex-direction: column;
             }
-            .sidebar-tests {
-                width: 100%;
-                min-width: unset;
-                position: relative;
+
+            .sidebar-nav.mobile-open {
                 left: 0;
-                max-height: 200px;
             }
+
+            .sidebar-tests {
+                position: fixed;
+                top: 48px;
+                left: -300px;
+                width: 280px;
+                min-width: unset;
+                transition: left 0.3s ease;
+                z-index: 140;
+                overflow-y: auto;
+                max-height: unset;
+                bottom: 0;
+            }
+
+            .sidebar-tests.mobile-open {
+                left: 0;
+            }
+
             .main-content {
                 margin-left: 0;
                 padding: 1rem;
+                min-height: calc(100vh - 48px);
             }
-            .sidebar-section { display: flex; flex-wrap: nowrap; }
-            .sidebar-link { white-space: nowrap; }
+
+            /* Overlay para fechar menus */
+            .mobile-overlay {
+                display: none;
+                position: fixed;
+                top: 48px;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.4);
+                z-index: 130;
+            }
+
+            .mobile-overlay.active {
+                display: block;
+            }
+
+            /* Barra de ações mobile */
+            .mobile-actions {
+                display: flex;
+                gap: 0.5rem;
+                padding: 0.6rem 1rem;
+                background: #fff;
+                border-bottom: 1px solid #dee2e6;
+                overflow-x: auto;
+                white-space: nowrap;
+            }
+
+            .mobile-actions .btn {
+                font-size: 0.8rem;
+                padding: 0.35rem 0.7rem;
+                flex-shrink: 0;
+            }
+
+            /* Card de detalhe menor no mobile */
+            .test-detail-header { padding: 1rem; }
+            .test-detail-header h2 { font-size: 1.2rem; }
+            .test-detail-body { padding: 1rem; }
+            .detail-section { margin-bottom: 1rem; padding-bottom: 1rem; }
+            .video-container video { max-height: 260px; }
+
+            /* Nav buttons empilhados no mobile */
+            .test-nav-buttons {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+            .test-nav-buttons .btn {
+                min-width: unset;
+                font-size: 0.85rem;
+            }
+
+            /* Header sidebar escondido no mobile (já tem top-bar) */
+            .sidebar-header { padding: 0.8rem; }
+            .sidebar-header h5 { font-size: 1rem; }
+            .sidebar-back { padding: 0.6rem 1rem; }
+        }
+
+        /* Esconder ações mobile no desktop */
+        @media (min-width: 993px) {
+            .mobile-actions { display: none !important; }
+            .mobile-overlay { display: none !important; }
         }
 
         /* Contador de testes por região */
@@ -405,9 +490,13 @@ $regiaoAtual = $database->get('regioes_corporais', ['nome', 'descricao', 'icone'
             <i class="fas fa-arrow-left me-2"></i>Dashboard
         </a>
         <span class="brand"><i class="fas fa-stethoscope me-2"></i>Testes Especiais</span>
+        <?php if (($_SESSION['user_role'] ?? 'user') === 'admin'): ?>
         <a href="crud/clinical_tests_admin.php" title="Administrar Testes">
             <i class="fas fa-cog me-1"></i>Admin
         </a>
+        <?php else: ?>
+        <span></span>
+        <?php endif; ?>
     </div>
 
     <div class="app-layout">
@@ -455,10 +544,12 @@ $regiaoAtual = $database->get('regioes_corporais', ['nome', 'descricao', 'icone'
 
             <div class="sidebar-back">
                 <a href="dashboard.php"><i class="fas fa-arrow-left me-2"></i>Voltar ao Dashboard</a>
+                <?php if (($_SESSION['user_role'] ?? 'user') === 'admin'): ?>
                 <br>
                 <a href="crud/clinical_tests_admin.php" class="mt-1 d-inline-block">
                     <i class="fas fa-cog me-2"></i>Administrar Testes
                 </a>
+                <?php endif; ?>
             </div>
         </aside>
 
@@ -493,6 +584,23 @@ $regiaoAtual = $database->get('regioes_corporais', ['nome', 'descricao', 'icone'
 
         <!-- CONTEÚDO PRINCIPAL: Detalhes do teste -->
         <main class="main-content">
+            <!-- Overlay mobile -->
+            <div class="mobile-overlay" id="mobileOverlay" onclick="closeMobilePanels()"></div>
+
+            <!-- Barra de ações mobile -->
+            <div class="mobile-actions">
+                <button class="btn btn-primary btn-sm" onclick="togglePanel('regions')">
+                    <i class="fas fa-bone me-1"></i><?= htmlspecialchars($regiaoAtual['nome'] ?? 'Regiões') ?>
+                </button>
+                <button class="btn btn-outline-primary btn-sm" onclick="togglePanel('tests')">
+                    <i class="fas fa-vial me-1"></i>Testes (<?= count($testes) ?>)
+                </button>
+                <?php if ($testeAtual): ?>
+                <span class="btn btn-light btn-sm disabled" style="opacity:0.8;">
+                    <i class="fas fa-stethoscope me-1"></i><?= htmlspecialchars($testeAtual['nome']) ?>
+                </span>
+                <?php endif; ?>
+            </div>
             <?php if ($testeAtual): ?>
                 <div class="test-detail-card">
                     <div class="test-detail-header">
@@ -596,7 +704,11 @@ $regiaoAtual = $database->get('regioes_corporais', ['nome', 'descricao', 'icone'
                 <div class="empty-state">
                     <i class="fas fa-database d-block"></i>
                     <h4>Nenhum teste cadastrado</h4>
+                    <?php if (($_SESSION['user_role'] ?? 'user') === 'admin'): ?>
                     <p>Acesse a <a href="crud/clinical_tests_admin.php">administração</a> para cadastrar categorias, regiões e testes.</p>
+                    <?php else: ?>
+                    <p>Nenhum conteúdo disponível ainda.</p>
+                    <?php endif; ?>
                 </div>
             <?php else: ?>
                 <div class="empty-state">
@@ -609,5 +721,38 @@ $regiaoAtual = $database->get('regioes_corporais', ['nome', 'descricao', 'icone'
     </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function togglePanel(panel) {
+    const nav = document.querySelector('.sidebar-nav');
+    const tests = document.querySelector('.sidebar-tests');
+    const overlay = document.getElementById('mobileOverlay');
+
+    // Fechar ambos primeiro
+    nav.classList.remove('mobile-open');
+    tests.classList.remove('mobile-open');
+
+    if (panel === 'regions') {
+        nav.classList.add('mobile-open');
+    } else if (panel === 'tests') {
+        tests.classList.add('mobile-open');
+    }
+    overlay.classList.add('active');
+}
+
+function closeMobilePanels() {
+    document.querySelector('.sidebar-nav').classList.remove('mobile-open');
+    document.querySelector('.sidebar-tests').classList.remove('mobile-open');
+    document.getElementById('mobileOverlay').classList.remove('active');
+}
+
+// Fechar ao clicar em link da sidebar (mobile)
+document.querySelectorAll('.sidebar-link, .test-item').forEach(function(el) {
+    el.addEventListener('click', function() {
+        if (window.innerWidth <= 992) {
+            closeMobilePanels();
+        }
+    });
+});
+</script>
 </body>
 </html>
