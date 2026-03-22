@@ -201,6 +201,9 @@ server {
     root /var/www/capivaralearn;
     index index.php index.html index.htm;
 
+    # Limite de upload (necessário para vídeos de Testes Especiais, até 120MB)
+    client_max_body_size 120M;
+
     # Configurações de segurança
     server_tokens off;
     add_header X-Frame-Options "SAMEORIGIN" always;
@@ -286,9 +289,13 @@ sudo nano /etc/php/8.2/fpm/php.ini
 memory_limit = 128M
 max_execution_time = 300
 max_input_vars = 3000
-post_max_size = 64M
-upload_max_filesize = 32M
+
+; Upload de arquivos grandes (vídeos de Testes Especiais podem ter até 100MB)
+post_max_size = 130M
+upload_max_filesize = 120M
 ```
+
+> **Nota:** Os limites de upload (`upload_max_filesize`, `post_max_size`) e o `client_max_body_size` do Nginx devem ser compatíveis. O módulo de Testes Especiais permite upload de vídeos MP4 de até 100MB e imagens de até 10MB, portanto os valores acima são necessários.
 
 ```bash
 # Reiniciar PHP-FPM

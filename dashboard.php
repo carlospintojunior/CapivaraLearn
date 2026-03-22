@@ -636,6 +636,18 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                     </a>
                     <div class="sidebar-divider"></div>
                     
+                    <!-- Seção Clínica -->
+                    <div class="nav-section-header text-white-50 px-3 py-2">
+                        <small><i class="fas fa-heartbeat me-2"></i>CLÍNICA</small>
+                    </div>
+                    <a class="nav-link" href="clinical_tests.php">
+                        <i class="fas fa-stethoscope me-2"></i>Testes Especiais
+                    </a>
+                    <a class="nav-link" href="crud/clinical_tests_admin.php">
+                        <i class="fas fa-cogs me-2"></i>Admin Testes
+                    </a>
+                    <div class="sidebar-divider"></div>
+                    
                     <!-- Seção de Manutenção -->
                     <div class="nav-section-header text-white-50 px-3 py-2">
                         <small><i class="fas fa-tools me-2"></i>MANUTENÇÃO</small>
