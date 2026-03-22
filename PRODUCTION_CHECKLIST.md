@@ -99,11 +99,13 @@ ls -la /var/backups/capivaralearn/
 memory_limit = 128M
 max_execution_time = 300
 max_input_vars = 3000
-post_max_size = 64M
-upload_max_filesize = 32M
+post_max_size = 130M
+upload_max_filesize = 120M
 display_errors = Off
 log_errors = On
 ```
+
+> **Nota:** `upload_max_filesize` e `post_max_size` elevados para suportar upload de vídeos no módulo de Testes Especiais (até 100MB). O Nginx também precisa de `client_max_body_size 120M;` no bloco `server`.
 
 ### PHP-FPM (www.conf)
 ```ini
