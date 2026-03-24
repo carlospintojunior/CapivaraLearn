@@ -223,11 +223,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <div class="d-flex justify-content-between align-items-center mb-4">
             <div>
                 <h2>🧪 Testador de Email</h2>
-                <small class="text-muted">Diagnóstico da configuração SMTP do CapivaraLearn</small>
+                <small class="text-muted">Subopção de Configurações para diagnóstico SMTP do CapivaraLearn</small>
             </div>
-            <a href="<?= htmlspecialchars(appPath('crud/email_logs.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm">
-                📋 Ver Logs de Email
-            </a>
+            <div class="d-flex gap-2">
+                <a href="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm">
+                    <i class="fas fa-arrow-left me-1"></i>Configurações
+                </a>
+                <a href="<?= htmlspecialchars(appPath('crud/email_logs.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary btn-sm">
+                    📋 Ver Logs de Email
+                </a>
+            </div>
         </div>
 
         <!-- Configuração Atual -->

@@ -371,7 +371,7 @@ $verificationBadgeText = !empty($user['email_verificado']) ? 'Email verificado' 
                     </a>
                     <div class="sidebar-divider"></div>
                     <?php if (($_SESSION['user_role'] ?? 'user') === 'admin'): ?>
-                    <a class="nav-link" href="crud/test_email.php">
+                    <a class="nav-link" href="settings.php">
                         <i class="fas fa-cog me-2"></i>Configurações
                     </a>
                     <?php endif; ?>
