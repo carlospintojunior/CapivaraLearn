@@ -6,6 +6,7 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
 use PHPMailer\PHPMailer\Exception;
 
+if (!class_exists('MailService')) {
 class MailService {
     private static $instance = null;
     private $lastError = '';
@@ -217,4 +218,5 @@ class MailService {
         </html>";
     }
 }
+} // end class_exists('MailService')
 ?>

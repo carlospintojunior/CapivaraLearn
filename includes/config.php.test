@@ -163,6 +163,7 @@ if ($config && isset($config['production'])) {
 // =============================================
 // CLASSE DE CONEXÃO COM BANCO - VERSÃO COMPLETA
 // =============================================
+if (!class_exists('Database')) {
 class Database {
     private static $instance = null;
     private $connection;
@@ -283,6 +284,7 @@ class Database {
         return $this->connection->lastInsertId();
     }
 }
+} // end class_exists('Database')
 
 // =============================================
 // FUNÇÕES AUXILIARES
@@ -394,6 +396,7 @@ use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
 use PHPMailer\PHPMailer\Exception;
 
+if (!class_exists('MailService')) {
 class MailService {
     private static $instance = null;
     private $lastError = '';
@@ -532,6 +535,7 @@ class MailService {
         </html>";
     }
 }
+} // end class_exists('MailService')
 
 // =============================================
 // LOG INICIAL DO SISTEMA
