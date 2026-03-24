@@ -48,8 +48,7 @@ function recordTestEmailLog(Medoo $database, string $destinatario, string $assun
             'destinatario' => $destinatario,
             'assunto' => $assunto,
             'tipo' => 'notificacao',
-            'status' => $status,
-            'data_envio' => date('Y-m-d H:i:s')
+            'status' => $status
         ];
 
         if ($erroDetalhes !== null && $erroDetalhes !== '') {

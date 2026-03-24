@@ -30,6 +30,22 @@ $database = new Medoo([
     'charset' => 'utf8mb4'
 ]);
 
+$database->pdo->exec("SET time_zone = '-03:00'");
+
+function formatEmailLogDateTime(?string $value): ?string {
+    if (empty($value)) {
+        return null;
+    }
+
+    $dateTime = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $value, new DateTimeZone(TIMEZONE));
+
+    if ($dateTime === false) {
+        return null;
+    }
+
+    return $dateTime->format('d/m/Y H:i:s');
+}
+
 // ===== FILTROS =====
 $filterStatus = $_GET['status'] ?? '';
 $filterTipo = $_GET['tipo'] ?? '';
@@ -88,6 +104,7 @@ $totalPendentes = $database->count('email_log', ['status' => 'pendente']);
                 <div>
                     <h2><i class="fas fa-envelope-open-text me-2"></i>Logs de Email</h2>
                     <p class="text-muted mb-0">Monitore o envio de emails do sistema</p>
+                    <p class="text-muted small mb-0">Horários exibidos em GMT-3 (America/Sao_Paulo)</p>
                 </div>
                 <div class="d-flex gap-2">
                     <a href="users_admin.php" class="btn btn-outline-primary">
@@ -245,7 +262,7 @@ $totalPendentes = $database->count('email_log', ['status' => 'pendente']);
                                     </td>
                                     <td>
                                         <?php if ($log['data_envio']): ?>
-                                            <?= date('d/m/Y H:i:s', strtotime($log['data_envio'])) ?>
+                                            <?= htmlspecialchars(formatEmailLogDateTime($log['data_envio']) ?? '—', ENT_QUOTES, 'UTF-8') ?>
                                         <?php else: ?>
                                             <span class="text-muted">—</span>
                                         <?php endif; ?>
