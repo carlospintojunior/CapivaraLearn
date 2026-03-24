@@ -127,8 +127,8 @@ run_remote "echo 'Conexão estabelecida com ' \$(hostname)" || {
 }
 
 echo "📋 Opções de sincronização:"
-read -p "Preservar configurações (config.php, environment.ini)? (S/n): " PRESERVE_CONFIG
-PRESERVE_CONFIG=${PRESERVE_CONFIG:-S}
+read -p "Preservar variáveis de ambiente (environment.ini)? (S/n): " PRESERVE_ENVIRONMENT
+PRESERVE_ENVIRONMENT=${PRESERVE_ENVIRONMENT:-S}
 
 read -p "Preservar dados de usuário (backup/, cache/)? (S/n): " PRESERVE_USER_DATA
 PRESERVE_USER_DATA=${PRESERVE_USER_DATA:-S}
@@ -139,9 +139,8 @@ echo "💾 Realizando backup remoto antes da sincronização..."
 run_remote "rm -rf '$REMOTE_BACKUP' && mkdir -p '$REMOTE_BACKUP'"
 backup_remote_dir "logs"
 
-if [[ "$PRESERVE_CONFIG" =~ ^[Ss]$ ]]; then
-    echo "- Configurações:"
-    backup_remote_file "includes/config.php"
+if [[ "$PRESERVE_ENVIRONMENT" =~ ^[Ss]$ ]]; then
+    echo "- Variáveis de ambiente:"
     backup_remote_file "includes/environment.ini"
 fi
 
@@ -181,8 +180,7 @@ echo ""
 echo "🔄 Restaurando arquivos preservados..."
 restore_remote_dir "logs"
 
-if [[ "$PRESERVE_CONFIG" =~ ^[Ss]$ ]]; then
-    restore_remote_file "includes/config.php"
+if [[ "$PRESERVE_ENVIRONMENT" =~ ^[Ss]$ ]]; then
     restore_remote_file "includes/environment.ini"
 fi
 
@@ -205,7 +203,7 @@ echo ""
 echo "✅ Sincronização concluída com sucesso!"
 echo "📊 Resumo:"
 echo "   • Arquivos copiados para produção"
-echo "   • Configurações preservadas: $([[ "$PRESERVE_CONFIG" =~ ^[Ss]$ ]] && echo "Sim" || echo "Não")"
+echo "   • environment.ini preservado: $([[ "$PRESERVE_ENVIRONMENT" =~ ^[Ss]$ ]] && echo "Sim" || echo "Não")"
 echo "   • Dados de usuário preservados: $([[ "$PRESERVE_USER_DATA" =~ ^[Ss]$ ]] && echo "Sim" || echo "Não")"
 echo ""
 echo "🌐 Verifique em: https://capivaralearn.com.br"

@@ -52,26 +52,72 @@ if (file_exists($envFile)) {
 // SEMPRE PRODUÇÃO
 $isProduction = true;
 
+$productionConfig = ($config && isset($config['production'])) ? $config['production'] : [];
+
+if (!function_exists('detectAppBasePath')) {
+    function detectAppBasePath() {
+        $documentRoot = isset($_SERVER['DOCUMENT_ROOT']) ? realpath($_SERVER['DOCUMENT_ROOT']) : false;
+        $appRoot = realpath(__DIR__ . '/..');
+
+        if (!$documentRoot || !$appRoot) {
+            return '';
+        }
+
+        $normalizedDocumentRoot = str_replace('\\', '/', $documentRoot);
+        $normalizedAppRoot = str_replace('\\', '/', $appRoot);
+
+        if (strpos($normalizedAppRoot, $normalizedDocumentRoot) !== 0) {
+            return '';
+        }
+
+        $relativePath = trim(substr($normalizedAppRoot, strlen($normalizedDocumentRoot)), '/');
+
+        return $relativePath === '' ? '' : '/' . $relativePath;
+    }
+}
+
+if (!function_exists('detectAppUrl')) {
+    function detectAppUrl($basePath = '') {
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? 'localhost');
+
+        return $scheme . '://' . $host . $basePath;
+    }
+}
+
+if (!function_exists('appPath')) {
+    function appPath($path = '') {
+        $normalizedPath = ltrim($path, '/');
+
+        if ($normalizedPath === '') {
+            return APP_BASE_PATH !== '' ? APP_BASE_PATH : '/';
+        }
+
+        return (APP_BASE_PATH !== '' ? APP_BASE_PATH : '') . '/' . $normalizedPath;
+    }
+}
+
+if (!function_exists('redirectTo')) {
+    function redirectTo($path) {
+        header('Location: ' . appPath($path));
+        exit();
+    }
+}
+
 // =============================================
 // CONFIGURAÇÕES DE SESSÃO (ANTES de session_start)
 // =============================================
 if (session_status() === PHP_SESSION_NONE) {
-    // Configurar diretório de sessões local para evitar problemas de permissão
-    $sessionDir = __DIR__ . '/../logs/sessions';
-    if (!is_dir($sessionDir)) {
-        @mkdir($sessionDir, 0777, true);
-    }
-    @ini_set('session.save_path', $sessionDir);
-    
     // Configurações básicas de cookies
     @ini_set('session.cookie_httponly', 1);
     @ini_set('session.use_only_cookies', 1);
-    
-    // Para desenvolvimento local HTTP - não usar cookie_secure
-    // Em produção HTTPS, essas configurações devem ser ajustadas
-    @ini_set('session.cookie_secure', 0);
+
+    // Mantém o cookie alinhado com o protocolo atual e evita separar sessões
+    // entre páginas que iniciam a sessão antes e depois deste arquivo.
+    $isHttps = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+    @ini_set('session.cookie_secure', $isHttps ? '1' : '0');
     @ini_set('session.cookie_samesite', 'Lax');
-    
+
     session_start();
 }
 
@@ -99,7 +145,9 @@ if ($config && isset($config['production'])) {
 // =============================================
 // CONFIGURAÇÕES DE PRODUÇÃO (SEMPRE)
 // =============================================
-define('APP_URL', 'http://localhost/CapivaraLearn');
+$appBasePath = detectAppBasePath();
+define('APP_BASE_PATH', $appBasePath);
+define('APP_URL', rtrim($productionConfig['app_url'] ?? detectAppUrl($appBasePath), '/'));
 define('APP_ENV', 'production');
 define('DEBUG_MODE', true); // Manter debug ativo para logs
 
@@ -310,8 +358,7 @@ function isLoggedIn() {
 
 function requireLogin() {
     if (!isLoggedIn()) {
-        header('Location: login.php');
-        exit();
+        redirectTo('login.php');
     }
 }
 
@@ -343,11 +390,6 @@ if (APP_ENV === 'production') {
 
 // Configurar timezone
 date_default_timezone_set(TIMEZONE);
-
-// Iniciar sessão se ainda não iniciada
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
 
 // =============================================
 // CLASSE DE SERVIÇO DE EMAIL - CORRIGIDA
@@ -501,7 +543,7 @@ class MailService {
 // LOG INICIAL DO SISTEMA
 // =============================================
 if (DEBUG_MODE) {
-    logActivity('config_loaded', 'Sistema inicializado para ' . APP_ENV);
+    logActivity(null, 'config_loaded', 'Sistema inicializado para ' . APP_ENV);
 }
 
 /*

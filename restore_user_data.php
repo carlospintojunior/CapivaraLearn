@@ -1,16 +1,14 @@
 <?php
-session_start();
+
+require_once __DIR__ . '/includes/config.php';
 
 // Verificar login
-if (!isset($_SESSION['user_id'])) {
-    header('Location: login.php');
-}
+requireLogin();
 
 // Carregar dependências
 require_once 'Medoo.php';
 require_once __DIR__ . '/includes/version.php';
 require_once __DIR__ . '/includes/services/FinancialService.php';
-require_once __DIR__ . '/includes/config.php';  // Para ter acesso ao sistema de logs
 require_once 'includes/log_sistema.php';
 
 // Função para limpar dados recursivamente, removendo objetos e recursos

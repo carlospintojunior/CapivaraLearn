@@ -9,14 +9,7 @@ require_once __DIR__ . '/Medoo.php';
 
 use Medoo\Medoo;
 
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
-if (!isset($_SESSION['user_id'])) {
-    header('Location: login.php');
-    exit;
-}
+requireLogin();
 
 $database = new Medoo([
     'type' => 'mysql',

@@ -11,8 +11,7 @@ if (function_exists('requireLogin')) {
     requireLogin();
 } else {
     if (!isset($_SESSION['user_id'])) {
-        header('Location: login.php');
-        exit;
+        redirectTo('login.php');
     }
 }
 

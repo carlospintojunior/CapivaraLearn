@@ -17,8 +17,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // Verificar login simples
 if (!isset($_SESSION['user_id'])) {
-    header('Location: /CapivaraLearn/login.php');
-    exit;
+    redirectTo('login.php');
 }
 
 // Configurar Medoo

@@ -2,11 +2,7 @@
 // Configuração essencial
 require_once __DIR__ . '/includes/config.php';
 
-// Verificar login
-if (!isset($_SESSION['user_id'])) {
-    header('Location: login.php');
-    exit;
-}
+requireLogin();
 
 // Carregar dependências
 require_once 'Medoo.php';

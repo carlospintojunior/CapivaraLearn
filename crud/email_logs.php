@@ -14,13 +14,11 @@ if (session_status() === PHP_SESSION_NONE) {
 }
 
 if (!isset($_SESSION['user_id'])) {
-    header('Location: /CapivaraLearn/login.php');
-    exit;
+    redirectTo('login.php');
 }
 
 if (($_SESSION['user_role'] ?? 'user') !== 'admin') {
-    header('Location: /CapivaraLearn/dashboard.php?erro=acesso_negado');
-    exit;
+    redirectTo('dashboard.php?erro=acesso_negado');
 }
 
 $database = new Medoo([
