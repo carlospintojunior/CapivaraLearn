@@ -107,6 +107,9 @@ $totalPendentes = $database->count('email_log', ['status' => 'pendente']);
                     <p class="text-muted small mb-0">Horários exibidos em GMT-3 (America/Sao_Paulo)</p>
                 </div>
                 <div class="d-flex gap-2">
+                    <a href="<?= htmlspecialchars(appPath('settings.php'), ENT_QUOTES, 'UTF-8') ?>" class="btn btn-outline-secondary">
+                        <i class="fas fa-cog me-1"></i>Configurações
+                    </a>
                     <a href="users_admin.php" class="btn btn-outline-primary">
                         <i class="fas fa-users-cog me-1"></i>Usuários
                     </a>
