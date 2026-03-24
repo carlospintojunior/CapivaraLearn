@@ -248,7 +248,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                             
                             // Log do erro de email
                             $db->execute(
-                                "INSERT INTO email_log (destinatario, assunto, tipo, status, erro) VALUES (?, ?, 'confirmacao', 'falhou', ?)",
+                                "INSERT INTO email_log (destinatario, assunto, tipo, status, erro_detalhes) VALUES (?, ?, 'confirmacao', 'erro', ?)",
                                 [$email, 'Confirme seu cadastro no CapivaraLearn', $errorDetails]
                             );
                             
@@ -314,6 +314,12 @@ if (isset($_GET['resend_email'])) {
             $end_time = microtime(true);
             error_log("DEBUG: Email reenviado com sucesso em " . round($end_time - $start_time, 2) . " segundos");
             log_sistema("Email de confirmação reenviado com sucesso para: $email (Usuario ID: {$user[0]['id']})", 'SUCCESS');
+            
+            $db->execute(
+                "INSERT INTO email_log (destinatario, assunto, tipo, status) VALUES (?, ?, 'confirmacao', 'enviado')",
+                [$email, 'Confirme seu cadastro no CapivaraLearn']
+            );
+            
             $success = 'Email de confirmação reenviado! Verifique sua caixa de entrada.';
         } else {
             $end_time = microtime(true);
@@ -321,11 +327,10 @@ if (isset($_GET['resend_email'])) {
             
             log_sistema("ERRO ao reenviar email de confirmação para: $email (Usuario ID: {$user[0]['id']}) - Erro: $mailError", 'ERROR');
             
-            error_log("=== FALHA NO REENVIO DE EMAIL ===");
-            error_log("Email: $email");
-            error_log("Tempo: " . round($end_time - $start_time, 2) . " segundos");
-            error_log("Erro: $mailError");
-            error_log("Config SMTP: " . json_encode($mail->getConfig()));
+            $db->execute(
+                "INSERT INTO email_log (destinatario, assunto, tipo, status, erro_detalhes) VALUES (?, ?, 'confirmacao', 'erro', ?)",
+                [$email, 'Confirme seu cadastro no CapivaraLearn', "Reenvio - " . $mailError]
+            );
             
             $error = '⚠️ Erro ao reenviar email.<br>';
             $error .= '<strong>Detalhes:</strong> ' . htmlspecialchars($mailError) . '<br>';

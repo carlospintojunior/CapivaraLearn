@@ -67,6 +67,77 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $messageType = 'success';
                     }
                     break;
+
+                case 'verify_email':
+                    $user = $database->get('usuarios', ['email_verificado', 'email'], ['id' => $target_id]);
+                    if ($user) {
+                        if ($user['email_verificado']) {
+                            $message = 'Email já está verificado.';
+                            $messageType = 'warning';
+                        } else {
+                            $database->update('usuarios', ['email_verificado' => 1], ['id' => $target_id]);
+                            $message = 'Email do usuário verificado manualmente com sucesso.';
+                            $messageType = 'success';
+                            require_once __DIR__ . '/../includes/log_sistema.php';
+                            log_sistema("Admin (ID: {$_SESSION['user_id']}) verificou manualmente o email do usuário ID: {$target_id} ({$user['email']})", 'INFO');
+                        }
+                    }
+                    break;
+
+                case 'resend_email':
+                    $user = $database->get('usuarios', ['id', 'nome', 'email', 'email_verificado'], ['id' => $target_id]);
+                    if ($user) {
+                        if ($user['email_verificado']) {
+                            $message = 'Email já está verificado. Não é necessário reenviar.';
+                            $messageType = 'warning';
+                        } else {
+                            require_once __DIR__ . '/../includes/log_sistema.php';
+                            require_once __DIR__ . '/../includes/DatabaseConnection.php';
+                            if (!class_exists('Database') && class_exists('CapivaraLearn\\DatabaseConnection')) {
+                                class_alias('CapivaraLearn\\DatabaseConnection', 'Database');
+                            }
+                            require_once __DIR__ . '/../includes/MailService.php';
+                            if (!function_exists('generateToken')) {
+                                function generateToken() {
+                                    return bin2hex(random_bytes(32));
+                                }
+                            }
+
+                            $db = Database::getInstance();
+                            $mail = MailService::getInstance();
+
+                            // Invalidar tokens antigos
+                            $db->execute("UPDATE email_tokens SET usado = TRUE WHERE usuario_id = ? AND tipo = 'confirmacao'", [$target_id]);
+
+                            // Gerar novo token
+                            $token = generateToken();
+                            $expiration = date('Y-m-d H:i:s', strtotime('+24 hours'));
+                            $db->execute(
+                                "INSERT INTO email_tokens (usuario_id, token, tipo, data_expiracao, ip_address) VALUES (?, ?, 'confirmacao', ?, ?)",
+                                [$target_id, $token, $expiration, $_SERVER['REMOTE_ADDR'] ?? null]
+                            );
+
+                            if ($mail->sendConfirmationEmail($user['email'], $user['nome'], $token)) {
+                                $db->execute(
+                                    "INSERT INTO email_log (destinatario, assunto, tipo, status) VALUES (?, ?, 'confirmacao', 'enviado')",
+                                    [$user['email'], 'Confirme seu cadastro no CapivaraLearn']
+                                );
+                                $message = "Email de confirmação reenviado para {$user['email']}.";
+                                $messageType = 'success';
+                                log_sistema("Admin (ID: {$_SESSION['user_id']}) reenviou email de confirmação para usuário ID: {$target_id} ({$user['email']})", 'INFO');
+                            } else {
+                                $mailError = $mail->getLastError();
+                                $db->execute(
+                                    "INSERT INTO email_log (destinatario, assunto, tipo, status, erro_detalhes) VALUES (?, ?, 'confirmacao', 'erro', ?)",
+                                    [$user['email'], 'Confirme seu cadastro no CapivaraLearn', $mailError]
+                                );
+                                $message = "Falha ao reenviar email: " . htmlspecialchars($mailError);
+                                $messageType = 'danger';
+                                log_sistema("Admin (ID: {$_SESSION['user_id']}) tentou reenviar email para usuário ID: {$target_id} ({$user['email']}) - ERRO: {$mailError}", 'ERROR');
+                            }
+                        }
+                    }
+                    break;
             }
         } catch (Exception $e) {
             $message = 'Erro: ' . $e->getMessage();
@@ -137,7 +208,10 @@ function sortLink(string $col, string $label, string $currentOrder, string $curr
                     <h2><i class="fas fa-users-cog me-2"></i>Administração de Usuários</h2>
                     <p class="text-muted mb-0">Gerencie os usuários cadastrados no sistema</p>
                 </div>
-                <div>
+                <div class="d-flex gap-2">
+                    <a href="email_logs.php" class="btn btn-outline-info">
+                        <i class="fas fa-envelope-open-text me-1"></i>Logs de Email
+                    </a>
                     <a href="../dashboard.php" class="btn btn-outline-secondary">
                         <i class="fas fa-arrow-left me-1"></i>Dashboard
                     </a>
@@ -240,9 +314,27 @@ function sortLink(string $col, string $label, string $currentOrder, string $curr
                                     </td>
                                     <td class="text-center">
                                         <?php if ($u['email_verificado']): ?>
-                                            <i class="fas fa-check-circle text-success"></i>
+                                            <i class="fas fa-check-circle text-success" title="Verificado"></i>
                                         <?php else: ?>
-                                            <i class="fas fa-times-circle text-danger"></i>
+                                            <span class="d-flex align-items-center justify-content-center gap-1">
+                                                <i class="fas fa-times-circle text-danger" title="Não verificado"></i>
+                                                <?php if (intval($u['id']) !== intval($_SESSION['user_id'])): ?>
+                                                <form method="POST" class="d-inline" onsubmit="return confirm('Verificar manualmente o email deste usuário?')">
+                                                    <input type="hidden" name="action" value="verify_email">
+                                                    <input type="hidden" name="user_id" value="<?= intval($u['id']) ?>">
+                                                    <button type="submit" class="btn btn-sm btn-outline-success p-0 px-1" title="Verificar email manualmente">
+                                                        <i class="fas fa-check fa-xs"></i>
+                                                    </button>
+                                                </form>
+                                                <form method="POST" class="d-inline" onsubmit="return confirm('Reenviar email de confirmação para este usuário?')">
+                                                    <input type="hidden" name="action" value="resend_email">
+                                                    <input type="hidden" name="user_id" value="<?= intval($u['id']) ?>">
+                                                    <button type="submit" class="btn btn-sm btn-outline-info p-0 px-1" title="Reenviar email de confirmação">
+                                                        <i class="fas fa-paper-plane fa-xs"></i>
+                                                    </button>
+                                                </form>
+                                                <?php endif; ?>
+                                            </span>
                                         <?php endif; ?>
                                     </td>
                                     <td>

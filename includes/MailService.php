@@ -53,7 +53,7 @@ class MailService {
             $mail->Host = 'mail.capivaralearn.com.br';
             $mail->SMTPAuth = true;
             $mail->Username = 'capivara@capivaralearn.com.br';
-            $mail->Password = '_,CeLlORRy,92';
+            $mail->Password = 'C4piv4Ra:8#LeARn';
             $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS; // SSL para porta 465
             $mail->Port = 465;
             $mail->Timeout = 30;
