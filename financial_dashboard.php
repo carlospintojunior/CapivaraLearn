@@ -1,14 +1,9 @@
 <?php
-session_start();
 
 // Include configuration
 require_once __DIR__ . '/includes/config.php';
 
-// Check if user is logged in
-if (!isset($_SESSION['user_id'])) {
-    header('Location: login.php');
-    exit;
-}
+requireLogin();
 
 // Load dependencies
 require_once 'Medoo.php';

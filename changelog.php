@@ -12,8 +12,7 @@ if (session_status() === PHP_SESSION_NONE) {
 
 // Verificar login
 if (!isset($_SESSION['user_id'])) {
-    header('Location: /CapivaraLearn/login.php');
-    exit;
+    redirectTo('login.php');
 }
 
 // Ler conteúdo do CHANGELOG.md

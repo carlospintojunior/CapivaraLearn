@@ -49,8 +49,7 @@ try {
 // Função para verificar login
 function requireLogin() {
     if (!isset($_SESSION['user_id'])) {
-        header('Location: /CapivaraLearn/login.php');
-        exit;
+        redirectTo('login.php');
     }
 }
 

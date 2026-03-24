@@ -11,8 +11,7 @@ if (function_exists('requireLogin')) {
     requireLogin();
 } else {
     if (!isset($_SESSION['user_id'])) {
-        header('Location: login.php');
-        exit;
+        redirectTo('login.php');
     }
 }
 
@@ -371,9 +370,11 @@ $verificationBadgeText = !empty($user['email_verificado']) ? 'Email verificado' 
                         <i class="fas fa-history me-2"></i>Changelog
                     </a>
                     <div class="sidebar-divider"></div>
-                    <a class="nav-link" href="#">
+                    <?php if (($_SESSION['user_role'] ?? 'user') === 'admin'): ?>
+                    <a class="nav-link" href="crud/test_email.php">
                         <i class="fas fa-cog me-2"></i>Configurações
                     </a>
+                    <?php endif; ?>
                     <a class="nav-link active" href="profile.php">
                         <i class="fas fa-user me-2"></i>Minha Conta
                     </a>

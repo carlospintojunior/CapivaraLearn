@@ -52,26 +52,72 @@ if (file_exists($envFile)) {
 // SEMPRE PRODUÇÃO
 $isProduction = true;
 
+$productionConfig = ($config && isset($config['production'])) ? $config['production'] : [];
+
+if (!function_exists('detectAppBasePath')) {
+    function detectAppBasePath() {
+        $documentRoot = isset($_SERVER['DOCUMENT_ROOT']) ? realpath($_SERVER['DOCUMENT_ROOT']) : false;
+        $appRoot = realpath(__DIR__ . '/..');
+
+        if (!$documentRoot || !$appRoot) {
+            return '';
+        }
+
+        $normalizedDocumentRoot = str_replace('\\', '/', $documentRoot);
+        $normalizedAppRoot = str_replace('\\', '/', $appRoot);
+
+        if (strpos($normalizedAppRoot, $normalizedDocumentRoot) !== 0) {
+            return '';
+        }
+
+        $relativePath = trim(substr($normalizedAppRoot, strlen($normalizedDocumentRoot)), '/');
+
+        return $relativePath === '' ? '' : '/' . $relativePath;
+    }
+}
+
+if (!function_exists('detectAppUrl')) {
+    function detectAppUrl($basePath = '') {
+        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+        $host = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? 'localhost');
+
+        return $scheme . '://' . $host . $basePath;
+    }
+}
+
+if (!function_exists('appPath')) {
+    function appPath($path = '') {
+        $normalizedPath = ltrim($path, '/');
+
+        if ($normalizedPath === '') {
+            return APP_BASE_PATH !== '' ? APP_BASE_PATH : '/';
+        }
+
+        return (APP_BASE_PATH !== '' ? APP_BASE_PATH : '') . '/' . $normalizedPath;
+    }
+}
+
+if (!function_exists('redirectTo')) {
+    function redirectTo($path) {
+        header('Location: ' . appPath($path));
+        exit();
+    }
+}
+
 // =============================================
 // CONFIGURAÇÕES DE SESSÃO (ANTES de session_start)
 // =============================================
 if (session_status() === PHP_SESSION_NONE) {
-    // Configurar diretório de sessões local para evitar problemas de permissão
-    $sessionDir = __DIR__ . '/../logs/sessions';
-    if (!is_dir($sessionDir)) {
-        @mkdir($sessionDir, 0777, true);
-    }
-    @ini_set('session.save_path', $sessionDir);
-    
     // Configurações básicas de cookies
     @ini_set('session.cookie_httponly', 1);
     @ini_set('session.use_only_cookies', 1);
-    
-    // Para desenvolvimento local HTTP - não usar cookie_secure
-    // Em produção HTTPS, essas configurações devem ser ajustadas
-    @ini_set('session.cookie_secure', 0);
+
+    // Mantém o cookie alinhado com o protocolo atual e evita separar sessões
+    // entre páginas que iniciam a sessão antes e depois deste arquivo.
+    $isHttps = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+    @ini_set('session.cookie_secure', $isHttps ? '1' : '0');
     @ini_set('session.cookie_samesite', 'Lax');
-    
+
     session_start();
 }
 
@@ -99,11 +145,55 @@ if ($config && isset($config['production'])) {
 // =============================================
 // CONFIGURAÇÕES DE PRODUÇÃO (SEMPRE)
 // =============================================
-define('APP_URL', 'http://localhost/CapivaraLearn');
+$appBasePath = detectAppBasePath();
+define('APP_BASE_PATH', $appBasePath);
+define('APP_URL', rtrim($productionConfig['app_url'] ?? detectAppUrl($appBasePath), '/'));
 define('APP_ENV', 'production');
 define('DEBUG_MODE', true); // Manter debug ativo para logs
 
 define('TIMEZONE', 'America/Sao_Paulo');
+
+// =============================================
+// CONFIGURAÇÕES DE EMAIL
+// =============================================
+// As credenciais são carregadas do arquivo environment.ini
+// que NÃO é versionado no Git (listado no .gitignore).
+//
+// Para alterar configurações de email, edite:
+//   includes/environment.ini → seção [production]
+//
+// Parâmetros disponíveis no environment.ini:
+//   mail_host       - Servidor SMTP (ex: mail.capivaralearn.com.br)
+//   mail_port       - Porta SMTP (465 para SSL, 587 para TLS)
+//   mail_username   - Usuário de autenticação SMTP
+//   mail_password   - Senha de autenticação SMTP
+//   mail_from_name  - Nome exibido como remetente
+//   mail_from_email - Endereço exibido como remetente
+//   mail_secure     - Tipo de criptografia (ssl ou tls)
+//   mail_auth       - Usar autenticação SMTP (true/false)
+// =============================================
+if ($config && isset($config['production'])) {
+    $envConfig = $config['production'];
+    define('MAIL_HOST', $envConfig['mail_host'] ?? 'mail.capivaralearn.com.br');
+    define('MAIL_PORT', (int)($envConfig['mail_port'] ?? 465));
+    define('MAIL_USERNAME', $envConfig['mail_username'] ?? '');
+    define('MAIL_PASSWORD', $envConfig['mail_password'] ?? '');
+    define('MAIL_FROM_NAME', $envConfig['mail_from_name'] ?? 'CapivaraLearn');
+    define('MAIL_FROM_EMAIL', $envConfig['mail_from_email'] ?? '');
+    define('MAIL_SECURE', $envConfig['mail_secure'] ?? 'ssl');
+    define('MAIL_AUTH', (bool)($envConfig['mail_auth'] ?? true));
+} else {
+    // Fallback — sem environment.ini, constantes ficam vazias por segurança.
+    // O sistema não conseguirá enviar emails até que o environment.ini seja configurado.
+    define('MAIL_HOST', '');
+    define('MAIL_PORT', 465);
+    define('MAIL_USERNAME', '');
+    define('MAIL_PASSWORD', '');
+    define('MAIL_FROM_NAME', 'CapivaraLearn');
+    define('MAIL_FROM_EMAIL', '');
+    define('MAIL_SECURE', 'ssl');
+    define('MAIL_AUTH', true);
+}
 
 // =============================================
 // CLASSE DE BANCO DE DADOS (LEGADO)
@@ -268,8 +358,7 @@ function isLoggedIn() {
 
 function requireLogin() {
     if (!isLoggedIn()) {
-        header('Location: login.php');
-        exit();
+        redirectTo('login.php');
     }
 }
 
@@ -301,11 +390,6 @@ if (APP_ENV === 'production') {
 
 // Configurar timezone
 date_default_timezone_set(TIMEZONE);
-
-// Iniciar sessão se ainda não iniciada
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
 
 // =============================================
 // CLASSE DE SERVIÇO DE EMAIL - CORRIGIDA
@@ -459,7 +543,7 @@ class MailService {
 // LOG INICIAL DO SISTEMA
 // =============================================
 if (DEBUG_MODE) {
-    logActivity('config_loaded', 'Sistema inicializado para ' . APP_ENV);
+    logActivity(null, 'config_loaded', 'Sistema inicializado para ' . APP_ENV);
 }
 
 /*

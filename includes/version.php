@@ -50,7 +50,9 @@ if ($git_branch === 'main' || $git_branch === 'master') {
 
 // Informações da versão atual (agora dinâmicas)
 define('APP_VERSION', ltrim($version, 'v'));
-define('APP_NAME', 'CapivaraLearn');
+if (!defined('APP_NAME')) {
+    define('APP_NAME', 'CapivaraLearn');
+}
 define('APP_BUILD_DATE', date('Y-m-d', strtotime($git_commit_date)));
 define('APP_BUILD_NUMBER', $git_commit_count);
 define('APP_ENVIRONMENT', $environment);

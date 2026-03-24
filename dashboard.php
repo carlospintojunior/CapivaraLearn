@@ -14,21 +14,15 @@ set_error_handler(function ($severity, $message, $file, $line) {
     error_log("DASHBOARD ERROR [$severity]: $message em $file:$line");
 });
 
-// Iniciar sessão
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
-
 // Incluir configurações
 require_once __DIR__ . '/includes/config.php';
 
 error_log("DASHBOARD: Sessão iniciada - session_id: " . session_id());
 
 // Verificar login
-if (!isset($_SESSION['user_id'])) {
+if (!isLoggedIn()) {
     error_log("DASHBOARD: Usuário não logado, redirecionando");
-    header('Location: login.php');
-    exit;
+    redirectTo('login.php');
 }
 
 error_log("DASHBOARD: Usuário logado - ID: " . $_SESSION['user_id']);
@@ -682,9 +676,11 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                     </a>
                     
                     <div class="sidebar-divider"></div>
-                    <a class="nav-link" href="#">
+                    <?php if (($_SESSION['user_role'] ?? 'user') === 'admin'): ?>
+                    <a class="nav-link" href="crud/test_email.php">
                         <i class="fas fa-cog me-2"></i>Configurações
                     </a>
+                    <?php endif; ?>
                     <a class="nav-link" href="profile.php">
                         <i class="fas fa-user me-2"></i>Minha Conta
                     </a>

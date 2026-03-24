@@ -3,7 +3,7 @@
 ## 📋 Resumo das Melhorias
 
 - `sync_to_xampp.sh`: mantém o ambiente local/XAMPP alinhado com o repositório.
-- `sync_to_production.sh`: leva o mesmo fluxo (com preservação opcional) para o servidor público em `/var/www/capivaralearn`.
+- `sync_to_production.sh`: leva o mesmo fluxo para o servidor público em `/var/www/capivaralearn`, preservando opcionalmente apenas `environment.ini`.
 
 ## 🎯 Arquivos que Podem Ser Preservados
 
@@ -15,7 +15,7 @@ logs/                    # Histórico de logs do sistema
 └── capivaralearn.log
 ```
 
-### 🔧 Configurações (opcional - pergunta ao executar):
+### 🔧 Configurações (opcional - pergunta ao executar no XAMPP):
 ```
 includes/
 ├── config.php           # Credenciais do banco de dados
@@ -91,11 +91,15 @@ cd /home/carlos/Documents/GitHub/CapivaraLearn
 ./sync_to_production.sh
 ```
 
-O script perguntará as mesmas opções de preservação (configurações e dados de usuário) e cuida de:
-- Fazer backup remoto (`logs/`, e opcionalmente `includes/config.php`, `includes/environment.ini`, `backup/`, `cache/`)
+O script perguntará sobre preservação de `environment.ini` e de dados de usuário, e cuida de:
+- Fazer backup remoto (`logs/`, e opcionalmente `includes/environment.ini`, `backup/`, `cache/`)
 - Remover e recriar `/var/www/capivaralearn`
 - Enviar um pacote compactado com o projeto
 - Ajustar permissões (`www-data:www-data` por padrão)
+
+Importante para produção:
+- `includes/config.php` faz parte do código da aplicação e deve ser atualizado no deploy.
+- Apenas `includes/environment.ini` deve ser preservado para manter segredos e variáveis locais do servidor.
 
 **Personalização rápida:**
 ```bash

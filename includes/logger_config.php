@@ -21,28 +21,37 @@ $errorHandler = new StreamHandler(__DIR__ . '/../logs/php_errors.log', Logger::E
 $errorHandler->setFormatter($formatter);
 $logger->pushHandler($errorHandler);
 
-// Função helper para log simples
-function logInfo($message, $context = []) {
-    global $logger;
-    $logger->info($message, $context);
+// Função helper para log simples (com verificação para evitar redeclaração)
+if (!function_exists('logInfo')) {
+    function logInfo($message, $context = []) {
+        global $logger;
+        $logger->info($message, $context);
+    }
 }
 
-function logWarning($message, $context = []) {
-    global $logger;
-    $logger->warning($message, $context);
+if (!function_exists('logWarning')) {
+    function logWarning($message, $context = []) {
+        global $logger;
+        $logger->warning($message, $context);
+    }
 }
 
-function logError($message, $context = []) {
-    global $logger;
-    $logger->error($message, $context);
+if (!function_exists('logError')) {
+    function logError($message, $context = []) {
+        global $logger;
+        $logger->error($message, $context);
+    }
 }
 
-function logDebug($message, $context = []) {
-    global $logger;
-    $logger->debug($message, $context);
+if (!function_exists('logDebug')) {
+    function logDebug($message, $context = []) {
+        global $logger;
+        $logger->debug($message, $context);
+    }
 }
 
 // Função para registrar atividade do usuário
+if (!function_exists('logActivity')) {
 function logActivity($userId, $action, $details, $pdo = null) {
     global $logger;
     
@@ -69,6 +78,7 @@ function logActivity($userId, $action, $details, $pdo = null) {
         ]);
     }
 }
+} // end function_exists('logActivity')
 
 return $logger;
 ?>
