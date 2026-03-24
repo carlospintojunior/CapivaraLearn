@@ -147,8 +147,6 @@ if ($config && isset($config['production'])) {
     define('MAIL_AUTH', true);
 }
 
-define('APP_NAME', 'CapivaraLearn');
-
 // =============================================
 // CLASSE DE BANCO DE DADOS (LEGADO)
 // =============================================
