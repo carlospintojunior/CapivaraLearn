@@ -106,6 +106,50 @@ define('DEBUG_MODE', true); // Manter debug ativo para logs
 define('TIMEZONE', 'America/Sao_Paulo');
 
 // =============================================
+// CONFIGURAÇÕES DE EMAIL
+// =============================================
+// As credenciais são carregadas do arquivo environment.ini
+// que NÃO é versionado no Git (listado no .gitignore).
+//
+// Para alterar configurações de email, edite:
+//   includes/environment.ini → seção [production]
+//
+// Parâmetros disponíveis no environment.ini:
+//   mail_host       - Servidor SMTP (ex: mail.capivaralearn.com.br)
+//   mail_port       - Porta SMTP (465 para SSL, 587 para TLS)
+//   mail_username   - Usuário de autenticação SMTP
+//   mail_password   - Senha de autenticação SMTP
+//   mail_from_name  - Nome exibido como remetente
+//   mail_from_email - Endereço exibido como remetente
+//   mail_secure     - Tipo de criptografia (ssl ou tls)
+//   mail_auth       - Usar autenticação SMTP (true/false)
+// =============================================
+if ($config && isset($config['production'])) {
+    $envConfig = $config['production'];
+    define('MAIL_HOST', $envConfig['mail_host'] ?? 'mail.capivaralearn.com.br');
+    define('MAIL_PORT', (int)($envConfig['mail_port'] ?? 465));
+    define('MAIL_USERNAME', $envConfig['mail_username'] ?? '');
+    define('MAIL_PASSWORD', $envConfig['mail_password'] ?? '');
+    define('MAIL_FROM_NAME', $envConfig['mail_from_name'] ?? 'CapivaraLearn');
+    define('MAIL_FROM_EMAIL', $envConfig['mail_from_email'] ?? '');
+    define('MAIL_SECURE', $envConfig['mail_secure'] ?? 'ssl');
+    define('MAIL_AUTH', (bool)($envConfig['mail_auth'] ?? true));
+} else {
+    // Fallback — sem environment.ini, constantes ficam vazias por segurança.
+    // O sistema não conseguirá enviar emails até que o environment.ini seja configurado.
+    define('MAIL_HOST', '');
+    define('MAIL_PORT', 465);
+    define('MAIL_USERNAME', '');
+    define('MAIL_PASSWORD', '');
+    define('MAIL_FROM_NAME', 'CapivaraLearn');
+    define('MAIL_FROM_EMAIL', '');
+    define('MAIL_SECURE', 'ssl');
+    define('MAIL_AUTH', true);
+}
+
+define('APP_NAME', 'CapivaraLearn');
+
+// =============================================
 // CLASSE DE BANCO DE DADOS (LEGADO)
 // =============================================
 /**

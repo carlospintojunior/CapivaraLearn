@@ -50,12 +50,12 @@ class MailService {
             
             // Configurações SMTP 
             $mail->isSMTP();
-            $mail->Host = 'mail.capivaralearn.com.br';
+            $mail->Host = defined('MAIL_HOST') ? MAIL_HOST : 'mail.capivaralearn.com.br';
             $mail->SMTPAuth = true;
-            $mail->Username = 'capivara@capivaralearn.com.br';
-            $mail->Password = 'C4piv4Ra:8#LeARn';
+            $mail->Username = defined('MAIL_USERNAME') ? MAIL_USERNAME : '';
+            $mail->Password = defined('MAIL_PASSWORD') ? MAIL_PASSWORD : '';
             $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS; // SSL para porta 465
-            $mail->Port = 465;
+            $mail->Port = defined('MAIL_PORT') ? MAIL_PORT : 465;
             $mail->Timeout = 30;
             
             $logMessage("Configuracoes SMTP definidas");
@@ -84,8 +84,8 @@ class MailService {
             };
             
             // Configurações do remetente
-            $fromEmail = 'capivara@capivaralearn.com.br';
-            $fromName = 'CapivaraLearn';
+            $fromEmail = defined('MAIL_FROM_EMAIL') ? MAIL_FROM_EMAIL : 'capivara@capivaralearn.com.br';
+            $fromName = defined('MAIL_FROM_NAME') ? MAIL_FROM_NAME : 'CapivaraLearn';
             
             $mail->setFrom($fromEmail, $fromName);
             $mail->addAddress($email, $name);

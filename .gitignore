@@ -6,3 +6,4 @@ build/
 Thumbs.db
 .vscode/settings.json
 .version_updates.log
+includes/environment.ini

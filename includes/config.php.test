@@ -137,7 +137,7 @@ if ($config && isset($config['production'])) {
     define('MAIL_HOST', $envConfig['mail_host'] ?? 'mail.capivaralearn.com.br');
     define('MAIL_PORT', $envConfig['mail_port'] ?? 465);
     define('MAIL_USERNAME', $envConfig['mail_username'] ?? 'capivara@capivaralearn.com.br');
-    define('MAIL_PASSWORD', $envConfig['mail_password'] ?? '_,CeLlORRy,92');
+    define('MAIL_PASSWORD', $envConfig['mail_password'] ?? '');
     define('MAIL_FROM_NAME', $envConfig['mail_from_name'] ?? 'CapivaraLearn');
     define('MAIL_FROM_EMAIL', $envConfig['mail_from_email'] ?? 'capivara@capivaralearn.com.br');
     define('MAIL_SECURE', $envConfig['mail_secure'] ?? 'ssl');
@@ -147,7 +147,7 @@ if ($config && isset($config['production'])) {
     define('MAIL_HOST', 'mail.capivaralearn.com.br');
     define('MAIL_PORT', 465);
     define('MAIL_USERNAME', 'capivara@capivaralearn.com.br');
-    define('MAIL_PASSWORD', '_,CeLlORRy,92');
+    define('MAIL_PASSWORD', '');
     define('MAIL_FROM_NAME', 'CapivaraLearn');
     define('MAIL_FROM_EMAIL', 'capivara@capivaralearn.com.br');
     define('MAIL_SECURE', 'ssl');
