@@ -28,6 +28,8 @@ echo ""
 echo "Deseja preservar arquivos de usuário?"
 echo "  - backup/ (backups de dados)"
 echo "  - cache/ (cache do sistema)"
+echo "  - public/assets/videos/testes_especiais/ (vídeos enviados)"
+echo "  - public/assets/images/testes_especiais/ (imagens enviadas)"
 echo ""
 read -p "Preservar dados de usuário? (S/n): " PRESERVE_USER_DATA
 PRESERVE_USER_DATA=${PRESERVE_USER_DATA:-S}  # Default: S (Sim)
@@ -79,6 +81,18 @@ if [[ "$PRESERVE_USER_DATA" =~ ^[Ss]$ ]]; then
         sudo cp -r /opt/lampp/htdocs/CapivaraLearn/cache "$BACKUP_DIR/"
         echo "  ✓ cache/ salvo"
     fi
+
+    if [ -d "/opt/lampp/htdocs/CapivaraLearn/public/assets/videos/testes_especiais" ]; then
+        sudo mkdir -p "$BACKUP_DIR/public/assets/videos"
+        sudo cp -r /opt/lampp/htdocs/CapivaraLearn/public/assets/videos/testes_especiais "$BACKUP_DIR/public/assets/videos/"
+        echo "  ✓ vídeos de testes especiais salvos"
+    fi
+
+    if [ -d "/opt/lampp/htdocs/CapivaraLearn/public/assets/images/testes_especiais" ]; then
+        sudo mkdir -p "$BACKUP_DIR/public/assets/images"
+        sudo cp -r /opt/lampp/htdocs/CapivaraLearn/public/assets/images/testes_especiais "$BACKUP_DIR/public/assets/images/"
+        echo "  ✓ imagens de testes especiais salvas"
+    fi
 fi
 
 echo ""
@@ -126,6 +140,18 @@ if [[ "$PRESERVE_USER_DATA" =~ ^[Ss]$ ]]; then
     if [ -d "$BACKUP_DIR/cache" ]; then
         sudo cp -r "$BACKUP_DIR/cache" /opt/lampp/htdocs/CapivaraLearn/
         echo "    ✓ cache/ restaurado"
+    fi
+
+    if [ -d "$BACKUP_DIR/public/assets/videos/testes_especiais" ]; then
+        sudo mkdir -p /opt/lampp/htdocs/CapivaraLearn/public/assets/videos
+        sudo cp -r "$BACKUP_DIR/public/assets/videos/testes_especiais" /opt/lampp/htdocs/CapivaraLearn/public/assets/videos/
+        echo "    ✓ vídeos de testes especiais restaurados"
+    fi
+
+    if [ -d "$BACKUP_DIR/public/assets/images/testes_especiais" ]; then
+        sudo mkdir -p /opt/lampp/htdocs/CapivaraLearn/public/assets/images
+        sudo cp -r "$BACKUP_DIR/public/assets/images/testes_especiais" /opt/lampp/htdocs/CapivaraLearn/public/assets/images/
+        echo "    ✓ imagens de testes especiais restauradas"
     fi
 fi
 

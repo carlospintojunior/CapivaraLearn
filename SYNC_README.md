@@ -36,6 +36,8 @@ includes/
 ```
 backup/                  # Backups manuais/automáticos
 cache/                   # Cache do sistema
+public/assets/videos/testes_especiais/   # Vídeos enviados no admin de testes especiais
+public/assets/images/testes_especiais/   # Imagens enviadas no admin de testes especiais
 ```
 
 **Quando preservar?**
@@ -62,7 +64,7 @@ Preservar dados de usuário? (S/n): S
 ./sync_to_xampp.sh
 # Responda: S, S
 ```
-✅ Mantém config.php, environment.ini, backup/, cache/, logs/
+✅ Mantém config.php, environment.ini, backup/, cache/, logs/ e mídias de testes especiais
 
 #### 2️⃣ Primeira Instalação (Tudo Novo):
 ```bash
@@ -76,14 +78,14 @@ Preservar dados de usuário? (S/n): S
 ./sync_to_xampp.sh
 # Responda: n, S
 ```
-✅ Novos config.php e environment.ini, mas mantém backup/ e cache/
+✅ Novos config.php e environment.ini, mas mantém backup/, cache/ e mídias de testes especiais
 
 #### 4️⃣ Limpar Cache (Manter Config):
 ```bash
 ./sync_to_xampp.sh
 # Responda: S, n
 ```
-✅ Mantém configurações, mas limpa cache/ e backup/
+✅ Mantém configurações, mas limpa cache/, backup/ e mídias de testes especiais
 
 ### Uso Básico (Interativo) – Produção:
 ```bash
@@ -92,7 +94,7 @@ cd /home/carlos/Documents/GitHub/CapivaraLearn
 ```
 
 O script perguntará sobre preservação de `environment.ini` e de dados de usuário, e cuida de:
-- Fazer backup remoto (`logs/`, e opcionalmente `includes/environment.ini`, `backup/`, `cache/`)
+- Fazer backup remoto (`logs/`, e opcionalmente `includes/environment.ini`, `backup/`, `cache/`, `public/assets/videos/testes_especiais/`, `public/assets/images/testes_especiais/`)
 - Remover e recriar `/var/www/capivaralearn`
 - Enviar um pacote compactado com o projeto
 - Ajustar permissões (`www-data:www-data` por padrão)
@@ -142,6 +144,8 @@ Preservar configurações? (S/n): S
 Deseja preservar arquivos de usuário?
   - backup/ (backups de dados)
   - cache/ (cache do sistema)
+  - public/assets/videos/testes_especiais/ (vídeos enviados)
+  - public/assets/images/testes_especiais/ (imagens enviadas)
 
 Preservar dados de usuário? (S/n): S
 
@@ -155,6 +159,8 @@ Preservar dados de usuário? (S/n): S
 💾 Fazendo backup dos dados de usuário...
   ✓ backup/ salvo
   ✓ cache/ salvo
+  ✓ vídeos de testes especiais salvos
+  ✓ imagens de testes especiais salvas
 
 🗑️  Removendo instalação anterior...
 📋 Copiando arquivos para XAMPP...
@@ -168,6 +174,8 @@ Preservar dados de usuário? (S/n): S
   ↩️  Restaurando dados de usuário...
     ✓ backup/ restaurado
     ✓ cache/ restaurado
+    ✓ vídeos de testes especiais restaurados
+    ✓ imagens de testes especiais restauradas
 
 🔐 Configurando proprietário (daemon:daemon)...
 📄 Configurando permissões...

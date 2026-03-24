@@ -130,7 +130,7 @@ echo "📋 Opções de sincronização:"
 read -p "Preservar variáveis de ambiente (environment.ini)? (S/n): " PRESERVE_ENVIRONMENT
 PRESERVE_ENVIRONMENT=${PRESERVE_ENVIRONMENT:-S}
 
-read -p "Preservar dados de usuário (backup/, cache/)? (S/n): " PRESERVE_USER_DATA
+read -p "Preservar dados de usuário (backup/, cache/, mídias de testes)? (S/n): " PRESERVE_USER_DATA
 PRESERVE_USER_DATA=${PRESERVE_USER_DATA:-S}
 
 echo ""
@@ -148,6 +148,8 @@ if [[ "$PRESERVE_USER_DATA" =~ ^[Ss]$ ]]; then
     echo "- Dados de usuário:"
     backup_remote_dir "backup"
     backup_remote_dir "cache"
+    backup_remote_dir "public/assets/videos/testes_especiais" "vídeos de testes especiais"
+    backup_remote_dir "public/assets/images/testes_especiais" "imagens de testes especiais"
 fi
 
 echo ""
@@ -187,6 +189,8 @@ fi
 if [[ "$PRESERVE_USER_DATA" =~ ^[Ss]$ ]]; then
     restore_remote_dir "backup"
     restore_remote_dir "cache"
+    restore_remote_dir "public/assets/videos/testes_especiais" "vídeos de testes especiais"
+    restore_remote_dir "public/assets/images/testes_especiais" "imagens de testes especiais"
 fi
 
 run_remote "rm -rf '$REMOTE_BACKUP'"
