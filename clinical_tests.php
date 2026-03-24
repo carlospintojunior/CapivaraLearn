@@ -85,6 +85,22 @@ if ($teste_id > 0) {
 // Nome da categoria e região atuais
 $categoriaAtual = $database->get('categorias_clinicas', ['nome', 'icone'], ['id' => $categoria_id]);
 $regiaoAtual = $database->get('regioes_corporais', ['nome', 'descricao', 'icone'], ['id' => $regiao_id]);
+
+function getClinicalMediaUrl(string $type, ?string $filename): ?string {
+    if (empty($filename)) {
+        return null;
+    }
+
+    $baseDir = __DIR__ . '/public/assets/' . $type . '/testes_especiais/';
+    if (!is_file($baseDir . $filename)) {
+        return null;
+    }
+
+    return appPath('public/assets/' . $type . '/testes_especiais/' . rawurlencode($filename));
+}
+
+$testeVideoUrl = $testeAtual ? getClinicalMediaUrl('videos', $testeAtual['video_filename'] ?? null) : null;
+$testeImagemUrl = $testeAtual ? getClinicalMediaUrl('images', $testeAtual['imagem_filename'] ?? null) : null;
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -639,22 +655,34 @@ $regiaoAtual = $database->get('regioes_corporais', ['nome', 'descricao', 'icone'
                         <?php if ($testeAtual['video_filename']): ?>
                         <div class="detail-section">
                             <h5><i class="fas fa-video"></i>Vídeo Demonstrativo</h5>
+                            <?php if ($testeVideoUrl): ?>
                             <div class="video-container">
                                 <video controls preload="metadata">
-                                    <source src="public/assets/videos/testes_especiais/<?= htmlspecialchars($testeAtual['video_filename']) ?>" type="video/mp4">
+                                    <source src="<?= htmlspecialchars($testeVideoUrl, ENT_QUOTES, 'UTF-8') ?>" type="video/mp4">
                                     Seu navegador não suporta a reprodução de vídeo.
                                 </video>
                             </div>
+                            <?php else: ?>
+                            <div class="alert alert-warning mb-0">
+                                O arquivo de vídeo deste teste não está disponível no servidor no momento.
+                            </div>
+                            <?php endif; ?>
                         </div>
                         <?php endif; ?>
 
                         <?php if ($testeAtual['imagem_filename']): ?>
                         <div class="detail-section">
                             <h5><i class="fas fa-image"></i>Imagem Ilustrativa</h5>
+                            <?php if ($testeImagemUrl): ?>
                             <div class="image-container">
-                                <img src="public/assets/images/testes_especiais/<?= htmlspecialchars($testeAtual['imagem_filename']) ?>"
+                                <img src="<?= htmlspecialchars($testeImagemUrl, ENT_QUOTES, 'UTF-8') ?>"
                                      alt="<?= htmlspecialchars($testeAtual['nome']) ?>">
                             </div>
+                            <?php else: ?>
+                            <div class="alert alert-warning mb-0">
+                                O arquivo de imagem deste teste não está disponível no servidor no momento.
+                            </div>
+                            <?php endif; ?>
                         </div>
                         <?php endif; ?>
 
