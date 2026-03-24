@@ -21,7 +21,7 @@ class MailService {
     
     public function sendConfirmationEmail($email, $name, $token) {
         // Sistema de log simples e direto
-        $logFile = '/opt/lampp/htdocs/CapivaraLearn/logs/mailservice.log';
+        $logFile = __DIR__ . '/../logs/mailservice.log';
         
         // Função de log inline
         $logMessage = function($message, $level = 'INFO') use ($logFile) {

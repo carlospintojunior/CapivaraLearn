@@ -77,7 +77,11 @@ define('DB_CHARSET', 'utf8mb4');
 // =============================================
 // CONFIGURAÇÕES DE PRODUÇÃO (SEMPRE)
 // =============================================
-define('APP_URL', 'http://localhost/CapivaraLearn');
+if ($config && isset($config['production']['app_url'])) {
+    define('APP_URL', $config['production']['app_url']);
+} else {
+    define('APP_URL', 'https://capivaralearn.com.br');
+}
 define('APP_ENV', 'production');
 define('DEBUG_MODE', true); // Manter debug ativo para logs
 
@@ -93,7 +97,9 @@ define('PASSWORD_MIN_LENGTH', 6);
 // =============================================
 // CONFIGURAÇÕES DA APLICAÇÃO
 // =============================================
-define('APP_NAME', 'CapivaraLearn');
+if (!defined('APP_NAME')) {
+    define('APP_NAME', 'CapivaraLearn');
+}
 define('APP_VERSION', '1.0.0');
 
 // Configurar timezone
@@ -324,6 +330,7 @@ function jsonResponse($data, $statusCode = 200) {
 // =============================================
 // FUNÇÕES DE LOG E ATIVIDADE
 // =============================================
+if (!function_exists('logActivity')) {
 function logActivity($action, $description = '', $userId = null) {
     try {
         $db = Database::getInstance();
@@ -343,13 +350,16 @@ function logActivity($action, $description = '', $userId = null) {
         error_log('Erro ao registrar atividade: ' . $e->getMessage());
     }
 }
+}
 
+if (!function_exists('logError')) {
 function logError($message, $context = []) {
     $logMessage = '[' . date('Y-m-d H:i:s') . '] ERROR: ' . $message;
     if (!empty($context)) {
         $logMessage .= ' Context: ' . json_encode($context);
     }
     error_log($logMessage);
+}
 }
 
 // =============================================
