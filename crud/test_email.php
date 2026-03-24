@@ -21,6 +21,10 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+if (!isset($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
 // ===== CONTROLE DE ACESSO =====
 if (!isset($_SESSION['user_id'])) {
     redirectTo('login.php');
@@ -79,9 +83,9 @@ $configInfo = [
 ];
 
 // ===== PROCESSAR ENVIO DE TESTE =====
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_teste'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validar CSRF token
-    if (!isset($_POST['csrf_token']) || $_POST['csrf_token'] !== ($_SESSION['csrf_token'] ?? '')) {
+    if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
         $resultado = ['sucesso' => false, 'mensagem' => 'Token CSRF inválido. Recarregue a página.'];
     } else {
         $emailDestino = filter_var(trim($_POST['email_destino'] ?? ''), FILTER_VALIDATE_EMAIL);
@@ -185,9 +189,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['enviar_teste'])) {
         }
     }
 }
-
-// Gerar token CSRF
-$_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
