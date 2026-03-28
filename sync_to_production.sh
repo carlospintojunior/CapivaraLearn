@@ -79,7 +79,7 @@ restore_remote_dir() {
 
     if run_remote "[ -d '$REMOTE_BACKUP/$remote_subpath' ]"; then
         echo "  ↩️  Restaurando $label"
-        run_remote "mkdir -p '$SERVER_PATH/$target_dir' && mv '$REMOTE_BACKUP/$remote_subpath' '$SERVER_PATH/$remote_subpath'"
+        run_remote "mkdir -p '$SERVER_PATH/$target_dir' && rm -rf '$SERVER_PATH/$remote_subpath' && mv '$REMOTE_BACKUP/$remote_subpath' '$SERVER_PATH/$remote_subpath'"
     fi
 }
 
