@@ -73,10 +73,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             try {
                 $numero_matricula = trim($_POST['numero_matricula'] ?? '');
                 $curso_id = intval($_POST['curso_id'] ?? 0);
-                $status = $_POST['status'] ?? 'ativo';
+                $status = $_POST['status'] ?? 'ativa';
                 $progresso = floatval($_POST['progresso'] ?? 0.00);
                 $nota_final = !empty($_POST['nota_final']) ? floatval($_POST['nota_final']) : null;
-                
+
                 logInfo('Tentativa de criar matrícula', [
                     'user_id' => $user_id,
                     'curso_id' => $curso_id,
@@ -162,10 +162,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $numero_matricula = trim($_POST['numero_matricula'] ?? '');
                 $universidade_id = intval($_POST['universidade_id'] ?? 0);
                 $curso_id = intval($_POST['curso_id'] ?? 0);
-                $status = $_POST['status'] ?? 'ativo';
+                $status = $_POST['status'] ?? 'ativa';
                 $progresso = floatval($_POST['progresso'] ?? 0.00);
                 $nota_final = !empty($_POST['nota_final']) ? floatval($_POST['nota_final']) : null;
-                
+
                 logInfo('Tentativa de atualizar matrícula', [
                     'user_id' => $user_id,
                     'matricula_id' => $id,
@@ -188,7 +188,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                         $error = 'Matrícula não encontrada ou não pertence ao usuário';
                         logWarning('Matrícula não encontrada para atualização', ['user_id' => $user_id, 'matricula_id' => $id]);
                     } else {
-                        $data_conclusao = ($status === 'concluido') ? date('Y-m-d H:i:s') : null;
+                        $data_conclusao = ($status === 'concluida') ? date('Y-m-d H:i:s') : null;
                         
                         $result = $database->update("matriculas", [
                             "numero_matricula" => $numero_matricula ?: null,
@@ -312,10 +312,10 @@ if (isset($_GET['edit'])) {
 
 // Opções de status
 $status_options = [
-    'ativo' => 'Ativo',
-    'concluido' => 'Concluído',
-    'trancado' => 'Trancado',
-    'cancelado' => 'Cancelado'
+    'ativa' => 'Ativa',
+    'concluida' => 'Concluída',
+    'trancada' => 'Trancada',
+    'cancelada' => 'Cancelada'
 ];
 ?>
 <!DOCTYPE html>
@@ -438,7 +438,7 @@ $status_options = [
                             <select class="form-select" id="status" name="status">
                                 <?php foreach ($status_options as $value => $label): ?>
                                     <option value="<?php echo $value; ?>" 
-                                            <?php echo ($editando && $editando['status'] == $value) || (!$editando && $value == 'ativo') ? 'selected' : ''; ?>>
+                                            <?php echo ($editando && $editando['status'] == $value) || (!$editando && $value == 'ativa') ? 'selected' : ''; ?>>
                                         <?php echo $label; ?>
                                     </option>
                                 <?php endforeach; ?>
@@ -517,10 +517,10 @@ $status_options = [
                                             <td>
                                                 <?php
                                                 $status_class = [
-                                                    'ativo' => 'success',
-                                                    'concluido' => 'primary',
-                                                    'trancado' => 'warning',
-                                                    'cancelado' => 'danger'
+                                                    'ativa' => 'success',
+                                                    'concluida' => 'primary',
+                                                    'trancada' => 'warning',
+                                                    'cancelada' => 'danger'
                                                 ];
                                                 ?>
                                                 <span class="badge bg-<?php echo $status_class[$matricula['status']] ?? 'secondary'; ?>">

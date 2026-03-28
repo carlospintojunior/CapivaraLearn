@@ -127,10 +127,10 @@ run_remote "echo 'Conexão estabelecida com ' \$(hostname)" || {
 }
 
 echo "📋 Opções de sincronização:"
-read -p "Preservar variáveis de ambiente (environment.ini)? (S/n): " PRESERVE_ENVIRONMENT
+read -p "Preservar variáveis de ambiente (environment.ini)? (S/n): " PRESERVE_ENVIRONMENT </dev/tty
 PRESERVE_ENVIRONMENT=${PRESERVE_ENVIRONMENT:-S}
 
-read -p "Preservar dados de usuário (backup/, cache/, mídias de testes)? (S/n): " PRESERVE_USER_DATA
+read -p "Preservar dados de usuário (backup/, cache/, mídias de testes)? (S/n): " PRESERVE_USER_DATA </dev/tty
 PRESERVE_USER_DATA=${PRESERVE_USER_DATA:-S}
 
 echo ""
@@ -150,6 +150,14 @@ if [[ "$PRESERVE_USER_DATA" =~ ^[Ss]$ ]]; then
     backup_remote_dir "cache"
     backup_remote_dir "public/assets/videos/testes_especiais" "vídeos de testes especiais"
     backup_remote_dir "public/assets/images/testes_especiais" "imagens de testes especiais"
+fi
+
+echo ""
+echo "🔍 Verificando backup remoto..."
+BACKUP_OK=$(run_remote "[ -d '$REMOTE_BACKUP' ] && echo 'ok' || echo 'fail'")
+if [ "$BACKUP_OK" != "ok" ]; then
+    echo "❌ Backup remoto não foi criado. Abortando para preservar os dados."
+    exit 1
 fi
 
 echo ""

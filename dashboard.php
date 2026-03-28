@@ -183,6 +183,17 @@ try {
     ];
 }
 
+// ===== CURSOS COM MATRÍCULA TRANCADA OU CANCELADA =====
+try {
+    $matriculas_bloqueadas = $database->select('matriculas', ['curso_id'], [
+        'usuario_id' => $user_id,
+        'status' => ['trancada', 'cancelada']
+    ]);
+    $cursos_bloqueados = array_column($matriculas_bloqueadas ?? [], 'curso_id');
+} catch (Exception $e) {
+    $cursos_bloqueados = [];
+}
+
 // ===== TÓPICOS URGENTES =====
 try {
     error_log("DASHBOARD: Buscando tópicos urgentes");
@@ -230,14 +241,20 @@ try {
         "unidades_aprendizagem.nota",
         "disciplinas.nome (disciplina_nome)",
         "disciplinas.status (disciplina_status)"
-    ], [
-        "unidades_aprendizagem.usuario_id" => $user_id,
-        "disciplinas.status" => 0, // Apenas disciplinas ativas
-        "ORDER" => [
-            "disciplinas.nome" => "ASC",
-            "unidades_aprendizagem.data_prazo" => "ASC"
-        ]
-    ]);
+    ], (function() use ($user_id, $cursos_bloqueados) {
+        $cond = [
+            "unidades_aprendizagem.usuario_id" => $user_id,
+            "disciplinas.status" => 0, // Apenas disciplinas ativas
+            "ORDER" => [
+                "disciplinas.nome" => "ASC",
+                "unidades_aprendizagem.data_prazo" => "ASC"
+            ]
+        ];
+        if (!empty($cursos_bloqueados)) {
+            $cond["disciplinas.curso_id[!]"] = $cursos_bloqueados;
+        }
+        return $cond;
+    })());
     
     error_log("DASHBOARD: Encontradas " . count($unidades_aprendizagem) . " unidades de aprendizagem");
 } catch (Exception $e) {
@@ -256,11 +273,17 @@ try {
         "disciplinas.nome",
         "disciplinas.status (status)",
         "cursos.nome (curso_nome)"
-    ], [
-        "disciplinas.usuario_id" => $user_id,
-        "disciplinas.status" => 0,
-        "ORDER" => ["disciplinas.nome" => "ASC"]
-    ]);
+    ], (function() use ($user_id, $cursos_bloqueados) {
+        $cond = [
+            "disciplinas.usuario_id" => $user_id,
+            "disciplinas.status" => 0,
+            "ORDER" => ["disciplinas.nome" => "ASC"]
+        ];
+        if (!empty($cursos_bloqueados)) {
+            $cond["cursos.id[!]"] = $cursos_bloqueados;
+        }
+        return $cond;
+    })());
     
     error_log("DASHBOARD: Encontradas " . count($disciplinas_ativas) . " disciplinas");
 } catch (Exception $e) {
@@ -271,117 +294,55 @@ try {
 // ===== PROGRESSO GERAL =====
 try {
     error_log("DASHBOARD: Calculando progresso geral");
-    
-    $total_topicos = $database->count("topicos", ["usuario_id" => $user_id]);
-    $topicos_concluidos = $database->count("topicos", [
-        "usuario_id" => $user_id,
-        "concluido" => 1
-    ]);
-    
+
+    // Montar filtro base de disciplinas excluindo cursos com matrícula bloqueada
+    $disc_base = ["usuario_id" => $user_id];
+    if (!empty($cursos_bloqueados)) {
+        $disc_base["curso_id[!]"] = $cursos_bloqueados;
+    }
+
+    // Tópicos: contar apenas os de disciplinas de cursos com matrícula ativa
+    $topicos_base = $database->select("disciplinas", "id", $disc_base);
+    $disc_ids_ativos = array_column($topicos_base, 'id');
+
+    if (!empty($disc_ids_ativos)) {
+        $total_topicos = $database->count("topicos", ["usuario_id" => $user_id, "disciplina_id" => $disc_ids_ativos]);
+        $topicos_concluidos = $database->count("topicos", ["usuario_id" => $user_id, "disciplina_id" => $disc_ids_ativos, "concluido" => 1]);
+    } else {
+        $total_topicos = 0;
+        $topicos_concluidos = 0;
+    }
+
     $progresso_geral = $total_topicos > 0 ? round(($topicos_concluidos / $total_topicos) * 100) : 0;
-    
+
     error_log("DASHBOARD: Progresso geral calculado - $progresso_geral% ($topicos_concluidos/$total_topicos)");
-    
+
     // ===== ESTATÍSTICAS DE CARGA HORÁRIA =====
     error_log("DASHBOARD: Calculando estatísticas de carga horária");
     logInfo('Iniciando cálculos de progresso', ['user_id' => $user_id]);
 
-    // Carga horária total de todas as disciplinas do usuário
-    $carga_total_result = $database->sum("disciplinas", "carga_horaria", ["usuario_id" => $user_id]);
+    $carga_total_result = $database->sum("disciplinas", "carga_horaria", $disc_base);
     $carga_horaria_total = $carga_total_result ? (int)$carga_total_result : 0;
-    logInfo('Carga horária total calculada', [
-        'user_id' => $user_id,
-        'carga_total_result' => $carga_total_result,
-        'carga_horaria_total' => $carga_horaria_total
-    ]);
-    
-    // Primeiro vamos testar a sintaxe correta do Medoo para IN
-    // Opção 1: Usando OR
-    $carga_concluida_result = $database->sum("disciplinas", "carga_horaria", [
-        "usuario_id" => $user_id,
-        "OR" => [
-            "status" => 1,  // Concluída
-            "status" => 3,  // Aproveitada  
-            "status" => 4   // Dispensada
-        ]
-    ]);
-    
-    // Se não funcionar, vamos tentar com array direto
-    if (!$carga_concluida_result) {
-        $carga_concluida_result = $database->sum("disciplinas", "carga_horaria", [
-            "usuario_id" => $user_id,
-            "status" => [1, 3, 4]  // Array direto
-        ]);
-        logInfo('Tentativa com array direto', [
-            'user_id' => $user_id,
-            'carga_concluida_result' => $carga_concluida_result
-        ]);
-    }
-    
+
+    $disc_concluidas_where = array_merge($disc_base, ["status" => [1, 3, 4]]);
+    $carga_concluida_result = $database->sum("disciplinas", "carga_horaria", $disc_concluidas_where);
     $carga_horaria_concluida = $carga_concluida_result ? (int)$carga_concluida_result : 0;
-    logInfo('Carga horária concluída calculada', [
-        'user_id' => $user_id,
-        'carga_concluida_result' => $carga_concluida_result,
-        'carga_horaria_concluida' => $carga_horaria_concluida,
-        'query_status' => 'status IN (1,3,4) - Concluída, Aproveitada, Dispensada'
-    ]);
-    
-    // Vamos fazer uma consulta manual para verificar os dados
-    $disciplinas_debug = $database->select("disciplinas", [
-        "id", "nome", "status", "carga_horaria"
-    ], [
-        "usuario_id" => $user_id
-    ]);
-    
-    $status_count = ['0'=>0, '1'=>0, '2'=>0, '3'=>0, '4'=>0];
-    $carga_por_status = ['0'=>0, '1'=>0, '2'=>0, '3'=>0, '4'=>0];
-    
-    foreach ($disciplinas_debug as $disc) {
-        $status = (string)$disc['status'];
-        $status_count[$status]++;
-        $carga_por_status[$status] += (int)$disc['carga_horaria'];
-    }
-    
-    logInfo('Debug detalhado das disciplinas', [
-        'user_id' => $user_id,
-        'total_disciplinas_debug' => count($disciplinas_debug),
-        'status_count' => $status_count,
-        'carga_por_status' => $carga_por_status,
-        'carga_manual_concluida' => $carga_por_status['1'] + $carga_por_status['3'] + $carga_por_status['4']
-    ]);
 
     // Progresso por carga horária (prioridade 1)
     $progresso_carga_horaria = $carga_horaria_total > 0 ? round(($carga_horaria_concluida / $carga_horaria_total) * 100) : 0;
-    
+
     // Total de disciplinas e disciplinas concluídas, aproveitadas ou dispensadas
-    $total_disciplinas = $database->count("disciplinas", ["usuario_id" => $user_id]);
-    
-    // Testando count com mesma lógica
-    $disciplinas_concluidas = $database->count("disciplinas", [
-        "usuario_id" => $user_id,
-        "OR" => [
-            "status" => 1,  // Concluída
-            "status" => 3,  // Aproveitada  
-            "status" => 4   // Dispensada
-        ]
-    ]);
-    
-    // Se não funcionar, tentar com array
-    if (!$disciplinas_concluidas) {
-        $disciplinas_concluidas = $database->count("disciplinas", [
-            "usuario_id" => $user_id,
-            "status" => [1, 3, 4]
-        ]);
-    }
-    
+    $total_disciplinas = $database->count("disciplinas", $disc_base);
+    $disciplinas_concluidas = $database->count("disciplinas", $disc_concluidas_where);
+
     logInfo('Contagem de disciplinas', [
         'user_id' => $user_id,
         'total_disciplinas' => $total_disciplinas,
         'disciplinas_concluidas' => $disciplinas_concluidas,
-        'disciplinas_concluidas_manual' => $status_count['1'] + $status_count['3'] + $status_count['4']
+        'cursos_bloqueados' => $cursos_bloqueados
     ]);
-    
-    // Progresso por disciplinas (prioridade 2)  
+
+    // Progresso por disciplinas (prioridade 2)
     $progresso_disciplinas = $total_disciplinas > 0 ? round(($disciplinas_concluidas / $total_disciplinas) * 100) : 0;
     
     logInfo('Resultado final dos cálculos', [
