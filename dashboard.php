@@ -160,16 +160,63 @@ try {
 // ===== ESTATÍSTICAS GERAIS =====
 try {
     error_log("DASHBOARD: Coletando estatísticas");
-    
+
+    // Cursos com matrícula ativa
+    $matriculas_ativas = $database->select('matriculas', ['curso_id'], [
+        'usuario_id' => $user_id,
+        'status' => 'ativa'
+    ]);
+    $cursos_ativos_ids = array_column($matriculas_ativas ?? [], 'curso_id');
+
+    // Disciplinas das matrículas ativas
+    if (!empty($cursos_ativos_ids)) {
+        $count_disciplinas = $database->count("disciplinas", [
+            "usuario_id" => $user_id,
+            "curso_id" => $cursos_ativos_ids
+        ]);
+        $disciplinas_ativas = $database->select("disciplinas", ["id"], [
+            "usuario_id" => $user_id,
+            "curso_id" => $cursos_ativos_ids
+        ]);
+        $disciplinas_ativas_ids = array_column($disciplinas_ativas ?? [], 'id');
+    } else {
+        $count_disciplinas = 0;
+        $disciplinas_ativas_ids = [];
+    }
+
+    // Tópicos das disciplinas ativas
+    if (!empty($disciplinas_ativas_ids)) {
+        $count_topicos = $database->count("topicos", [
+            "usuario_id" => $user_id,
+            "disciplina_id" => $disciplinas_ativas_ids
+        ]);
+        $topicos_ativos = $database->select("topicos", ["id"], [
+            "usuario_id" => $user_id,
+            "disciplina_id" => $disciplinas_ativas_ids
+        ]);
+        $topicos_ativos_ids = array_column($topicos_ativos ?? [], 'id');
+    } else {
+        $count_topicos = 0;
+        $topicos_ativos_ids = [];
+    }
+
+    // Unidades das matrículas ativas
+    $count_unidades = !empty($topicos_ativos_ids)
+        ? $database->count("unidades_aprendizagem", [
+            "usuario_id" => $user_id,
+            "topico_id" => $topicos_ativos_ids
+        ])
+        : 0;
+
     $stats = [
         'universidades' => $database->count("universidades", ["usuario_id" => $user_id]),
         'cursos' => $database->count("cursos", ["usuario_id" => $user_id]),
-        'disciplinas' => $database->count("disciplinas", ["usuario_id" => $user_id]),
-        'topicos' => $database->count("topicos", ["usuario_id" => $user_id]),
-        'unidades' => $database->count("unidades_aprendizagem", ["usuario_id" => $user_id]),
+        'disciplinas' => $count_disciplinas,
+        'topicos' => $count_topicos,
+        'unidades' => $count_unidades,
         'matriculas' => $database->count("matriculas", ["usuario_id" => $user_id])
     ];
-    
+
     error_log("DASHBOARD: Estatísticas coletadas - " . json_encode($stats));
 } catch (Exception $e) {
     error_log("DASHBOARD: ERRO ao coletar estatísticas - " . $e->getMessage());
@@ -291,19 +338,20 @@ try {
     $disciplinas_ativas = [];
 }
 
-// ===== PROGRESSO GERAL =====
+// ===== PROGRESSO GERAL (TÓPICOS) =====
+// Bloco separado para garantir que uma falha nos cálculos de carga horária
+// não zere os contadores de tópicos.
 try {
     error_log("DASHBOARD: Calculando progresso geral");
 
-    // Montar filtro base de disciplinas excluindo cursos com matrícula bloqueada
+    // Filtro base: todas as disciplinas do usuário, excluindo cursos bloqueados
     $disc_base = ["usuario_id" => $user_id];
     if (!empty($cursos_bloqueados)) {
         $disc_base["curso_id[!]"] = $cursos_bloqueados;
     }
 
-    // Tópicos: contar apenas os de disciplinas de cursos com matrícula ativa
-    $topicos_base = $database->select("disciplinas", "id", $disc_base);
-    $disc_ids_ativos = array_column($topicos_base, 'id');
+    $disciplinas_ids = $database->select("disciplinas", ["id"], $disc_base);
+    $disc_ids_ativos = array_column($disciplinas_ids ?? [], 'id');
 
     if (!empty($disc_ids_ativos)) {
         $total_topicos = $database->count("topicos", ["usuario_id" => $user_id, "disciplina_id" => $disc_ids_ativos]);
@@ -316,10 +364,17 @@ try {
     $progresso_geral = $total_topicos > 0 ? round(($topicos_concluidos / $total_topicos) * 100) : 0;
 
     error_log("DASHBOARD: Progresso geral calculado - $progresso_geral% ($topicos_concluidos/$total_topicos)");
+} catch (Exception $e) {
+    error_log("DASHBOARD: ERRO ao calcular progresso de tópicos - " . $e->getMessage());
+    $progresso_geral = 0;
+    $topicos_concluidos = 0;
+    $total_topicos = 0;
+    $disc_base = ["usuario_id" => $user_id];
+}
 
-    // ===== ESTATÍSTICAS DE CARGA HORÁRIA =====
+// ===== ESTATÍSTICAS DE CARGA HORÁRIA E DISCIPLINAS =====
+try {
     error_log("DASHBOARD: Calculando estatísticas de carga horária");
-    logInfo('Iniciando cálculos de progresso', ['user_id' => $user_id]);
 
     $carga_total_result = $database->sum("disciplinas", "carga_horaria", $disc_base);
     $carga_horaria_total = $carga_total_result ? (int)$carga_total_result : 0;
@@ -328,38 +383,16 @@ try {
     $carga_concluida_result = $database->sum("disciplinas", "carga_horaria", $disc_concluidas_where);
     $carga_horaria_concluida = $carga_concluida_result ? (int)$carga_concluida_result : 0;
 
-    // Progresso por carga horária (prioridade 1)
     $progresso_carga_horaria = $carga_horaria_total > 0 ? round(($carga_horaria_concluida / $carga_horaria_total) * 100) : 0;
 
-    // Total de disciplinas e disciplinas concluídas, aproveitadas ou dispensadas
     $total_disciplinas = $database->count("disciplinas", $disc_base);
     $disciplinas_concluidas = $database->count("disciplinas", $disc_concluidas_where);
 
-    logInfo('Contagem de disciplinas', [
-        'user_id' => $user_id,
-        'total_disciplinas' => $total_disciplinas,
-        'disciplinas_concluidas' => $disciplinas_concluidas,
-        'cursos_bloqueados' => $cursos_bloqueados
-    ]);
-
-    // Progresso por disciplinas (prioridade 2)
     $progresso_disciplinas = $total_disciplinas > 0 ? round(($disciplinas_concluidas / $total_disciplinas) * 100) : 0;
-    
-    logInfo('Resultado final dos cálculos', [
-        'user_id' => $user_id,
-        'carga_horaria_concluida' => $carga_horaria_concluida,
-        'carga_horaria_total' => $carga_horaria_total,
-        'progresso_carga_horaria' => $progresso_carga_horaria,
-        'disciplinas_concluidas' => $disciplinas_concluidas,
-        'total_disciplinas' => $total_disciplinas,
-        'progresso_disciplinas' => $progresso_disciplinas
-    ]);
-    
-    error_log("DASHBOARD: Estatísticas calculadas - Carga: {$carga_horaria_concluida}h/{$carga_horaria_total}h ({$progresso_carga_horaria}%) - Disciplinas: {$disciplinas_concluidas}/{$total_disciplinas} ({$progresso_disciplinas}%)");} catch (Exception $e) {
-    error_log("DASHBOARD: ERRO ao calcular progresso - " . $e->getMessage());
-    $progresso_geral = 0;
-    $topicos_concluidos = 0;
-    $total_topicos = 0;
+
+    error_log("DASHBOARD: Estatísticas calculadas - Carga: {$carga_horaria_concluida}h/{$carga_horaria_total}h ({$progresso_carga_horaria}%) - Disciplinas: {$disciplinas_concluidas}/{$total_disciplinas} ({$progresso_disciplinas}%)");
+} catch (Exception $e) {
+    error_log("DASHBOARD: ERRO ao calcular carga horária/disciplinas - " . $e->getMessage());
     $carga_horaria_total = 0;
     $carga_horaria_concluida = 0;
     $progresso_carga_horaria = 0;
