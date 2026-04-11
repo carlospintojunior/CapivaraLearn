@@ -34,11 +34,19 @@ $user_id = $_SESSION['user_id'];
 $message = '';
 $messageType = '';
 
-// Buscar disciplinas para o select
-$disciplinas = $database->select('disciplinas', ['id', 'nome'], [
+// Buscar cursos com matrícula trancada ou cancelada (para ocultar tópicos relacionados)
+$matriculas_bloqueadas = $database->select('matriculas', ['curso_id'], [
     'usuario_id' => $user_id,
-    'ORDER' => ['nome' => 'ASC']
+    'status' => ['trancada', 'cancelada']
 ]);
+$cursos_bloqueados = array_column($matriculas_bloqueadas, 'curso_id');
+
+// Buscar disciplinas para o select (excluindo as de cursos bloqueados)
+$disc_where = ['usuario_id' => $user_id, 'ORDER' => ['nome' => 'ASC']];
+if (!empty($cursos_bloqueados)) {
+    $disc_where['curso_id[!]'] = $cursos_bloqueados;
+}
+$disciplinas = $database->select('disciplinas', ['id', 'nome'], $disc_where);
 // Map disciplines by id for display
 $disciplinasMap = [];
 foreach ($disciplinas as $d) {
@@ -173,6 +181,11 @@ if (isset($_GET['filtro_disciplina']) || isset($_GET['filtro_topico']) || isset(
 $where = [
     'topicos.usuario_id' => $user_id
 ];
+
+// Excluir tópicos de cursos com matrícula trancada ou cancelada
+if (!empty($cursos_bloqueados)) {
+    $where['disciplinas.curso_id[!]'] = $cursos_bloqueados;
+}
 
 // Aplicar filtros salvos ou recebidos
 $filtro_disciplina = $_GET['filtro_disciplina'] ?? 'todos';

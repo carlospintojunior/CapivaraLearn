@@ -34,13 +34,19 @@ $user_id = $_SESSION['user_id'];
 $message = '';
 $messageType = '';
 
-// Buscar disciplinas para o filtro por disciplina específica
-$disciplinas = $database->select('disciplinas', [
-    'id', 'nome'
-], [
+// Buscar cursos com matrícula trancada ou cancelada (para ocultar unidades relacionadas)
+$matriculas_bloqueadas = $database->select('matriculas', ['curso_id'], [
     'usuario_id' => $user_id,
-    'ORDER' => ['nome' => 'ASC']
+    'status' => ['trancada', 'cancelada']
 ]);
+$cursos_bloqueados = array_column($matriculas_bloqueadas, 'curso_id');
+
+// Buscar disciplinas para o filtro por disciplina específica (excluindo cursos bloqueados)
+$disc_where = ['usuario_id' => $user_id, 'ORDER' => ['nome' => 'ASC']];
+if (!empty($cursos_bloqueados)) {
+    $disc_where['curso_id[!]'] = $cursos_bloqueados;
+}
+$disciplinas = $database->select('disciplinas', ['id', 'nome'], $disc_where);
 
 // ===== SISTEMA DE PERSISTÊNCIA DE FILTROS =====
 // Verificar se há filtros sendo enviados pelo GET
@@ -72,6 +78,11 @@ $disciplina_especifica = $_GET['disciplina_especifica'] ?? 'todas';
 $topicos_where = [
     'topicos.usuario_id' => $user_id
 ];
+
+// Excluir tópicos de cursos com matrícula trancada ou cancelada
+if (!empty($cursos_bloqueados)) {
+    $topicos_where['disciplinas.curso_id[!]'] = $cursos_bloqueados;
+}
 
 // Filtro por disciplina específica (tem prioridade sobre o filtro de status)
 if ($disciplina_especifica !== 'todas') {
@@ -216,6 +227,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $where = [
     'unidades_aprendizagem.usuario_id' => $user_id
 ];
+
+// Excluir unidades de cursos com matrícula trancada ou cancelada
+if (!empty($cursos_bloqueados)) {
+    $where['disciplinas.curso_id[!]'] = $cursos_bloqueados;
+}
 
 // Filtro por disciplina específica (tem prioridade sobre o filtro de status)
 if ($disciplina_especifica !== 'todas') {

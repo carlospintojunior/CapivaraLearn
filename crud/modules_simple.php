@@ -58,6 +58,13 @@ $cursos = $database->select('cursos', ['id', 'nome'], [
     'ORDER' => ['nome' => 'ASC']
 ]);
 
+// Buscar cursos com matrícula trancada ou cancelada (para ocultar disciplinas relacionadas)
+$matriculas_bloqueadas = $database->select('matriculas', ['curso_id'], [
+    'usuario_id' => $user_id,
+    'status' => ['trancada', 'cancelada']
+]);
+$cursos_bloqueados = array_column($matriculas_bloqueadas, 'curso_id');
+
 // Processar ações POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -81,6 +88,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ]);
                 if (!$check) {
                     throw new Exception('Curso inválido.');
+                }
+                // Verificar se a matrícula do curso está trancada ou cancelada
+                $matricula_bloqueada = $database->get('matriculas', 'id', [
+                    'usuario_id' => $user_id,
+                    'curso_id' => $curso_id,
+                    'status' => ['trancada', 'cancelada']
+                ]);
+                if ($matricula_bloqueada) {
+                    throw new Exception('Não é possível adicionar disciplinas a um curso com matrícula trancada ou cancelada.');
                 }
                 $database->insert('disciplinas', [
                     'nome' => $nome,
@@ -119,6 +135,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     throw new Exception('Disciplina inválida.');
                 } elseif (!$checkCurso) {
                     throw new Exception('Curso inválido.');
+                }
+                // Verificar se a matrícula do curso está trancada ou cancelada
+                $matricula_bloqueada = $database->get('matriculas', 'id', [
+                    'usuario_id' => $user_id,
+                    'curso_id' => $curso_id,
+                    'status' => ['trancada', 'cancelada']
+                ]);
+                if ($matricula_bloqueada) {
+                    throw new Exception('Não é possível editar disciplinas de um curso com matrícula trancada ou cancelada.');
                 }
                 $database->update('disciplinas', [
                     'nome' => $nome,
@@ -188,6 +213,11 @@ logInfo("Filtros aplicados - Curso: $filtro_curso, Status: $filtro_status");
 
 // Construir condições de filtro
 $conditions = ['disciplinas.usuario_id' => $user_id];
+
+// Excluir disciplinas de cursos com matrícula trancada ou cancelada
+if (!empty($cursos_bloqueados)) {
+    $conditions['cursos.id[!]'] = $cursos_bloqueados;
+}
 
 // Aplicar filtro de curso
 if ($filtro_curso !== 'todos') {
@@ -398,7 +428,21 @@ if (isset($_GET['edit'])) {
                         <div class="mb-3"><label>Carga Horária</label><input type="number" name="carga_horaria" class="form-control" value="<?= $editDisc['carga_horaria'] ?? 0 ?>"></div>
                         <!-- Campo semestre oculto -->
                         <div class="mb-3" style="display: none;"><label>Semestre</label><input type="number" name="semestre" class="form-control" value="<?= $editDisc['semestre'] ?? 0 ?>"></div>
-                        <div class="mb-3"><label>Curso</label><select name="curso_id" class="form-select" required><option value="">Selecione</option><?php foreach($cursos as $c): ?><option value="<?= $c['id'] ?>" <?= isset($editDisc['curso_id']) && $editDisc['curso_id']==$c['id']?'selected':'' ?>><?= htmlspecialchars($c['nome']) ?></option><?php endforeach; ?></select></div>
+                        <div class="mb-3">
+                            <label>Curso</label>
+                            <select name="curso_id" class="form-select" required>
+                                <option value="">Selecione</option>
+                                <?php foreach($cursos as $c): ?>
+                                    <?php $bloqueado = in_array($c['id'], $cursos_bloqueados); ?>
+                                    <?php if (!$bloqueado): ?>
+                                    <option value="<?= $c['id'] ?>" <?= isset($editDisc['curso_id']) && $editDisc['curso_id']==$c['id']?'selected':'' ?>><?= htmlspecialchars($c['nome']) ?></option>
+                                    <?php endif; ?>
+                                <?php endforeach; ?>
+                            </select>
+                            <?php if (!empty($cursos_bloqueados)): ?>
+                                <div class="form-text text-warning"><i class="fas fa-lock me-1"></i>Cursos com matrícula trancada ou cancelada não estão disponíveis.</div>
+                            <?php endif; ?>
+                        </div>
                         <div class="mb-3">
                             <label>Status</label>
                             <select name="status" class="form-select">
