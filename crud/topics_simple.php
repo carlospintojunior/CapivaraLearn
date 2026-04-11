@@ -150,6 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $message = 'Tópico excluído com sucesso!';
                 $messageType = 'success';
                 break;
+
         }
     } catch (Exception $e) {
         $message = $e->getMessage();
@@ -214,10 +215,23 @@ if ($filtro_topico === 'ativos') {
     $where['topicos.concluido'] = 0;
 }
 
-$where['ORDER'] = [
-    'disciplinas.nome' => 'ASC',
-    'topicos.nome' => 'ASC'
+// Ordenação por coluna clicável
+$sort_allowed = [
+    'ordem'      => ['topicos.ordem', 'topicos.nome'],
+    'disciplina' => ['disciplinas.nome', 'topicos.ordem', 'topicos.nome'],
+    'nome'       => ['topicos.nome'],
+    'prazo'      => ['topicos.data_prazo', 'disciplinas.nome', 'topicos.nome'],
+    'status'     => ['topicos.concluido', 'disciplinas.nome', 'topicos.nome'],
 ];
+$sort_col = in_array($_GET['sort'] ?? '', array_keys($sort_allowed)) ? $_GET['sort'] : 'disciplina';
+$sort_dir = strtoupper($_GET['dir'] ?? 'ASC') === 'DESC' ? 'DESC' : 'ASC';
+$sort_dir_toggle = $sort_dir === 'ASC' ? 'DESC' : 'ASC';
+
+$order = [];
+foreach ($sort_allowed[$sort_col] as $i => $field) {
+    $order[$field] = ($i === 0) ? $sort_dir : 'ASC';
+}
+$where['ORDER'] = $order;
 
 // LOG: filtros aplicados (Monolog e error_log)
 if (file_exists(__DIR__ . '/../includes/log_sistema.php')) {
@@ -365,13 +379,28 @@ if (isset($_GET['edit'])) {
                     <!-- Tabela de tópicos cadastrados -->
                     <div class="table-responsive mb-3">
                         <table class="table table-striped table-bordered align-middle">
+                            <?php
+                            // Helper para gerar URL de ordenação preservando filtros ativos
+                            function sortUrl($col, $current_col, $current_dir, $get) {
+                                $params = array_filter($get, fn($k) => !in_array($k, ['sort','dir']), ARRAY_FILTER_USE_KEY);
+                                $params['sort'] = $col;
+                                $params['dir']  = ($col === $current_col && $current_dir === 'ASC') ? 'DESC' : 'ASC';
+                                return '?' . http_build_query($params);
+                            }
+                            function sortIcon($col, $current_col, $current_dir) {
+                                if ($col !== $current_col) return '<i class="fas fa-sort text-muted ms-1" style="font-size:.75em"></i>';
+                                return $current_dir === 'ASC'
+                                    ? '<i class="fas fa-sort-up text-primary ms-1" style="font-size:.75em"></i>'
+                                    : '<i class="fas fa-sort-down text-primary ms-1" style="font-size:.75em"></i>';
+                            }
+                            ?>
                             <thead class="table-light">
                                 <tr>
-                                    <th>Disciplina</th>
-                                    <th>Nome</th>
-                                    <th>Ordem</th>
-                                    <th>Prazo</th>
-                                    <th>Status</th>
+                                    <th><a href="<?= sortUrl('ordem', $sort_col, $sort_dir, $_GET) ?>" class="text-decoration-none text-dark">Ordem<?= sortIcon('ordem', $sort_col, $sort_dir) ?></a></th>
+                                    <th><a href="<?= sortUrl('disciplina', $sort_col, $sort_dir, $_GET) ?>" class="text-decoration-none text-dark">Disciplina<?= sortIcon('disciplina', $sort_col, $sort_dir) ?></a></th>
+                                    <th><a href="<?= sortUrl('nome', $sort_col, $sort_dir, $_GET) ?>" class="text-decoration-none text-dark">Nome<?= sortIcon('nome', $sort_col, $sort_dir) ?></a></th>
+                                    <th><a href="<?= sortUrl('prazo', $sort_col, $sort_dir, $_GET) ?>" class="text-decoration-none text-dark">Prazo<?= sortIcon('prazo', $sort_col, $sort_dir) ?></a></th>
+                                    <th><a href="<?= sortUrl('status', $sort_col, $sort_dir, $_GET) ?>" class="text-decoration-none text-dark">Status<?= sortIcon('status', $sort_col, $sort_dir) ?></a></th>
                                     <th>Ações</th>
                                 </tr>
                             </thead>
@@ -381,9 +410,9 @@ if (isset($_GET['edit'])) {
                                 <?php else: ?>
                                     <?php foreach ($topicos as $t): ?>
                                         <tr>
+                                            <td class="text-center"><?= $t['ordem'] ?></td>
                                             <td><?= htmlspecialchars($t['disciplina_nome'] ?? '-') ?></td>
                                             <td><?= htmlspecialchars($t['nome']) ?></td>
-                                            <td><?= $t['ordem'] ?></td>
                                             <td><?= $t['data_prazo'] ? date('d/m/Y', strtotime($t['data_prazo'])) : '-' ?></td>
                                             <td>
                                                 <?php if (isset($t['concluido']) && $t['concluido']): ?>

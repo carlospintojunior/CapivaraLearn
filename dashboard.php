@@ -1005,8 +1005,9 @@ error_log("DASHBOARD: Carregamento de dados completo, renderizando HTML");
                 <div class="row">
                     <div class="col-12">
                         <div class="card card-custom">
-                            <div class="card-header">
+                            <div class="card-header d-flex justify-content-between align-items-center">
                                 <h5><i class="fas fa-book-open me-2"></i>Disciplinas</h5>
+                                <small class="text-muted"><?php echo count($disciplinas_ativas); ?> disciplinas</small>
                             </div>
                             <div class="card-body">
                                 <?php if (empty($disciplinas_ativas)): ?>

@@ -261,11 +261,24 @@ if ($filtro_unidade === 'ativas') {
     $where['unidades_aprendizagem.concluido'] = 0;
 }
 
-$where['ORDER'] = [
-    'disciplinas.nome' => 'ASC',
-    'topicos.nome' => 'ASC',
-    'unidades_aprendizagem.nome' => 'ASC'
+// Ordenação por coluna clicável
+$sort_allowed = [
+    'disciplina' => ['disciplinas.nome', 'topicos.nome', 'unidades_aprendizagem.nome'],
+    'topico'     => ['topicos.nome', 'disciplinas.nome', 'unidades_aprendizagem.nome'],
+    'nome'       => ['unidades_aprendizagem.nome'],
+    'tipo'       => ['unidades_aprendizagem.tipo', 'disciplinas.nome', 'topicos.nome'],
+    'nota'       => ['unidades_aprendizagem.nota', 'disciplinas.nome', 'topicos.nome'],
+    'prazo'      => ['unidades_aprendizagem.data_prazo', 'disciplinas.nome', 'topicos.nome'],
+    'status'     => ['unidades_aprendizagem.concluido', 'disciplinas.nome', 'topicos.nome'],
 ];
+$sort_col = in_array($_GET['sort'] ?? '', array_keys($sort_allowed)) ? $_GET['sort'] : 'disciplina';
+$sort_dir = strtoupper($_GET['dir'] ?? 'ASC') === 'DESC' ? 'DESC' : 'ASC';
+
+$order = [];
+foreach ($sort_allowed[$sort_col] as $i => $field) {
+    $order[$field] = ($i === 0) ? $sort_dir : 'ASC';
+}
+$where['ORDER'] = $order;
 
 // LOG: filtros aplicados (Monolog e error_log)
 if (file_exists(__DIR__ . '/../includes/log_sistema.php')) {
@@ -442,15 +455,29 @@ if (isset($_GET['edit'])) {
                     <!-- Tabela de unidades cadastradas -->
                     <div class="table-responsive mb-3">
                         <table class="table table-striped table-bordered align-middle">
+                            <?php
+                            function sortUrl($col, $current_col, $current_dir, $get) {
+                                $params = array_filter($get, fn($k) => !in_array($k, ['sort','dir']), ARRAY_FILTER_USE_KEY);
+                                $params['sort'] = $col;
+                                $params['dir']  = ($col === $current_col && $current_dir === 'ASC') ? 'DESC' : 'ASC';
+                                return '?' . http_build_query($params);
+                            }
+                            function sortIcon($col, $current_col, $current_dir) {
+                                if ($col !== $current_col) return '<i class="fas fa-sort text-muted ms-1" style="font-size:.75em"></i>';
+                                return $current_dir === 'ASC'
+                                    ? '<i class="fas fa-sort-up text-primary ms-1" style="font-size:.75em"></i>'
+                                    : '<i class="fas fa-sort-down text-primary ms-1" style="font-size:.75em"></i>';
+                            }
+                            ?>
                             <thead class="table-light">
                                 <tr>
-                                    <th>Disciplina</th>
-                                    <th>Tópico</th>
-                                    <th>Nome</th>
-                                    <th>Tipo</th>
-                                    <th>Nota</th>
-                                    <th>Prazo</th>
-                                    <th>Status</th>
+                                    <th><a href="<?= sortUrl('disciplina', $sort_col, $sort_dir, $_GET) ?>" class="text-decoration-none text-dark">Disciplina<?= sortIcon('disciplina', $sort_col, $sort_dir) ?></a></th>
+                                    <th><a href="<?= sortUrl('topico', $sort_col, $sort_dir, $_GET) ?>" class="text-decoration-none text-dark">Tópico<?= sortIcon('topico', $sort_col, $sort_dir) ?></a></th>
+                                    <th><a href="<?= sortUrl('nome', $sort_col, $sort_dir, $_GET) ?>" class="text-decoration-none text-dark">Nome<?= sortIcon('nome', $sort_col, $sort_dir) ?></a></th>
+                                    <th><a href="<?= sortUrl('tipo', $sort_col, $sort_dir, $_GET) ?>" class="text-decoration-none text-dark">Tipo<?= sortIcon('tipo', $sort_col, $sort_dir) ?></a></th>
+                                    <th><a href="<?= sortUrl('nota', $sort_col, $sort_dir, $_GET) ?>" class="text-decoration-none text-dark">Nota<?= sortIcon('nota', $sort_col, $sort_dir) ?></a></th>
+                                    <th><a href="<?= sortUrl('prazo', $sort_col, $sort_dir, $_GET) ?>" class="text-decoration-none text-dark">Prazo<?= sortIcon('prazo', $sort_col, $sort_dir) ?></a></th>
+                                    <th><a href="<?= sortUrl('status', $sort_col, $sort_dir, $_GET) ?>" class="text-decoration-none text-dark">Status<?= sortIcon('status', $sort_col, $sort_dir) ?></a></th>
                                     <th>Ações</th>
                                 </tr>
                             </thead>
