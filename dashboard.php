@@ -161,27 +161,29 @@ try {
 try {
     error_log("DASHBOARD: Coletando estatísticas");
 
-    // Cursos com matrícula ativa
+    // Cursos com matrícula ativa (excluindo trancadas e canceladas)
     $matriculas_ativas = $database->select('matriculas', ['curso_id'], [
         'usuario_id' => $user_id,
-        'status' => 'ativa'
+        'status[!]' => ['trancada', 'cancelada']
     ]);
     $cursos_ativos_ids = array_column($matriculas_ativas ?? [], 'curso_id');
 
-    // Disciplinas das matrículas ativas
-    if (!empty($cursos_ativos_ids)) {
+    // Se não encontrou matrículas com filtro de status, conta tudo do usuário
+    // (compatibilidade com bancos sem coluna status ou sem matrículas cadastradas)
+    if (empty($cursos_ativos_ids)) {
+        $count_disciplinas = $database->count("disciplinas", ["usuario_id" => $user_id]);
+        $disciplinas_all = $database->select("disciplinas", ["id"], ["usuario_id" => $user_id]);
+        $disciplinas_ativas_ids = array_column($disciplinas_all ?? [], 'id');
+    } else {
         $count_disciplinas = $database->count("disciplinas", [
             "usuario_id" => $user_id,
             "curso_id" => $cursos_ativos_ids
         ]);
-        $disciplinas_ativas = $database->select("disciplinas", ["id"], [
+        $disciplinas_all = $database->select("disciplinas", ["id"], [
             "usuario_id" => $user_id,
             "curso_id" => $cursos_ativos_ids
         ]);
-        $disciplinas_ativas_ids = array_column($disciplinas_ativas ?? [], 'id');
-    } else {
-        $count_disciplinas = 0;
-        $disciplinas_ativas_ids = [];
+        $disciplinas_ativas_ids = array_column($disciplinas_all ?? [], 'id');
     }
 
     // Tópicos das disciplinas ativas
