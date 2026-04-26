@@ -39,53 +39,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($email) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $error = 'Informe um e-mail válido.';
     } else {
-        $db   = Database::getInstance();
-        $mail = MailService::getInstance();
-
-        $user = $db->select(
-            "SELECT id, nome, email FROM usuarios WHERE email = ? AND ativo = 1",
-            [$email]
-        );
-
         // Sempre exibir mensagem genérica para não revelar se o email existe
         $success = 'Se este e-mail estiver cadastrado, você receberá as instruções em instantes. Verifique também a pasta de spam.';
 
-        if ($user) {
-            $userId = $user[0]['id'];
-            $nome   = $user[0]['nome'];
+        try {
+            $db   = Database::getInstance();
+            $mail = MailService::getInstance();
 
-            // Invalidar tokens anteriores de recuperação pendentes
-            $db->execute(
-                "UPDATE email_tokens SET usado = TRUE WHERE usuario_id = ? AND tipo = 'recuperacao' AND usado = FALSE",
-                [$userId]
+            $user = $db->select(
+                "SELECT id, nome, email FROM usuarios WHERE email = ? AND ativo = 1",
+                [$email]
             );
 
-            $token      = generateToken();
-            $expiration = date('Y-m-d H:i:s', strtotime('+1 hour'));
+            if ($user) {
+                $userId = $user[0]['id'];
+                $nome   = $user[0]['nome'];
 
-            $db->execute(
-                "INSERT INTO email_tokens (usuario_id, token, tipo, data_expiracao, ip_address) VALUES (?, ?, 'recuperacao', ?, ?)",
-                [$userId, $token, $expiration, $_SERVER['REMOTE_ADDR'] ?? null]
-            );
-
-            log_sistema("Token de recuperação gerado para usuario_id=$userId, email=$email", 'INFO');
-
-            if ($mail->sendPasswordResetEmail($email, $nome, $token)) {
+                // Invalidar tokens anteriores de recuperação pendentes
                 $db->execute(
-                    "INSERT INTO email_log (destinatario, assunto, tipo, status) VALUES (?, ?, 'recuperacao', 'enviado')",
-                    [$email, 'Redefinição de senha - CapivaraLearn']
+                    "UPDATE email_tokens SET usado = TRUE WHERE usuario_id = ? AND tipo = 'reset_senha' AND usado = FALSE",
+                    [$userId]
                 );
-                log_sistema("Email de recuperação enviado para $email", 'SUCCESS');
+
+                $token      = generateToken();
+                $expiration = date('Y-m-d H:i:s', strtotime('+1 hour'));
+
+                $db->execute(
+                    "INSERT INTO email_tokens (usuario_id, token, tipo, data_expiracao, ip_address) VALUES (?, ?, 'reset_senha', ?, ?)",
+                    [$userId, $token, $expiration, $_SERVER['REMOTE_ADDR'] ?? null]
+                );
+
+                log_sistema("Token de recuperação gerado para usuario_id=$userId, email=$email", 'INFO');
+
+                if ($mail->sendPasswordResetEmail($email, $nome, $token)) {
+                    $db->execute(
+                        "INSERT INTO email_log (destinatario, assunto, tipo, status) VALUES (?, ?, 'reset_senha', 'enviado')",
+                        [$email, 'Redefinição de senha - CapivaraLearn']
+                    );
+                    log_sistema("Email de recuperação enviado para $email", 'SUCCESS');
+                } else {
+                    $mailError = $mail->getLastError();
+                    $db->execute(
+                        "INSERT INTO email_log (destinatario, assunto, tipo, status, erro_detalhes) VALUES (?, ?, 'reset_senha', 'erro', ?)",
+                        [$email, 'Redefinição de senha - CapivaraLearn', $mailError]
+                    );
+                    log_sistema("ERRO ao enviar email de recuperação para $email: $mailError", 'ERROR');
+                }
             } else {
-                $mailError = $mail->getLastError();
-                $db->execute(
-                    "INSERT INTO email_log (destinatario, assunto, tipo, status, erro_detalhes) VALUES (?, ?, 'recuperacao', 'erro', ?)",
-                    [$email, 'Redefinição de senha - CapivaraLearn', $mailError]
-                );
-                log_sistema("ERRO ao enviar email de recuperação para $email: $mailError", 'ERROR');
+                log_sistema("Solicitação de recuperação para email não encontrado: $email", 'INFO');
             }
-        } else {
-            log_sistema("Solicitação de recuperação para email não encontrado: $email", 'INFO');
+        } catch (Throwable $e) {
+            log_sistema("Falha no fluxo de recuperação de senha para $email: " . $e->getMessage(), 'ERROR');
         }
     }
 }

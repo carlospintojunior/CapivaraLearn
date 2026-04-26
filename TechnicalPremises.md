@@ -7,14 +7,18 @@ Technical Premises
   - Session initialization
   - Database constants (`DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASS`, `DB_CHARSET`)
   - Environment constants (`APP_ENV`, `APP_URL`)
-* The code should not be modified directly on the server, but rather in the working directory. Synchronization is done through the ./deploy-putty.sh script.
-* The log should be recorded to a file during application execution in the server directory itself. In this case, /var/www/capivaralearn/logs/
-* Server access: plink -batch -i Nextcloud/Documents/ppk/capivaralearn.ppk root@198.23.132.15
+* The production `includes/config.php` must not be overwritten with the local version. The server copy is manually patched and differs from both the local file and `includes/config.php.test`.
+* The production `includes/config.php` contains an **inline `MailService` class** (around line 403) that is the one used at runtime — `includes/MailService.php` has a `if (!class_exists('MailService'))` guard, so it is always skipped. Any new public method added to `includes/MailService.php` **must also be added to the inline class in `includes/config.php` (local)**. The `sync_to_production.sh` deploys `config.php`, so keeping the local version correct is sufficient. Failure to do this causes `Call to undefined method MailService::...()` even after a successful deploy.
+* The code should not be modified directly on the server, but rather in the working directory. Production synchronization is done with PuTTY tools (`plink`/`pscp`), primarily through `./sync_to_production.sh`. `./deploy-putty.sh` remains available as an older deploy helper.
+* Application logs should be recorded in the project directory on the server itself: `/var/www/capivaralearn/logs/`.
+* Web server logs are separate from application logs. The current production host writes Nginx logs to `/var/log/nginx/error.log` and `/var/log/nginx/access.log`.
+* Server access: `plink -batch -i /home/carlos/Nextcloud/Documents/ppk/capivaralearn.ppk root@198.23.132.15`
 * Production database requires password authentication (different from local development)
-* Database configurations are read from includes/environment.ini file
+* Database and mail configurations are read from `includes/environment.ini`. This file is preserved during production sync.
 * Production server uses Nginx with PHP-FPM (not Apache)
 * HTTPS enabled with Let's Encrypt SSL certificate for capivaralearn.com.br
 * Automatic SSL certificate renewal configured via Certbot
+* When debugging production 500 errors, check server logs first (`nginx`/`php-fpm`) and then application logs under `/var/www/capivaralearn/logs/`.
 
 The database is located at:
 DatabaseSchema.md

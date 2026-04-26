@@ -83,7 +83,7 @@ mysql -u capivaralearn -p -e "SELECT COUNT(*) FROM usuarios;"
 ### Verificar Logs
 ```bash
 tail -f /var/www/capivaralearn/logs/sistema.log
-tail -f /var/log/nginx/capivaralearn_error.log
+tail -f /var/log/nginx/error.log
 ```
 
 ### Teste de Backup

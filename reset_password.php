@@ -37,7 +37,7 @@ if (empty($token)) {
          FROM email_tokens et
          JOIN usuarios u ON et.usuario_id = u.id
          WHERE et.token = ?
-           AND et.tipo = 'recuperacao'
+                     AND et.tipo = 'reset_senha'
            AND et.usado = FALSE
            AND et.data_expiracao > NOW()",
         [$token]

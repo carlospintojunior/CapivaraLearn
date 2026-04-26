@@ -94,7 +94,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             if (!class_exists('Database') && class_exists('CapivaraLearn\\DatabaseConnection')) {
                                 class_alias('CapivaraLearn\\DatabaseConnection', 'Database');
                             }
-                            require_once __DIR__ . '/../includes/MailService.php';
+                            if (!class_exists('MailService')) {
+                                require_once __DIR__ . '/../includes/MailService.php';
+                            }
                             if (!function_exists('generateToken')) {
                                 function generateToken() {
                                     return bin2hex(random_bytes(32));
@@ -132,6 +134,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 $message = "Falha ao reenviar email: " . htmlspecialchars($mailError);
                                 $messageType = 'danger';
                                 log_sistema("Admin (ID: {$_SESSION['user_id']}) tentou reenviar email para usuário ID: {$target_id} ({$user['email']}) - ERRO: {$mailError}", 'ERROR');
+                            }
+                        }
+                    }
+                    break;
+
+                case 'send_password_reset':
+                    $user = $database->get('usuarios', ['id', 'nome', 'email', 'ativo'], ['id' => $target_id]);
+                    if ($user) {
+                        require_once __DIR__ . '/../includes/log_sistema.php';
+                        require_once __DIR__ . '/../includes/DatabaseConnection.php';
+                        if (!class_exists('Database') && class_exists('CapivaraLearn\\DatabaseConnection')) {
+                            class_alias('CapivaraLearn\\DatabaseConnection', 'Database');
+                        }
+                        if (!class_exists('MailService')) {
+                            require_once __DIR__ . '/../includes/MailService.php';
+                        }
+                        if (!function_exists('generateToken')) {
+                            function generateToken() {
+                                return bin2hex(random_bytes(32));
+                            }
+                        }
+
+                        $db = Database::getInstance();
+                        $mail = MailService::getInstance();
+
+                        // Invalidar tokens antigos de recuperação pendentes
+                        $db->execute(
+                            "UPDATE email_tokens SET usado = TRUE WHERE usuario_id = ? AND tipo = 'reset_senha' AND usado = FALSE",
+                            [$target_id]
+                        );
+
+                        $token = generateToken();
+                        $expiration = date('Y-m-d H:i:s', strtotime('+1 hour'));
+
+                        $db->execute(
+                            "INSERT INTO email_tokens (usuario_id, token, tipo, data_expiracao, ip_address) VALUES (?, ?, 'reset_senha', ?, ?)",
+                            [$target_id, $token, $expiration, $_SERVER['REMOTE_ADDR'] ?? null]
+                        );
+
+                        if ($mail->sendPasswordResetEmail($user['email'], $user['nome'], $token)) {
+                            $db->execute(
+                                "INSERT INTO email_log (destinatario, assunto, tipo, status) VALUES (?, ?, 'reset_senha', 'enviado')",
+                                [$user['email'], 'Redefinição de senha - CapivaraLearn']
+                            );
+                            $message = "Link de recuperação enviado para {$user['email']}.";
+                            $messageType = 'success';
+                            log_sistema("Admin (ID: {$_SESSION['user_id']}) enviou link de recuperação para usuário ID: {$target_id} ({$user['email']})", 'INFO');
+                        } else {
+                            $mailError = $mail->getLastError();
+                            $db->execute(
+                                "INSERT INTO email_log (destinatario, assunto, tipo, status, erro_detalhes) VALUES (?, ?, 'reset_senha', 'erro', ?)",
+                                [$user['email'], 'Redefinição de senha - CapivaraLearn', $mailError]
+                            );
+                            $message = "Falha ao enviar link de recuperação: " . htmlspecialchars($mailError);
+                            $messageType = 'danger';
+                            log_sistema("Admin (ID: {$_SESSION['user_id']}) tentou enviar link de recuperação para usuário ID: {$target_id} ({$user['email']}) - ERRO: {$mailError}", 'ERROR');
+                        }
+
+                        if (!$user['ativo']) {
+                            $message .= ' Atenção: o usuário está inativo.';
+                            if ($messageType === 'success') {
+                                $messageType = 'warning';
                             }
                         }
                     }
@@ -219,7 +283,7 @@ function sortLink(string $col, string $label, string $currentOrder, string $curr
     </div>
 
     <?php if ($message): ?>
-        <div class="alert alert-<?= $messageType === 'success' ? 'success' : 'danger' ?> alert-dismissible fade show">
+        <div class="alert alert-<?= in_array($messageType, ['success', 'danger', 'warning', 'info'], true) ? $messageType : 'danger' ?> alert-dismissible fade show">
             <?= htmlspecialchars($message) ?>
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
@@ -356,6 +420,13 @@ function sortLink(string $col, string $label, string $currentOrder, string $curr
                                                 <input type="hidden" name="user_id" value="<?= intval($u['id']) ?>">
                                                 <button type="submit" class="btn btn-sm <?= $u['ativo'] ? 'btn-outline-warning' : 'btn-outline-success' ?>" title="<?= $u['ativo'] ? 'Desativar' : 'Ativar' ?>">
                                                     <i class="fas <?= $u['ativo'] ? 'fa-user-slash' : 'fa-user-check' ?>"></i>
+                                                </button>
+                                            </form>
+                                            <form method="POST" class="d-inline" onsubmit="return confirm('Enviar link de recuperação de senha para este usuário?')">
+                                                <input type="hidden" name="action" value="send_password_reset">
+                                                <input type="hidden" name="user_id" value="<?= intval($u['id']) ?>">
+                                                <button type="submit" class="btn btn-sm btn-outline-secondary" title="Enviar link de recuperação de senha">
+                                                    <i class="fas fa-key"></i>
                                                 </button>
                                             </form>
                                         <?php else: ?>

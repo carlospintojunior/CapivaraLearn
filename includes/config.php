@@ -483,6 +483,125 @@ class MailService {
         }
     }
     
+    public function sendPasswordResetEmail($email, $name, $token) {
+        $logFile = __DIR__ . '/../logs/mailservice.log';
+        $logMessage = function($message, $level = 'INFO') use ($logFile) {
+            $logDir = dirname($logFile);
+            if (!is_dir($logDir)) {
+                mkdir($logDir, 0777, true);
+            }
+            $timestamp = date('Y-m-d H:i:s');
+            file_put_contents($logFile, "[$timestamp] $level | $message" . PHP_EOL, FILE_APPEND | LOCK_EX);
+        };
+
+        $logMessage("=== INICIANDO ENVIO EMAIL RESET SENHA ===");
+        $logMessage("Destinatario: $email");
+        log_sistema("[MailService] Iniciando envio de email de reset para $email", 'INFO');
+
+        try {
+            $mail = new PHPMailer(true);
+
+            $mail->isSMTP();
+            $mail->Host       = defined('MAIL_HOST') ? MAIL_HOST : 'mail.capivaralearn.com.br';
+            $mail->SMTPAuth   = true;
+            $mail->Username   = defined('MAIL_USERNAME') ? MAIL_USERNAME : '';
+            $mail->Password   = defined('MAIL_PASSWORD') ? MAIL_PASSWORD : '';
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_SMTPS;
+            $mail->Port       = defined('MAIL_PORT') ? MAIL_PORT : 465;
+            $mail->Timeout    = 30;
+            $mail->SMTPOptions = [
+                'ssl' => ['verify_peer' => false, 'verify_peer_name' => false, 'allow_self_signed' => true]
+            ];
+
+            $debugOutput = '';
+            $mail->SMTPDebug  = SMTP::DEBUG_SERVER;
+            $mail->Debugoutput = function($str, $level) use (&$debugOutput, $logMessage) {
+                $debugOutput .= "[$level] $str\n";
+                $logMessage("SMTP DEBUG [$level]: " . trim($str));
+            };
+
+            $fromEmail = defined('MAIL_FROM_EMAIL') ? MAIL_FROM_EMAIL : 'capivara@capivaralearn.com.br';
+            $fromName  = defined('MAIL_FROM_NAME')  ? MAIL_FROM_NAME  : 'CapivaraLearn';
+
+            $mail->setFrom($fromEmail, $fromName);
+            $mail->addAddress($email, $name);
+            $mail->addReplyTo($fromEmail, $fromName);
+
+            $mail->isHTML(true);
+            $mail->CharSet = 'UTF-8';
+            $mail->Subject = 'Redefinição de senha - CapivaraLearn';
+
+            $protocol  = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
+            $host      = $_SERVER['HTTP_HOST'] ?? 'localhost';
+            $path      = dirname($_SERVER['PHP_SELF'] ?? '/');
+            $resetUrl  = $protocol . $host . $path . '/reset_password.php?token=' . urlencode($token);
+
+            $logMessage("URL reset: $resetUrl");
+
+            $mail->Body    = $this->getPasswordResetEmailTemplate($name, $resetUrl);
+            $mail->AltBody = "Olá $name,\n\nPara redefinir sua senha, acesse: $resetUrl\n\nEste link expira em 1 hora.\n\nSe você não solicitou a redefinição, ignore este email.\n\nEquipe CapivaraLearn";
+
+            $mail->send();
+
+            $logMessage("EMAIL RESET ENVIADO COM SUCESSO!");
+            log_sistema("[MailService] Email de reset enviado com sucesso para $email", 'SUCCESS');
+            $this->lastError = '';
+            return true;
+
+        } catch (Exception $e) {
+            $this->lastError = $e->getMessage();
+            $logMessage("ERRO no envio de reset: " . $this->lastError, 'ERROR');
+            log_sistema("[MailService] ERRO ao enviar email de reset para $email: " . $this->lastError, 'ERROR');
+            return false;
+        }
+    }
+
+    private function getPasswordResetEmailTemplate($name, $resetUrl) {
+        return "
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <meta charset='UTF-8'>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+                .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+                .header { background: linear-gradient(135deg, #3498db, #2980b9); color: white; padding: 30px; text-align: center; border-radius: 10px 10px 0 0; }
+                .content { background: #f9f9f9; padding: 30px; }
+                .button { display: inline-block; background: #e74c3c; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold; }
+                .footer { background: #ecf0f1; padding: 20px; text-align: center; font-size: 12px; color: #7f8c8d; border-radius: 0 0 10px 10px; }
+            </style>
+        </head>
+        <body>
+            <div class='container'>
+                <div class='header'>
+                    <h1>&#x1F9AB; CapivaraLearn</h1>
+                    <p>Sistema de Organização de Estudos</p>
+                </div>
+                <div class='content'>
+                    <h2>Olá, $name!</h2>
+                    <p>Recebemos uma solicitação para redefinir a senha da sua conta no <strong>CapivaraLearn</strong>.</p>
+                    <p>Clique no botão abaixo para criar uma nova senha:</p>
+                    <p style='text-align: center; margin: 30px 0;'>
+                        <a href='$resetUrl' class='button'>Redefinir Senha</a>
+                    </p>
+                    <p><small>Ou copie e cole este link no seu navegador:<br>
+                    <a href='$resetUrl'>$resetUrl</a></small></p>
+                    <hr style='margin: 30px 0; border: none; border-top: 1px solid #ddd;'>
+                    <p><strong>Importante:</strong></p>
+                    <ul>
+                        <li>Este link expira em <strong>1 hora</strong></li>
+                        <li>Se você não solicitou a redefinição, ignore este email</li>
+                        <li>Não compartilhe este link com outras pessoas</li>
+                    </ul>
+                </div>
+                <div class='footer'>
+                    <p>Este email foi enviado automaticamente pelo sistema CapivaraLearn.</p>
+                </div>
+            </div>
+        </body>
+        </html>";
+    }
+
     public function getLastError() {
         return $this->lastError;
     }

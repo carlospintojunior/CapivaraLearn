@@ -463,7 +463,7 @@ free -h
 sudo ps aux | grep php
 
 # Verificar logs de erro
-tail -f /var/log/nginx/capivaralearn_error.log
+tail -f /var/log/nginx/error.log
 tail -f /var/www/capivaralearn/logs/sistema.log
 
 # Limpar cache
@@ -510,7 +510,7 @@ sudo systemctl status php8.2-fpm
 sudo nginx -t
 
 # Verificar logs
-tail -f /var/log/nginx/capivaralearn_error.log
+tail -f /var/log/nginx/error.log
 ```
 
 ### Problema: Pouca memória
