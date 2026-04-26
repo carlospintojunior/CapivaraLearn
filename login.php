@@ -218,7 +218,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         
                         // Gerar token de confirmação
                         $token = generateToken();
-                        $expiration = date('Y-m-d H:i:s', strtotime('+24 hours'));
+                        $expiration = gmdate('Y-m-d H:i:s', strtotime('+24 hours'));
                         
                         $db->execute(
                             "INSERT INTO email_tokens (usuario_id, token, tipo, data_expiracao, ip_address) VALUES (?, ?, 'confirmacao', ?, ?)",
@@ -297,7 +297,7 @@ if (isset($_GET['resend_email'])) {
 
         // Criar novo token
         $token = generateToken();
-        $expiration = date('Y-m-d H:i:s', strtotime('+24 hours'));
+        $expiration = gmdate('Y-m-d H:i:s', strtotime('+24 hours'));
 
         $db->execute(
             "INSERT INTO email_tokens (usuario_id, token, tipo, data_expiracao, ip_address) VALUES (?, ?, 'confirmacao', ?, ?)",

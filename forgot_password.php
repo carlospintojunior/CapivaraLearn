@@ -62,7 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
 
                 $token      = generateToken();
-                $expiration = date('Y-m-d H:i:s', strtotime('+1 hour'));
+                $expiration = gmdate('Y-m-d H:i:s', strtotime('+1 hour'));
 
                 $db->execute(
                     "INSERT INTO email_tokens (usuario_id, token, tipo, data_expiracao, ip_address) VALUES (?, ?, 'reset_senha', ?, ?)",

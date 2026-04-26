@@ -111,7 +111,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             // Gerar novo token
                             $token = generateToken();
-                            $expiration = date('Y-m-d H:i:s', strtotime('+24 hours'));
+                            $expiration = gmdate('Y-m-d H:i:s', strtotime('+24 hours'));
                             $db->execute(
                                 "INSERT INTO email_tokens (usuario_id, token, tipo, data_expiracao, ip_address) VALUES (?, ?, 'confirmacao', ?, ?)",
                                 [$target_id, $token, $expiration, $_SERVER['REMOTE_ADDR'] ?? null]
@@ -166,7 +166,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         );
 
                         $token = generateToken();
-                        $expiration = date('Y-m-d H:i:s', strtotime('+1 hour'));
+                        $expiration = gmdate('Y-m-d H:i:s', strtotime('+1 hour'));
 
                         $db->execute(
                             "INSERT INTO email_tokens (usuario_id, token, tipo, data_expiracao, ip_address) VALUES (?, ?, 'reset_senha', ?, ?)",
