@@ -84,7 +84,7 @@ if (empty($token)) {
                 $message = "Email confirmado com sucesso! Agora você pode fazer login no sistema.";
                 
                 // Log da confirmação
-                logActivity('email_confirmed', "Email confirmado para usuário: {$tokenInfo['email']}");
+                logActivity($tokenInfo['usuario_id'], 'email_confirmed', "Email confirmado para usuário: {$tokenInfo['email']}");
             } else {
                 // Log falha de atualização de confirmação
                 log_sistema("Falha ao atualizar confirmação de email. verified: " . var_export($verified, true) . "; tokenUsed: " . var_export($tokenUsed, true) . "; tokenID: " . $tokenInfo['id'], 'ERROR');

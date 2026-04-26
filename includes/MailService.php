@@ -203,10 +203,8 @@ class MailService {
             $mail->CharSet = 'UTF-8';
             $mail->Subject = 'Redefinição de senha - CapivaraLearn';
 
-            $protocol  = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://';
-            $host      = $_SERVER['HTTP_HOST'] ?? 'localhost';
-            $path      = dirname($_SERVER['PHP_SELF'] ?? '/');
-            $resetUrl  = $protocol . $host . $path . '/reset_password.php?token=' . urlencode($token);
+            $baseUrl   = defined('APP_URL') ? rtrim(APP_URL, '/') : (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https://' : 'http://') . ($_SERVER['HTTP_HOST'] ?? 'localhost');
+            $resetUrl  = $baseUrl . '/reset_password.php?token=' . urlencode($token);
 
             $logMessage("URL reset: $resetUrl");
 

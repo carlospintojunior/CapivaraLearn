@@ -73,7 +73,7 @@ function dispatchEmailConfirmation(PDO $pdo, int $userId, string $name, string $
             ->execute([$userId]);
 
         $token = generateToken();
-        $expiration = date('Y-m-d H:i:s', strtotime('+24 hours'));
+        $expiration = gmdate('Y-m-d H:i:s', strtotime('+24 hours'));
 
         $pdo->prepare("INSERT INTO email_tokens (usuario_id, token, tipo, data_expiracao, ip_address) VALUES (?, ?, 'confirmacao', ?, ?)")
             ->execute([$userId, $token, $expiration, $_SERVER['REMOTE_ADDR'] ?? null]);

@@ -1,0 +1,4 @@
+[2026-04-26T10:17:01.361709-03:00] capivaralearn.INFO: Sistema iniciado {"request_uri":"/forgot_password.php"} 
+[2026-04-26T10:17:01.364467-03:00] capivaralearn.INFO: User Activity {"user_id":null,"action":"config_loaded","details":"Sistema inicializado para production","timestamp":"2026-04-26 10:17:01"} 
+[2026-04-26T10:17:34.826873-03:00] capivaralearn.INFO: Sistema iniciado {"request_uri":"/forgot_password.php"} 
+[2026-04-26T10:17:34.827045-03:00] capivaralearn.INFO: User Activity {"user_id":null,"action":"config_loaded","details":"Sistema inicializado para production","timestamp":"2026-04-26 10:17:34"} 
