@@ -898,6 +898,12 @@ if (isset($_GET['resend_email'])) {
                     <button type="submit" class="btn btn-login">
                         🚀 Entrar no Sistema
                     </button>
+
+                    <div style="text-align:center; margin-top: 15px;">
+                        <a href="forgot_password.php" style="color: #7f8c8d; font-size: 0.9em; text-decoration: none;">
+                            Esqueci minha senha
+                        </a>
+                    </div>
                 </form>
             </div>
 
