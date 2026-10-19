@@ -91,6 +91,7 @@ function getClinicalMediaUrl(string $type, ?string $filename): ?string {
         return null;
     }
 
+    $filename = basename($filename);
     $baseDir = __DIR__ . '/public/assets/' . $type . '/testes_especiais/';
     if (!is_file($baseDir . $filename)) {
         return null;
@@ -100,6 +101,7 @@ function getClinicalMediaUrl(string $type, ?string $filename): ?string {
 }
 
 $testeVideoUrl = $testeAtual ? getClinicalMediaUrl('videos', $testeAtual['video_filename'] ?? null) : null;
+$testeAudioUrl = $testeAtual ? getClinicalMediaUrl('audios', $testeAtual['audio_filename'] ?? null) : null;
 $testeImagemUrl = $testeAtual ? getClinicalMediaUrl('images', $testeAtual['imagem_filename'] ?? null) : null;
 ?>
 <!DOCTYPE html>
@@ -586,6 +588,9 @@ $testeImagemUrl = $testeAtual ? getClinicalMediaUrl('images', $testeAtual['image
                         <?php if ($t['video_filename']): ?>
                             <span class="test-alt"><i class="fas fa-video text-success"></i> Vídeo disponível</span>
                         <?php endif; ?>
+                        <?php if (!empty($t['audio_filename'])): ?>
+                            <span class="test-alt"><i class="fas fa-volume-up text-info"></i> Áudio disponível</span>
+                        <?php endif; ?>
                     </a>
                 <?php endforeach; ?>
             <?php endif; ?>
@@ -665,6 +670,22 @@ $testeImagemUrl = $testeAtual ? getClinicalMediaUrl('images', $testeAtual['image
                             <?php else: ?>
                             <div class="alert alert-warning mb-0">
                                 O arquivo de vídeo deste teste não está disponível no servidor no momento.
+                            </div>
+                            <?php endif; ?>
+                        </div>
+                        <?php endif; ?>
+
+                        <?php if (!empty($testeAtual['audio_filename'])): ?>
+                        <div class="detail-section">
+                            <h5><i class="fas fa-volume-up"></i>Ouvir o Som</h5>
+                            <?php if ($testeAudioUrl): ?>
+                            <audio controls preload="none" class="w-100">
+                                <source src="<?= htmlspecialchars($testeAudioUrl, ENT_QUOTES, 'UTF-8') ?>">
+                                Seu navegador não suporta a reprodução de áudio.
+                            </audio>
+                            <?php else: ?>
+                            <div class="alert alert-warning mb-0">
+                                O arquivo de áudio não está disponível no servidor no momento.
                             </div>
                             <?php endif; ?>
                         </div>

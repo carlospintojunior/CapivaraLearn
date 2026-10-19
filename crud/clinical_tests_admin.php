@@ -41,6 +41,12 @@ if (!is_dir($videoDir)) {
     mkdir($videoDir, 0755, true);
 }
 
+// Diretório de áudios
+$audioDir = __DIR__ . '/../public/assets/audios/testes_especiais/';
+if (!is_dir($audioDir)) {
+    mkdir($audioDir, 0755, true);
+}
+
 // Diretório de imagens
 $imageDir = __DIR__ . '/../public/assets/images/testes_especiais/';
 if (!is_dir($imageDir)) {
@@ -157,6 +163,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $videoFilename = handleVideoUpload($_FILES['teste_video'], $videoDir);
                 }
 
+                $audioFilename = null;
+                if (!empty($_FILES['teste_audio']['name']) && $_FILES['teste_audio']['error'] === UPLOAD_ERR_OK) {
+                    $audioFilename = handleAudioUpload($_FILES['teste_audio'], $audioDir);
+                }
+
                 $imagemFilename = null;
                 if (!empty($_FILES['teste_imagem']['name']) && $_FILES['teste_imagem']['error'] === UPLOAD_ERR_OK) {
                     $imagemFilename = handleImageUpload($_FILES['teste_imagem'], $imageDir);
@@ -171,6 +182,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'indicacao' => trim($_POST['teste_indicacao'] ?? ''),
                     'positivo_quando' => trim($_POST['teste_positivo'] ?? ''),
                     'video_filename' => $videoFilename,
+                    'audio_filename' => $audioFilename,
                     'imagem_filename' => $imagemFilename,
                     'referencias' => trim($_POST['teste_referencias'] ?? ''),
                     'ordem' => intval($_POST['teste_ordem'] ?? 0),
@@ -207,6 +219,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $updateData['video_filename'] = handleVideoUpload($_FILES['teste_video'], $videoDir);
                 }
 
+                if (!empty($_FILES['teste_audio']['name']) && $_FILES['teste_audio']['error'] === UPLOAD_ERR_OK) {
+                    $old = $database->get('testes_especiais', 'audio_filename', ['id' => $id]);
+                    if ($old && file_exists($audioDir . $old)) {
+                        unlink($audioDir . $old);
+                    }
+                    $updateData['audio_filename'] = handleAudioUpload($_FILES['teste_audio'], $audioDir);
+                }
+
                 if (!empty($_FILES['teste_imagem']['name']) && $_FILES['teste_imagem']['error'] === UPLOAD_ERR_OK) {
                     $old = $database->get('testes_especiais', 'imagem_filename', ['id' => $id]);
                     if ($old && file_exists($imageDir . $old)) {
@@ -224,10 +244,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             case 'delete_teste':
                 $id = intval($_POST['teste_id'] ?? 0);
                 if ($id <= 0) throw new Exception('ID inválido.');
-                $teste = $database->get('testes_especiais', ['video_filename', 'imagem_filename'], ['id' => $id]);
+                $teste = $database->get('testes_especiais', ['video_filename', 'audio_filename', 'imagem_filename'], ['id' => $id]);
                 if ($teste) {
                     if ($teste['video_filename'] && file_exists($videoDir . $teste['video_filename'])) {
                         unlink($videoDir . $teste['video_filename']);
+                    }
+                    if ($teste['audio_filename'] && file_exists($audioDir . $teste['audio_filename'])) {
+                        unlink($audioDir . $teste['audio_filename']);
                     }
                     if ($teste['imagem_filename'] && file_exists($imageDir . $teste['imagem_filename'])) {
                         unlink($imageDir . $teste['imagem_filename']);
@@ -258,6 +281,23 @@ function handleVideoUpload($file, $dir) {
     $filename = 'video_' . bin2hex(random_bytes(8)) . '.' . $ext;
     if (!move_uploaded_file($file['tmp_name'], $dir . $filename)) {
         throw new Exception('Erro ao salvar vídeo.');
+    }
+    return $filename;
+}
+
+function handleAudioUpload($file, $dir) {
+    $allowed = ['mp3' => ['audio/mpeg', 'audio/mp3'], 'wav' => ['audio/wav', 'audio/x-wav', 'audio/wave'],
+                'ogg' => ['audio/ogg', 'application/ogg'], 'm4a' => ['audio/mp4', 'audio/x-m4a', 'audio/aac']];
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    if (!isset($allowed[$ext]) || !in_array($file['type'], $allowed[$ext])) {
+        throw new Exception('Formato de áudio não suportado. Use MP3, WAV, OGG ou M4A.');
+    }
+    if ($file['size'] > 20 * 1024 * 1024) {
+        throw new Exception('Áudio muito grande. Máximo 20MB.');
+    }
+    $filename = 'audio_' . bin2hex(random_bytes(8)) . '.' . $ext;
+    if (!move_uploaded_file($file['tmp_name'], $dir . $filename)) {
+        throw new Exception('Erro ao salvar áudio.');
     }
     return $filename;
 }
@@ -303,6 +343,7 @@ $testes = $database->select('testes_especiais', [
     'testes_especiais.nome_alternativo',
     'testes_especiais.descricao',
     'testes_especiais.video_filename',
+    'testes_especiais.audio_filename',
     'testes_especiais.imagem_filename',
     'testes_especiais.ordem',
     'testes_especiais.ativo',
@@ -427,6 +468,9 @@ if (isset($_GET['edit_teste'])) {
                                             </td>
                                             <td><span class="badge bg-info"><?= htmlspecialchars($t['regiao_nome']) ?></span></td>
                                             <td>
+                                                <?php if ($t['audio_filename']): ?>
+                                                    <span class="badge bg-info badge-video"><i class="fas fa-volume-up"></i> Áudio</span>
+                                                <?php endif; ?>
                                                 <?php if ($t['video_filename']): ?>
                                                     <span class="badge bg-success badge-video"><i class="fas fa-video"></i> Vídeo</span>
                                                 <?php endif; ?>
@@ -521,6 +565,14 @@ if (isset($_GET['edit_teste'])) {
                             <input type="file" name="teste_video" class="form-control" accept="video/mp4,video/webm,video/ogg">
                             <?php if ($editTeste && $editTeste['video_filename']): ?>
                                 <small class="text-success"><i class="fas fa-check"></i> Vídeo atual: <?= htmlspecialchars($editTeste['video_filename']) ?></small>
+                            <?php endif; ?>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Áudio (MP3, WAV, OGG, M4A - máx 20MB)</label>
+                            <input type="file" name="teste_audio" class="form-control" accept="audio/mpeg,audio/wav,audio/ogg,audio/mp4,.mp3,.wav,.ogg,.m4a">
+                            <?php if ($editTeste && !empty($editTeste['audio_filename'])): ?>
+                                <small class="text-success"><i class="fas fa-check"></i> Áudio atual: <?= htmlspecialchars($editTeste['audio_filename']) ?></small>
                             <?php endif; ?>
                         </div>
 
